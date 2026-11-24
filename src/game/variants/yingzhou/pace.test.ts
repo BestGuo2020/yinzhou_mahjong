@@ -35,6 +35,23 @@ beforeEach(() => { vi.useFakeTimers(); vi.stubGlobal('window', globalThis) })
 afterEach(() => { stops.splice(0).forEach(stop => stop()); vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('颍州实桌沿用幺筒节奏', () => {
+  it('只在开始一场时读取大厅的玩法、禁胡开关和场次', () => {
+    const { game } = setup()
+    game.leave()
+    game.settings.value = { mode: 'nine', smallBan: true }
+    game.length.value = 8
+    game.start()
+    game.settings.value.mode = 'fixed'
+    game.settings.value.smallBan = false
+    game.length.value = 4
+    expect(game.round.value!.settings).toEqual({ mode: 'nine', smallBan: true })
+    expect(game.matchLength.value).toBe(8)
+    game.leave()
+    game.start()
+    expect(game.round.value!.settings).toEqual({ mode: 'fixed', smallBan: false })
+    expect(game.matchLength.value).toBe(4)
+  })
+
   it('开场等语音与最短时长，随后掷骰、按原间隔顺时针发牌、跳牌', async () => {
     let ended!: () => void
     const voice = vi.fn((name: string) => name === 'game_start.mp3' ? new Promise<void>(r => { ended = r }) : Promise.resolve())

@@ -5,7 +5,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import MahjongTable3D from '../MahjongTable3D.vue'
 import MahjongTile from '../MahjongTile.vue'
 import YaotongLedger from '../yaotong/YaotongLedger.vue'
-import YingzhouSettlement from '../settlement/YingzhouSettlement.vue'
+import YingzhouReplayLedger from './YingzhouReplayLedger.vue'
 import YaotongSeatMarker from '../yaotong/YaotongSeatMarker.vue'
 import { settlementTitle } from '../../game/variants/yaotong/presentation'
 import { YAOTONG_MODES } from '../../game/variants/yaotong/mode'
@@ -230,7 +230,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onKeydown); compac
     <dialog ref="ledgerDialog" class="replay-ledger-dialog" aria-label="回放结算明细">
       <header><h2>结算明细</h2><button aria-label="关闭结算明细" @click="ledgerDialog?.close()">×</button></header>
       <YaotongLedger v-if="round?.final?.yaotongState" :state="round.final.yaotongState" :players="ledgerPlayers" :theme-name="match.themeName" />
-      <YingzhouSettlement v-else-if="match.rulesetId === 'yingzhou' && round?.final?.result" section="details"
+      <YingzhouReplayLedger v-else-if="match.rulesetId === 'yingzhou' && round?.final?.result"
         :result="round.final.result" :players="ledgerPlayers" :theme-name="match.themeName" :hand-number="round.roundIndex" />
     </dialog>
     <ReplayTimeline

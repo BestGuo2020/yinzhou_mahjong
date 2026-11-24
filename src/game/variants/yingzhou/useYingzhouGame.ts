@@ -16,6 +16,7 @@ import { handWaits } from './waits'
 export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, audio: TableAudio) {
   const settings = ref<Settings>({ mode: 'live', smallBan: false })
   const length = ref<4 | 8 | 16>(4)
+  const matchLength = ref(length.value)
   const round = ref<Round | null>(null)
   const ready = ref(false)
   const autoplay = ref(false)
@@ -30,7 +31,7 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
   const opening = computed(() => !!round.value && dealStep.value <= 16)
   const openingStage = computed<OpeningStage | null>(() => opening.value
     ? dealStep.value < 0 ? 'start' : dealStep.value === 0 ? 'dice' : 'deal' : null)
-  const finished = computed(() => !!round.value?.result && round.value.validBefore + Number(round.value.result.winner !== null) >= length.value)
+  const finished = computed(() => !!round.value?.result && round.value.validBefore + Number(round.value.result.winner !== null) >= matchLength.value)
   const actor = computed(() => round.value ? decisionSeat(round.value) : -1)
   const playable = computed(() => ready.value && !opening.value && !paused.value && !autoplay.value
     && !pending.value && !round.value?.result && actor.value === 0)
@@ -93,16 +94,17 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
     selectedIndex.value = -1
     dealStep.value = -1
     round.value = state
-    replay.hooks.roundStart(replayFrame(state, length.value))
+    replay.hooks.roundStart(replayFrame(state, matchLength.value))
   }
   function start() {
     if (!round.value) {
       autoplay.value = false
+      matchLength.value = length.value
       open(dealRound(settings.value))
     }
   }
   function next() {
-    if (view.result.value && round.value?.result && !finished.value) open(followingRound(round.value, settings.value))
+    if (view.result.value && round.value?.result && !finished.value) open(followingRound(round.value))
   }
   function leave() {
     if (replay.active()) replay.finish(finished.value ? 'finished' : 'aborted')
@@ -128,10 +130,10 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
     if (action.kind === 'discard') reactionUntil = Date.now() + (afterKong ? LOCAL_TABLE_PACE.extendedReaction : LOCAL_TABLE_PACE.discardReaction)
     if (action.kind === 'peng' && actor.value === 0 && !autoplay.value) defer(PACE_MS.skipDrawPengDelay, () => {})
     if (action.kind === 'pass' && previousWindow === 'rob' && state.window.kind === 'rob') defer(PACE_MS.betweenRobKongs, () => {})
-    if (state.event) replay.hooks.step?.(state.event, replayFrame(state, length.value))
+    if (state.event) replay.hooks.step?.(state.event, replayFrame(state, matchLength.value))
     effects.present(state)
     if (state.result) {
-      replay.hooks.roundEnd(tableResult(state)!, replayFrame(state, length.value))
+      replay.hooks.roundEnd(tableResult(state)!, replayFrame(state, matchLength.value))
       if (finished.value) replay.finish('finished')
     }
   }
@@ -188,7 +190,7 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
     later(delay, () => execute(chooseAction(state)))
   })
   onScopeDispose(leave)
-  return { settings, length, round, ready, autoplay, selectedIndex, opening, openingStage, dealAnimation, phase,
+  return { settings, length, matchLength, round, ready, autoplay, selectedIndex, opening, openingStage, dealAnimation, phase,
     result: view.result, finished, actor, players, headDrawn, wall, controls, mayDiscard, prompt, waits, selectedWaits,
     actionCue: view.tableActionEvent, winEffect: view.winEffect, winPresentation: view.winPresentation, revealHands: view.revealHands,
     winningPlayerIndex: view.winningPlayerIndex, weather: effects.weather, start, next, leave, play }

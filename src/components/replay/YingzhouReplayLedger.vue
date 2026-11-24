@@ -1,21 +1,17 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import MahjongTile from '../MahjongTile.vue'
 import YaotongPaymentMap from '../yaotong/YaotongPaymentMap.vue'
 import type { RoundResult } from '../../game/core/contracts/gamePort'
-import type { GamePlayer, TileType } from '../../game/core/contracts/types'
+import type { GamePlayer } from '../../game/core/contracts/types'
 import type { Transfer } from '../../game/variants/yaotong/types'
 import { BASE_POINTS } from '../../game/variants/yingzhou/rules'
 import type { TableThemeName } from '../../theme/themeIdentity'
 import { formatDelta } from '../../game/replay/format'
 
 const props = defineProps<{
-  section: 'overview' | 'details'; result: RoundResult; players: GamePlayer[]
-  themeName: TableThemeName; handNumber: number; indicator?: TileType
+  result: RoundResult; players: GamePlayer[]
+  themeName: TableThemeName; handNumber: number
 }>()
-const mine = computed(() => props.result.scoreChanges?.find(entry => entry.playerIndex === 0)?.delta ?? 0)
-const outcome = computed(() => props.result.draw ? '流局' : props.result.winnerIndex === 0 ? props.result.winLabel
-  : props.result.robbedKongPlayerIndex === 0 ? '被抢补杠' : mine.value < 0 ? '付分' : '本局无收付')
 const formula = computed(() => {
   const r = props.result
   if (r.draw) return '流局留庄，本局不计入有效局数。'
@@ -38,21 +34,7 @@ function inspect(edge: { from: number; to: number }) { pair.value = edge; detail
 </script>
 
 <template>
-  <section v-if="section === 'overview'" class="yaotong-round-overview" aria-label="本家分数概览">
-    <div class="self-score-summary">
-      <p class="self-result-label">本家 · {{ outcome }}</p>
-      <div class="self-round-score" :class="{ positive: mine > 0, negative: mine < 0 }">
-        <span>本局净得分</span><strong>{{ formatDelta(mine) }}</strong><span>分</span>
-      </div>
-    </div>
-    <div class="self-score-breakdown"><span>{{ result.winLabel ?? '流局' }}
-      <b v-if="!result.draw">×{{ result.totalMultiplier }}</b><small class="hu-score-parts">{{ formula }}</small>
-    </span></div>
-    <div v-if="indicator" class="overview-chicken"><span>亮牌</span>
-      <MahjongTile :tile="indicator" :theme-name="themeName" :joker-tiles="[]" small disabled />
-    </div>
-  </section>
-  <section v-else class="yaotong-ledger" aria-label="颍州分数明细">
+  <section class="yaotong-ledger" aria-label="颍州分数明细">
     <p class="yaotong-hand-score"><b>{{ result.winner ?? '流局' }}</b> · {{ formula }}</p>
     <YaotongPaymentMap :players="players" :transfers="transfers" :theme-name="themeName" :hand-number="handNumber"
       @select="selectSeat" @inspect="inspect" />
@@ -70,5 +52,4 @@ function inspect(edge: { from: number; to: number }) { pair.value = edge; detail
   </section>
 </template>
 
-<style scoped src="./roundOverview.css"></style>
-<style scoped src="./roundLedger.css"></style>
+<style scoped src="../settlement/roundLedger.css"></style>

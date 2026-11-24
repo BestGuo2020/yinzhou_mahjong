@@ -3,12 +3,10 @@ import { computed, defineAsyncComponent, nextTick, onMounted, ref, shallowRef, w
 import GameShellHeader from './components/shell/GameShellHeader.vue'
 import OrientationGate from './components/shell/OrientationGate.vue'
 import LobbyView from './components/lobby/LobbyView.vue'
-import YingzhouRulePicker from './components/lobby/YingzhouRulePicker.vue'
 import GameTableHud from './components/table/GameTableHud.vue'
 import TableGuidance from './components/table/TableGuidance.vue'
 import RulesPanel from './components/RulesPanel.vue'
 import SettlementOverlay from './components/settlement/SettlementOverlay.vue'
-import YingzhouSettlement from './components/settlement/YingzhouSettlement.vue'
 import ReplayListView from './components/replay/ReplayListView.vue'
 import StatsOverlay from './components/account/StatsOverlay.vue'
 import { resolveInitialTableTheme } from './components/table/three/tableThemePreference'
@@ -18,7 +16,7 @@ import { useAudio } from './game/core/presentation/useAudio'
 import { tileName } from './game/core/rules/tiles'
 import { useReplayRecorder } from './game/replay/useReplayRecorder'
 import type { ReplayMatch, ReplayRound } from './game/replay/types'
-import { BASE_POINTS, MODES } from './game/variants/yingzhou/rules'
+import { BASE_POINTS } from './game/variants/yingzhou/rules'
 import { actionKey } from './game/variants/yingzhou/engine'
 import { actionLabel, NAMES, roundLabel, tailFaceUp } from './game/variants/yingzhou/presentation'
 import type { YaotongHint } from './game/variants/yaotong/guidance'
@@ -87,10 +85,9 @@ async function openReplay(id: string) {
   replayOpen.value = false
 }
 const rulesOpen = ref(false)
-const nextSettings = ref(false)
 const resultVisible = ref(true)
 const {
-  round, ready, settings, length, players, phase, result, finished, actor, selectedIndex, opening, openingStage,
+  round, ready, settings, length, matchLength, players, phase, result, finished, actor, selectedIndex, opening, openingStage,
   dealAnimation, headDrawn, wall, autoplay, controls, mayDiscard, actionCue, prompt, waits, selectedWaits,
   winEffect, winPresentation, revealHands, winningPlayerIndex, weather, play, start, next, leave,
 } = useYingzhouGame(replay, rulesOpen, { play: playEffect, playAndWait: playEffectAndWait })
@@ -138,7 +135,7 @@ const shownMarks = computed(() => {
   if (win?.winnerIndex === 0 && !win.robbedKong) hand = hand.filter((_, i) => i !== win.sourceIndex)
   return hand.flatMap((tile, i) => tile.marked ? [i] : [])
 })
-const matchName = computed(() => `${length.value} 局场`)
+const matchName = computed(() => `${matchLength.value} 局场`)
 const label = computed(() => round.value ? roundLabel(round.value) : '')
 const standings = computed(() => [...players.value].sort((a, b) => b.score - a.score || a.seat - b.seat)
   .map((p, i) => ({ ...p, playerIndex: p.seat, rank: i + 1 })))
@@ -178,7 +175,7 @@ function quit() {
         @select-tile="selectedIndex = $event" @clear-selection="selectedIndex = -1" @discard="play({ kind: 'discard', index: $event })"
         @ready="ready = true">
         <template #indicator-details>
-          <span>牌墙 {{ wall.length }} 张 · 已完成 {{ round.validBefore + Number(!!result && !result.draw) }}/{{ length }} 局</span>
+          <span>牌墙 {{ wall.length }} 张 · 已完成 {{ round.validBefore + Number(!!result && !result.draw) }}/{{ matchLength }} 局</span>
           <span>骰子 {{ round.dice.join(' + ') }} · {{ round.wallSide === 0 ? '本家' : NAMES[round.wallSide] }}牌墙第 {{ Math.min(...round.dice) }} 墩</span>
           <span v-if="round.settings.smallBan">小牌禁胡</span>
           <span v-if="round.openingDiscards.length">翻出的字牌入池 · {{ round.openingDiscards.map(tileName).join('、') }}</span>
@@ -194,22 +191,11 @@ function quit() {
           <TableGuidance :hints="hints" />
         </template>
       </GameTableHud>
-      <SettlementOverlay v-if="round && result" v-model:result-visible="resultVisible" :result="result"
-        :result-title="result.draw ? '流局 · 庄家留庄' : NAMES[result.winnerIndex!] + ' · ' + result.winLabel"
+      <SettlementOverlay v-if="round && result" v-model:result-visible="resultVisible" :result="result" ruleset-id="yingzhou"
+        :round-label="`第 ${round.handNumber} 局`" :result-title="result.draw ? '流局留庄' : result.winLabel"
         :match-finished="finished" :dealer="round.dealer" :waiting-next-round="false" game-mode="local" :continue-countdown="0"
         :match-name="matchName" :standings="standings" player-id="" :human-seats="[0]" :joker-tiles="[]" :theme-name="theme"
-        @next-round="next" @return-to-lobby="leave">
-        <template #overview>
-          <YingzhouSettlement section="overview" :result="result" :players="players" :theme-name="theme"
-            :indicator="round.indicator" :hand-number="round.handNumber" />
-        </template>
-        <template #summary>
-          <YingzhouSettlement section="details" :result="result" :players="players" :theme-name="theme" :hand-number="round.handNumber" />
-        </template>
-        <template #next-settings><button type="button" class="secondary" @click="nextSettings = true">下局玩法 · {{ MODES[settings.mode].name }}</button></template>
-      </SettlementOverlay>
-      <YingzhouRulePicker v-if="nextSettings" :settings="settings" :theme-name="theme" next-hand
-        @confirm="settings = $event; nextSettings = false" @close="nextSettings = false" />
+        @next-round="next" @return-to-lobby="leave" />
     </div>
     <RulesPanel :open="rulesOpen" @close="rulesOpen = false" />
     <StatsOverlay v-model:open="statsOpen" :load-local-stats="loadLocalStats" />

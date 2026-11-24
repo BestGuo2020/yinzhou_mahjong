@@ -117,9 +117,9 @@ export function dealRound(settings: Settings, opening: Opening = {}): Round {
   return round
 }
 
-export function followingRound(previous: Round, settings: Settings, opening: Opening = {}) {
+export function followingRound(previous: Round, opening: Opening = {}) {
   if (!previous.result) throw new Error('本局尚未结束')
-  return dealRound(settings, {
+  return dealRound(previous.settings, {
     ...opening, dealer: previous.result.winner ?? previous.dealer, scores: previous.players.map(seat => seat.score),
     handNumber: previous.handNumber + 1, validBefore: previous.validBefore + Number(previous.result.winner !== null),
   })

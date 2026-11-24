@@ -5,6 +5,7 @@ import { isHorseForSeat } from '../../game/core/rules/tiles'
 import { defaultAvatarForSeat } from '../../game/core/presentation/avatar'
 import type { RoundResult } from '../../game/core/contracts/gamePort'
 import type { GamePlayer, TileType } from '../../game/core/contracts/types'
+import type { RuleVariant } from '../../game/core/rules/ruleVariants'
 import type { GameMode } from '../../game/core/contracts/activeGamePort'
 import type { TableThemeName } from '../table/three/tableTheme'
 import { animeAvatarForPlayer } from '../../game/core/presentation/animeAvatarPresentation'
@@ -20,6 +21,8 @@ type Standing = GamePlayer & { playerIndex: number; rank: number }
 interface Props {
   result: RoundResult | null
   resultTitle?: string
+  roundLabel?: string
+  rulesetId?: RuleVariant
   resultVisible: boolean
   matchFinished: boolean
   dealer: number
@@ -139,6 +142,17 @@ const resultPresentation = computed(() => {
     ? resolveRoundResultPresentation({ draw: true })
     : resolveRoundResultPresentation({ winType: resultKindLab.value })
 })
+const heading = computed(() => [
+  props.roundLabel ?? props.result?.roundLabel,
+  props.resultTitle ?? resultPresentation.value.label,
+].filter(Boolean).join(' · '))
+const scoreDetails = computed(() => {
+  const details = props.result?.details ?? []
+  const [only] = details
+  if (props.rulesetId === 'yingzhou' && details.length === 1 && only.label === props.resultTitle
+      && only.multiplier === props.result?.totalMultiplier && only.points == null) return []
+  return details
+})
 
 /** 胡牌者相对庄家的座位：0=庄家(A) / 1=下家(B) / 2=对家(C) / 3=上家(D)。 */
 const relativeSeat = computed<0 | 1 | 2 | 3>(() => {
@@ -162,6 +176,7 @@ const relativeSeat = computed<0 | 1 | 2 | 3>(() => {
     >
       <section
         class="result-card settlement-card"
+        :data-ruleset="rulesetId"
         role="dialog"
         aria-modal="true"
         :aria-labelledby="`${tabId}-round-title`"
@@ -171,13 +186,13 @@ const relativeSeat = computed<0 | 1 | 2 | 3>(() => {
         :data-result-source="resultKindLab ? 'lab' : 'game'"
       >
         <header v-if="$slots.overview" class="settlement-header">
-          <h2 :id="`${tabId}-round-title`">{{ result.roundLabel }} · {{ resultTitle ?? resultPresentation.label }}</h2>
+          <h2 :id="`${tabId}-round-title`">{{ heading }}</h2>
           <div class="settlement-tabs" role="tablist" aria-label="结算内容" @keydown="onTabKeydown">
             <button :id="`${tabId}-overview-tab`" type="button" role="tab" :aria-selected="activeTab === 'overview'" :aria-controls="`${tabId}-overview`" :tabindex="activeTab === 'overview' ? 0 : -1" @click="activeTab = 'overview'">概览</button>
             <button :id="`${tabId}-details-tab`" type="button" role="tab" :aria-selected="activeTab === 'details'" :aria-controls="`${tabId}-details`" :tabindex="activeTab === 'details' ? 0 : -1" @click="activeTab = 'details'">分数明细</button>
           </div>
         </header>
-        <h2 v-else :id="`${tabId}-round-title`">{{ result.roundLabel }} · {{ resultTitle ?? resultPresentation.label }}</h2>
+        <h2 v-else :id="`${tabId}-round-title`">{{ heading }}</h2>
         <div
           v-show="!$slots.overview || activeTab === 'overview'"
           :id="`${tabId}-overview`"
@@ -187,10 +202,15 @@ const relativeSeat = computed<0 | 1 | 2 | 3>(() => {
           class="settlement-overview-panel"
         >
           <slot name="overview"><slot name="summary" /></slot>
-          <div v-if="!$slots.summary && resultPresentation.kind !== 'draw'" class="score-total"><span>总倍数</span><strong>×{{ result.totalMultiplier ?? result.multiplier }}</strong><em>+{{ result.totalWon ?? result.points * 3 }} 分</em></div>
-          <div v-if="!$slots.summary && resultPresentation.kind !== 'draw' && result.details?.length" class="score-details">
-            <span v-for="detail in result.details" :key="detail.label">
-              {{ detail.label }} <b>{{ detail.points != null ? `+${detail.points} 分` : `×${detail.multiplier}` }}</b>
+          <div v-if="!$slots.summary && resultPresentation.kind !== 'draw'" class="score-total">
+            <span>总倍数</span><strong>×{{ result.totalMultiplier ?? result.multiplier }}</strong>
+            <em :title="result.winner ? result.winner + '本局共得' : undefined">+{{ result.totalWon ?? result.points * 3 }} 分</em>
+          </div>
+          <div v-if="!$slots.summary && resultPresentation.kind !== 'draw' && scoreDetails.length" class="score-details">
+            <span v-for="(detail, index) in scoreDetails" :key="detail.label">
+              {{ detail.label }} <b v-if="detail.points != null">+{{ detail.points }} 分</b>
+              <b v-else-if="rulesetId === 'yingzhou' && index > 0">+{{ detail.multiplier }} 倍</b>
+              <b v-else>×{{ detail.multiplier }}</b>
             </span>
           </div>
           <div v-if="resultPresentation.kind !== 'draw' && result.horses?.length" class="horse-area">
@@ -208,8 +228,8 @@ const relativeSeat = computed<0 | 1 | 2 | 3>(() => {
                 <i v-if="entry.playerIndex === dealer" class="mark dealer">庄</i>
                 <i v-if="result.draw && result.tenpai?.includes(entry.playerIndex)" class="mark tenpai">听</i>
               </span>
-              <em :class="{ positive: entry.delta > 0, negative: entry.delta < 0 }"><small v-if="$slots.overview" class="rank-score-label">本局</small>{{ entry.delta > 0 ? '+' : '' }}{{ entry.delta }}</em>
-              <b><small v-if="$slots.overview" class="rank-score-label">累计</small>{{ entry.score }}</b>
+              <em title="本局得分" :class="{ positive: entry.delta > 0, negative: entry.delta < 0 }"><small v-if="$slots.overview" class="rank-score-label">本局</small>{{ entry.delta > 0 ? '+' : '' }}{{ entry.delta }}</em>
+              <b title="累计得分"><small v-if="$slots.overview" class="rank-score-label">累计</small>{{ entry.score }}</b>
             </article>
           </div>
         </div>
@@ -219,7 +239,6 @@ const relativeSeat = computed<0 | 1 | 2 | 3>(() => {
         <div class="settlement-footer">
           <div class="result-actions">
             <button class="secondary" @click="$emit('update:resultVisible', false)">查看牌桌</button>
-            <slot v-if="!matchFinished" name="next-settings" />
             <button v-if="matchFinished" @click="rankingResult = result">查看最终排名</button>
             <button v-else :disabled="waitingNextRound" @click="$emit('nextRound')">
               <template v-if="waitingNextRound">等待其他玩家确定...</template>
@@ -261,7 +280,7 @@ const relativeSeat = computed<0 | 1 | 2 | 3>(() => {
     </div>
   </Transition>
 
-  <button v-if="result && !resultVisible && !finalRankingLab" class="result-reopen" @click="$emit('update:resultVisible', true)">
+  <button v-if="result && !resultVisible && !finalRankingLab" type="button" class="result-reopen" @click="$emit('update:resultVisible', true)">
     {{ showRanking ? '查看最终排名' : '查看结算' }}
   </button>
   <button
@@ -271,3 +290,29 @@ const relativeSeat = computed<0 | 1 | 2 | 3>(() => {
     @click="$emit('nextRound')"
   ><template v-if="waitingNextRound">等待其他玩家确定...</template><template v-else>继续<template v-if="continueCountdown > 0"> ({{ continueCountdown }})</template></template></button>
 </template>
+
+<style scoped>
+.settlement-card[data-ruleset="yingzhou"] {
+  padding: clamp(22px, 4.5cqh, 34px) 0 0;
+  scrollbar-gutter: auto;
+}
+.settlement-card[data-ruleset="yingzhou"] > h2 { margin-inline: 16px; line-height: 1.2; }
+.settlement-card[data-ruleset="yingzhou"] .score-details { padding-inline: 15px; }
+.settlement-card[data-ruleset="yingzhou"] .score-total + .round-rankings { margin-top: clamp(12px, 2.5cqh, 20px); }
+.settlement-card[data-ruleset="yingzhou"] .settlement-footer {
+  margin: clamp(12px, 2.5cqh, 20px) 0 0;
+  padding: 10px 15px max(10px, var(--safe-bottom));
+}
+.settlement-card[data-ruleset="yingzhou"] .result-actions { margin: 0; }
+.settlement-card[data-ruleset="yingzhou"] .result-actions button { flex: 0 1 170px; min-width: 0; }
+.settlement-card[data-ruleset="yingzhou"] .result-disclaimer-note { margin: 10px 0 0; }
+@container game (max-height: 460px) {
+  .settlement-card[data-ruleset="yingzhou"] { padding-top: 10px; }
+  .settlement-card[data-ruleset="yingzhou"] > h2 { margin-bottom: 5px; font-size: clamp(20px, 6cqh, 26px); }
+  .settlement-card[data-ruleset="yingzhou"] .score-total strong { font-size: clamp(28px, 8.5cqh, 38px); }
+  .settlement-card[data-ruleset="yingzhou"] .score-total + .round-rankings { margin-top: 8px; }
+  .settlement-card[data-ruleset="yingzhou"] .settlement-footer { margin-top: 8px; padding-block: 6px max(6px, var(--safe-bottom)); }
+  .settlement-card[data-ruleset="yingzhou"] .result-actions button { flex-basis: 132px; }
+  .settlement-card[data-ruleset="yingzhou"] .result-disclaimer-note { margin-top: 5px; }
+}
+</style>
