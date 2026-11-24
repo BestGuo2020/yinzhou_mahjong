@@ -654,6 +654,7 @@ watch(
     props.wildcardTiles?.join(','),
     props.flipStack,
     props.flipTile,
+    props.tailIndicator,
     props.settlementIndicator?.id,
     props.settlementIndicator?.seat,
     props.settlementIndicator?.tile,

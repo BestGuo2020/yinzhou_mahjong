@@ -52,6 +52,8 @@ export interface TableProps {
   wallBreakIndex?: number
   /** 莲花麻将翻出的指示牌（精），需在牌山上翻出牌面 */
   flipTile?: TileType | null
+  /** 颍州墙尾实体牌，仍计入余张，杠开决定后才显示下一张。 */
+  tailIndicator?: TileType | null
   /** End-of-hand indicator taken by the winner and retained after their river, without becoming a discard. */
   settlementIndicator?: { id: number; seat: number; tile: TileType } | null
   /** 翻精所在物理墩（0..67），指示牌在牌山上的位置 */

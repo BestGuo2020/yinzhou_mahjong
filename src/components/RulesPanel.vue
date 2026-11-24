@@ -10,33 +10,29 @@ const sourceId = useId()
 const sourceHtml = ref<string | null>(null)
 const sourceLoadFailed = ref(false)
 
-async function openRulesSource() {
+const sourceTitle = ref('')
+async function openRulesSource(kind: 'complete' | 'beginner') {
   if (!sourceDialog.value || sourceDialog.value.open) return
-  sourceDialog.value.showModal()
-  if (sourceHtml.value !== null) return
-
+  sourceTitle.value = kind === 'complete' ? '完整规则原文' : '新手规则与牌例'
+  sourceHtml.value = null
   sourceLoadFailed.value = false
+  sourceDialog.value.showModal()
   try {
-    sourceHtml.value = (await import('../content/yaotongRulesHtml')).yaotongRulesHtml
+    sourceHtml.value = (await import('../content/yingzhouRulesHtml')).rulesHtml[kind]
   } catch {
     sourceLoadFailed.value = true
   }
 }
 
 const rules = [
-    ['牌具与癞子', '108张，万筒条各一至九，无字牌。不吃，可碰杠胡；碰牌三张同向，不指放碰者。一筒可作本牌或癞子。赖子按替代牌计鸡分，翻鸡前确认胡法；只有有取舍的赖子大牌提供并列胡牌按钮，翻后在确认方案内择高。'],
-    ['胡牌资格', '鸡胡可自摸；普通点炮须有杠、报听、大牌或被跟庄取得的胡牌通行证。硬胡加10不单独提供点炮资格。鸡胡也可抢杠、接热炮，允许一炮多响。'],
-    ['首圈跟庄', '首圈从庄家开始，四家依次首次打出同一张牌，期间无碰杠，四张均未被取走，跟庄成立。庄家向三家各赔普通牌5分、固定鸡15分、幺筒170分，并取得本局胡牌通行证；四张跟牌不再计鸡分或翻鸡分。骰子同点照常双倍。'],
-    ['原报与报听', '发牌后、庄家第一次摸牌前可原报。本人此前未碰杠、未出牌，首次摸牌后先点报听，再打出带听牌提示的牌。声明后只能摸切，不能碰杠。'],
-    ['基础与牌型', '基础5，碰碰胡10，清一色/金钩钓/七对20；龙七对/地龙40，双龙80，三龙120。硬胡10，原报40，报听/抢杠/热炮20。杠后补摸自摸为杠上开花，牌型加20，基础5另计，可与硬胡等叠加，杠分另结。庄家天胡、闲家地胡各40，须本人此前未碰杠出牌且首次正常摸牌即自摸。素胡是什么都没有：门清自摸、无杠，手牌、副露和牌河都无鸡无翻鸡，独立计25。'],
-    ['鸡与冲幺筒', '一条、八筒、一万各自首冲4分；本人首张可同种跟冲4分。幺筒预冲30、普通首冲20、后冲15、杠冲100；预冲不占普通首冲。手中作本牌的幺筒每张10。每种鸡的全场首张和固定鸡跟冲留在牌河时横放，首张被取走后不递补。'],
-    ['翻鸡与见面礼', '胡后有剩余牌才翻鸡，同花色加一，九回一。翻中固定鸡或幺筒，对应鸡分三倍。结算仍归本人四张幺筒，其他三家各付100见面礼。未听赔鸡仅按牌河和碰杠中的固定鸡、幺筒原档，不赔翻鸡新增分。骰子同点，全部适用分数双倍。'],
-    ['行为判罚', '一巡内同种鸡牌不得碰打、打碰。合法胡牌选过到下次实际摸牌解除；变大且达到45分可例外。可杀报却不胡，或手持幺筒不抢杠/接热炮，会包牌。'],
-    ['新手与老手模式', '新手模式由系统拦截违规操作，必须胡牌时仅保留胡牌选择；老手模式可随时主动宣胡，过手或炸胡等违规按规则包牌。两种模式的计分规则与 AI 对手相同。'],
-    ['行牌与等待', '普通弃牌至少留1秒，补杠、杠后首张及幺筒留2秒。老手常驻等，每人每小局累计15秒；下一张出牌前仍可等后胡上一张，主动过才立即记过手。抢杠、热炮优先于过手。错胡按炸胡包牌。'],
-    ['荒庄与包牌', '未听者杠分按原付款关系反赔对应听牌者，双方未听不互付；荒庄另向每位听者付牌型价＋本家应赔出鸡。包牌取全场最高听牌型价、最低45，向其他三家支付；按v1.6暂行约定不另结杠分和见面礼。'],
-    ['场次与轮庄', '东风/半庄/全庄分别4/8/16庄次，连庄不增加庄次。单胡赢家庄，多响放炮庄；流局仅一人未听则由其坐庄，其余留庄。'],
-  ]
+  ['起牌与亮牌', '136 张牌，首局随机定庄。双骰之和选墙，小点选起拿的墩。庄家拿 14 张，闲家各拿 13 张，然后翻亮墙尾。'],
+  ['摸、碰、杠', '普通弃牌可碰或明杠。手中四张普通牌可暗杠，已有碰牌再摸到第四张可补杠。顺子靠自摸凑齐。'],
+  ['三种杠补', '活杠拿走亮牌，先判杠开，再翻新亮牌。死杠生成同牌面的标记牌。死九把墙尾字牌依次放入牌池，开杠时补亮牌花色的标记九。'],
+  ['扎亮牌与扎九', '手里三张普通亮牌可直接报扎，算 3 倍。死九另可用三张同花色普通九报扎，算 2 倍。重合取高。可以留扎，在自己回合再报；活杠翻新亮牌时可当场报扎。'],
+  ['自摸和抢补杠', '普通胡须四面子一对将。只抢补杠，从补杠者下家起依次询问。小牌禁胡开启时，自摸与抢胡的胡张须为四至九的数牌。'],
+  ['杠后标记', '标记可以参与杠开。留有标记时仍可报扎，但普通自摸和抢杠须先打清标记。打出的标记牌直接入池。'],
+  ['计分与轮庄', '底分 10。自摸 1 倍，明杠或补杠开花 2 倍，暗杠开花 3 倍。留扎和旧标记按规则加倍。抢补杠由被抢者独付 60 分。赢家坐庄，流局留庄且不计有效局数。'],
+]
 </script>
 
 <template>
@@ -48,9 +44,10 @@ const rules = [
         </div>
         <button aria-label="关闭规则" @click="$emit('close')">×</button>
       </header>
-      <button type="button" class="rules-source-trigger" aria-haspopup="dialog" :aria-controls="sourceId" @click="openRulesSource">
+      <button type="button" class="rules-source-trigger" aria-haspopup="dialog" :aria-controls="sourceId" @click="openRulesSource('complete')">
         查看完整规则原文
       </button>
+      <button type="button" class="rules-source-trigger" aria-haspopup="dialog" :aria-controls="sourceId" @click="openRulesSource('beginner')">查看新手规则与牌例</button>
       <div class="rule-list">
         <article v-for="(rule, index) in rules" :key="rule[0]">
           <b>{{ String(index + 1).padStart(2, '0') }}</b>
@@ -59,7 +56,7 @@ const rules = [
           </div>
         </article>
       </div>
-      <div class="rule-note">四家净分之和为0 · 鸡、杠、责任、见面礼逐项记账</div>
+      <div class="rule-note">底分 10 分 · 庄闲同倍率 · 四家净分之和为 0</div>
       <section class="disclaimer-block" aria-label="用户声明">
         <h3>{{ DISCLAIMER_TITLE }}</h3>
         <template v-for="(section, index) in DISCLAIMER_SECTIONS" :key="index">
@@ -76,7 +73,7 @@ const rules = [
   <dialog v-if="open" :id="sourceId" ref="sourceDialog" class="rules-source-dialog"
     :aria-labelledby="`${sourceId}-title`" @click.self="sourceDialog?.close()">
     <header class="rules-source-header">
-      <h2 :id="`${sourceId}-title`">完整规则原文</h2>
+      <h2 :id="`${sourceId}-title`">{{ sourceTitle }}</h2>
       <button type="button" aria-label="关闭完整规则" autofocus @click="sourceDialog?.close()">
         <TableControlIcon name="close" />
       </button>

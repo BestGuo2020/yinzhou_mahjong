@@ -9,6 +9,13 @@ export const TABLE_THEME_OPTIONS = [
 export type TableThemeName = typeof TABLE_THEME_OPTIONS[number]['value']
 
 export const TABLE_THEME_NAMES = TABLE_THEME_OPTIONS.map(({ value }) => value) as TableThemeName[]
+export const SELECTABLE_TABLE_THEMES = TABLE_THEME_OPTIONS.filter(option => option.value !== 'llmAnime')
+
+/** 旧书签、偏好和牌谱中的二次元主题在当前单人入口使用 LLM 桌。 */
+export function playableTheme(value: string | null | undefined): Exclude<TableThemeName, 'llmAnime'> {
+  if (value === 'llmAnime') return 'llm'
+  return SELECTABLE_TABLE_THEMES.find(option => option.value === value)?.value ?? 'jade'
+}
 
 export function isTableThemeName(value: string | null | undefined): value is TableThemeName {
   return TABLE_THEME_NAMES.some((themeName) => themeName === value)

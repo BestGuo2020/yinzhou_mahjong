@@ -531,6 +531,8 @@ function addWall() {
   const headOffset = props.wallHeadDrawn ?? 0
   const total = props.wallTotal ?? WALL_TOTAL
   const hasFlip = props.flipStack != null
+  const tailStack = props.tailIndicator ? wallTilePlacement(tiles.length - 1, (breakIndex + headOffset) % total, tiles.length, headOffset, total).stackIndex : -1
+  let tailStackShown = false
   tiles.forEach((_, index) => {
     const { stackIndex, layer } = hasFlip
       ? (() => {
@@ -547,6 +549,12 @@ function addWall() {
     const slot = wallStackSlot(stackIndex, total)
     const y = .41 + layer * .47
     const quat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, slot.rotationY, 0))
+    // 同墩有两张时，上层（先遍历）翻亮；只剩底层时直接翻底层。
+    if (stackIndex === tailStack && !tailStackShown) {
+      tailStackShown = true
+      addTableTile(new THREE.Vector3(slot.x, y - .13, slot.z), quat, props.tailIndicator)
+      return
+    }
     // 背朝上：绕 X 转 180°，使 base 底面的牌背（backMaterial）朝上（与暗杠首尾一致）。
     quat.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI, 0, 0)))
     addTableTile(new THREE.Vector3(slot.x, y, slot.z), quat, null)

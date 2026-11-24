@@ -1,4 +1,4 @@
-export type RuleVariant = 'lotus-classic' | 'lotus-legacy' | 'lotus-blood-flow' | 'yaotong'
+export type RuleVariant = 'lotus-classic' | 'lotus-legacy' | 'lotus-blood-flow' | 'yaotong' | 'yingzhou'
 
 export interface RuleVariantOption {
   id: RuleVariant
@@ -32,11 +32,17 @@ export const RULE_VARIANTS: readonly RuleVariantOption[] = [
 ]
 
 export function getRuleVariant(id: RuleVariant) {
+  if (id === 'yingzhou') return YINGZHOU_RULE
   if (id === 'yaotong') return YAOTONG_RULE
   if (id === 'lotus-blood-flow') return BLOOD_FLOW_RULE
   const variant = RULE_VARIANTS.find((variant) => variant.id === id)
   if (!variant) throw new Error(`Unknown ruleset: ${id}`)
   return variant
+}
+
+const YINGZHOU_RULE: RuleVariantOption = {
+  id: 'yingzhou', name: '颍州扎杠麻将', description: '136 张牌 · 单人对局',
+  highlights: ['活杠、死杠、死九', '扎亮牌与扎九', '底分 10 分'], rulesetId: 'yingzhou',
 }
 
 export const BLOOD_FLOW_RULE: RuleVariantOption = {

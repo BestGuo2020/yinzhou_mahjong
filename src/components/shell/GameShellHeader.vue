@@ -5,7 +5,7 @@ import type { GameMode } from '../../game/core/contracts/activeGamePort'
 import type { GamePhase } from '../../game/core/contracts/gamePort'
 import { useAudioControls } from '../../game/core/presentation/useAudio'
 import { displayImageSrc } from '../../game/core/presentation/imagePreload'
-import { TABLE_THEME_OPTIONS, type TableThemeName } from '../table/three/tableTheme'
+import { SELECTABLE_TABLE_THEMES, type TableThemeName } from '../../theme/themeIdentity'
 import { saveTableThemePreference } from '../table/three/tableThemePreference'
 import { THEME_PRESENTATIONS } from '../../theme/themePresentation'
 import TableControlIcon from '../table/TableControlIcon.vue'
@@ -51,7 +51,7 @@ const hasAudibleAudio = computed(() => soundOn.value && (bgmOn.value || effectsO
 const signalText = computed(() => (
   { 0: '网络不稳定', 1: '网络波动', 2: '网络良好', 3: '网络流畅' }[props.signalQuality] ?? ''
 ))
-const themeOptions = TABLE_THEME_OPTIONS.map((option) => ({
+const themeOptions = SELECTABLE_TABLE_THEMES.map((option) => ({
   ...option,
   previewUrl: THEME_PRESENTATIONS[option.value].identity.previewUrl,
   previewBackground: THEME_PRESENTATIONS[option.value].shell.pageBackground,

@@ -90,11 +90,11 @@ const resultBanner = computed(() => {
     const winners = outcome.winners.map((seat) => props.match.players[seat]?.name ?? '').join('、')
     return `${head}${winners ? `${winners} · ` : ''}${settlementTitle(outcome)}`
   }
-  if (final.draw) return `${head}荒庄`
+  if (final.draw) return head + (props.match.rulesetId === 'yingzhou' ? '流局' : '荒庄')
   // 血流一局可能多次胡牌，没有单一赢家：只报「本局结束」，各家胡牌次数由结算帧分数与牌谱体现。
   if (final.winSeat == null) return `${head}本局结束`
   const winner = props.match.players[final.winSeat]?.name ?? ''
-  const kind = replayWinLabel(final.winType)
+  const kind = final.result?.winLabel ?? replayWinLabel(final.winType)
   const points = final.points ? ` · ${formatDelta(final.points * 3)}分` : ''
   return `${head}${winner} ${kind}${points}`
 })
@@ -218,7 +218,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onKeydown); compac
           class="hand-tile-slot" :class="{ drawn: frame.drawnTileIndex === index, 'win-tile': winTileIndex === index }"
         >
           <MahjongTile
-            :tile="tile" :theme-name="match.themeName" disabled
+            :tile="tile" :theme-name="match.themeName" :kong-marked="frame.markedIndices?.includes(index)" disabled
             :joker-tiles="jokerTileList()" :wildcard-tiles="round?.wildcardTiles ?? []"
             :laizi-only="match.rulesetId === 'yaotong'"
           />

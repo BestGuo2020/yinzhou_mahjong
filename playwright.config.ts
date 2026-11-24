@@ -6,8 +6,8 @@ const reuseExistingOnly = process.env.E2E_REUSE_ONLY === '1'
 
 export default defineConfig({
   testDir: './tests/e2e',
-  // AI/LLM 历史验收用例保留源码；默认只验收当前幺筒产品入口。
-  testMatch: 'yaotong*.spec.ts',
+  // 上游其他玩法的历史用例仍然保留，默认验收当前单人入口。
+  testMatch: 'yingzhou*.spec.ts',
   // 响应式验收截图保存在 test-results/responsive-*；运行 E2E 时只清理自己的子目录。
   outputDir: 'test-results/playwright',
   fullyParallel: true,

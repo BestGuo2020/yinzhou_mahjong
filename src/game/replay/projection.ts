@@ -16,6 +16,7 @@ export interface ReplayFrame {
   /** 当前帧是否实际保存了四家手牌；不能把缺失的暗牌伪装成全知回放。 */
   omniscientAvailable: boolean
   yaotongSeats?: SeatStatus[]
+  markedIndices?: number[]
   /** 直接喂给 <MahjongTable3D>。 */
   table: TableProps
   /** 本家手牌：3D 牌桌不画本家手牌（presenter 对座位 0 直接返回），由 DOM 手牌架绘制。 */
@@ -79,6 +80,7 @@ export function buildReplayFrames(
   let headDrawn = round.anchor.headDrawn
   let currentPlayer = round.anchor.currentPlayer
   let yaotongSeats = round.anchor.yaotongSeats
+  let yingzhou = round.anchor.yingzhou
   let yaotongSidewaysDiscards = round.anchor.yaotongSidewaysDiscards
   let lastDiscard: LastDiscard | null = null
   let discardCount = 0
@@ -145,6 +147,7 @@ export function buildReplayFrames(
     const localHand = [...frameHands[humanSeat]]
     frames.push({
       omniscientAvailable,
+      ...(yingzhou ? { markedIndices: [...(yingzhou.markedIndices[humanSeat] ?? [])] } : {}),
       ...(yaotongSeats ? { yaotongSeats: yaotongSeats.map((seat) => ({ ...seat })) } : {}),
       table: {
         wallTotal: round.wallTotal ?? 136,
@@ -182,11 +185,12 @@ export function buildReplayFrames(
         tableActionEvent: actionEvent,
         wallBreakIndex: round.wallBreakIndex,
         flipTile: round.flipTile,
+        tailIndicator: yingzhou?.tailFaceUp ? yingzhou.indicator : null,
         flipStack: round.flipStack ?? undefined,
         // 血流牌堆（盖楼）：到当前帧为止已经胡过的楼
         ...(isBloodFlow ? { bloodFlowBatches: [...winPiles] } : {}),
       },
-      hand: options.revealAll && match.rulesetId !== 'yaotong' ? sortTilesWithJokers(localHand, round.jokerTiles) : localHand,
+      hand: options.revealAll && match.rulesetId !== 'yaotong' && !yingzhou ? sortTilesWithJokers(localHand, round.jokerTiles) : localHand,
       drawnTileIndex: frameDrawn[humanSeat] ?? -1,
       index: input.index,
       turn: input.turn,
@@ -218,6 +222,7 @@ export function buildReplayFrames(
       }
       scores = [...step.snapshot.scores]
       yaotongSeats = step.snapshot.yaotongSeats
+      yingzhou = step.snapshot.yingzhou
       yaotongSidewaysDiscards = step.snapshot.yaotongSidewaysDiscards
     }
     if (step.state) {

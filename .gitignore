@@ -165,5 +165,8 @@ __pycache__/
 docs/evidence/
 work/
 .dsh-vision-router/
-tests/
+tests/*
+!tests/e2e/
+tests/e2e/*
+!tests/e2e/yingzhou*.spec.ts
 artifacts/

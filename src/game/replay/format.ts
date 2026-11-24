@@ -122,11 +122,12 @@ export function replayMatchSummary(
     const names = result.winners.map((seat) => players[seat]?.name ?? '').join('、')
     return `${last.roundLabel} ${names ? `${names} · ` : ''}${settlementTitle(result)}`
   }
-  if (last.final.draw) return `${last.roundLabel} 荒庄`
+  if (last.final.draw) return last.roundLabel + (last.anchor?.yingzhou ? ' 流局' : ' 荒庄')
   const winner = last.final.winSeat
   if (winner == null) return `${last.roundLabel} 本局结束`
   const name = players[winner]?.name ?? ''
-  return `${last.roundLabel} ${name}${replayWinLabel(last.final.winType)}${winner === humanSeat ? '（本家）' : ''}`
+  const method = last.final.result?.winLabel ?? replayWinLabel(last.final.winType)
+  return `${last.roundLabel} ${name}${method}${winner === humanSeat ? '（本家）' : ''}`
 }
 
 /** 旧录制仍可观看；再次导出时只用末局的权威结果修正错误摘要。 */

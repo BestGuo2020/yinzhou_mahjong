@@ -18,6 +18,7 @@ const props = withDefaults(defineProps<{
   /** 可替代精牌的实体牌；不参与精牌排序。 */
   wildcardTiles?: TileType[]
   laiziOnly?: boolean
+  kongMarked?: boolean
 }>(), { tile: 'back', hidden: false, selected: false, drawn: false, disabled: false, small: false })
 
 const emit = defineEmits(['choose'])
@@ -59,6 +60,7 @@ const tileMarker = computed(() => (
   isPrecision.value || isWhiteJoker.value ? '精' : isWildcard.value ? '替' : isLaizi.value ? '癞' : ''
 ))
 const tileLabel = computed(() => {
+  if (props.kongMarked && !props.hidden) return meta.value.name + '，杠后标记牌'
   if (!isJoker.value || shownTile.value === 'back') return meta.value.name
   const role = isPrecision.value || isWhiteJoker.value ? '精牌' : isLaizi.value ? '癞子' : '万能牌'
   return `${meta.value.name}，${role}${isWildcard.value ? '，可代本局精牌' : ''}`
@@ -86,5 +88,10 @@ const tileStyle = computed(() => {
     @keydown.space.prevent="choose"
   >
     <span v-if="isJoker && !hidden" class="joker-mark">{{ tileMarker }}</span>
+    <span v-if="kongMarked && !hidden" class="kong-mark">杠后</span>
   </div>
 </template>
+
+<style scoped>
+.kong-mark { position: absolute; bottom: 0; right: 0; padding: 1px 3px; border-radius: 3px; background: #73321c; color: #fff5cd; font: 700 clamp(9px, 1vw, 13px)/1.3 sans-serif; pointer-events: none; }
+</style>

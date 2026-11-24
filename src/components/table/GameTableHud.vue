@@ -77,7 +77,9 @@ interface Props {
   autoPlayEnabled?: boolean
   /** 当前是否已开启托管（联机自动出牌/过牌） */
   autoPlay?: boolean
-  rulesetId?: 'lotus-classic' | 'lotus-legacy' | 'lotus-blood-flow' | 'yaotong'
+  rulesetId?: import('../../game/core/rules/ruleVariants').RuleVariant
+  markedIndices?: number[]
+  tailIndicator?: TileType | null
   wallTotal?: number
   extraActions?: boolean
   lockedHand?: boolean
@@ -599,6 +601,7 @@ function onAvatarError(entry: GamePlayer) {
       :table-action-event="tableActionEvent"
       :wall-break-index="wallBreakIndex"
       :flip-tile="flipTile"
+      :tail-indicator="tailIndicator"
       :settlement-indicator="yaotongView?.settlementIndicator"
       :sideways-discards="yaotongView?.sidewaysDiscards"
       :neutral-peng-orientation="rulesetId === 'yaotong'"
@@ -642,11 +645,11 @@ function onAvatarError(entry: GamePlayer) {
     <Transition name="flip-cue">
       <div
         v-if="flipTile" key="flip" class="flip-indicator" :class="{ 'flip-open': flipOpen }"
-        role="button" tabindex="0" aria-label="翻精指示牌" :aria-expanded="flipOpen"
+        role="button" tabindex="0" :aria-label="rulesetId === 'yingzhou' ? '本局亮牌' : '翻精指示牌'" :aria-expanded="flipOpen"
         @click="flipOpen = !flipOpen" @keydown.enter="flipOpen = !flipOpen" @keydown.space.prevent="flipOpen = !flipOpen"
       >
         <div class="flip-indicator-head">
-          <span>{{ bloodFlow ? '精' : '翻精' }}</span>
+          <span>{{ rulesetId === 'yingzhou' ? '亮牌' : bloodFlow ? '精' : '翻精' }}</span>
           <template v-if="bloodFlow">
             <MahjongTile v-for="tile in jokerTiles" :key="tile" :tile="tile" :joker-tiles="jokerTiles" :theme-name="themeName" small disabled />
           </template>
@@ -657,6 +660,7 @@ function onAvatarError(entry: GamePlayer) {
           <i class="flip-chevron" aria-hidden="true"></i>
         </div>
         <div class="flip-indicator-body">
+          <slot name="indicator-details" />
           <div v-if="rulesetId !== 'lotus-classic' && secondDice" class="second-dice-note">
             二骰 {{ secondDice[0] }} + {{ secondDice[1] }}
           </div>
@@ -771,7 +775,7 @@ function onAvatarError(entry: GamePlayer) {
           <span v-if="isTingDiscard(index, tile) && !isReformDiscard(index, tile)" class="ting-arrow" aria-hidden="true"></span>
           <span v-if="isReformDiscard(index, tile)" class="ting-arrow reform-arrow" aria-hidden="true"></span>
           <span v-if="isReformDiscard(index, tile)" class="reform-badge" aria-hidden="true">改</span>
-          <MahjongTile :tile="tile" :joker-tiles="jokerTiles" :wildcard-tiles="wildcardTiles" :laizi-only="rulesetId === 'yaotong'" :theme-name="themeName" :selected="selectedIndex === index" :drawn="userDrawnIndex === index" :disabled="!isUserTurn || blockedDiscardIndices?.includes(index) || Boolean((lockedHand || bloodFlow?.seats[user.seat].locked) && index !== userDrawnIndex)" @choose="handleTileActivation(index, $event)" />
+          <MahjongTile :tile="tile" :kong-marked="markedIndices?.includes(index)" :joker-tiles="jokerTiles" :wildcard-tiles="wildcardTiles" :laizi-only="rulesetId === 'yaotong'" :theme-name="themeName" :selected="selectedIndex === index" :drawn="userDrawnIndex === index" :disabled="!isUserTurn || blockedDiscardIndices?.includes(index) || Boolean((lockedHand || bloodFlow?.seats[user.seat].locked) && index !== userDrawnIndex)" @choose="handleTileActivation(index, $event)" />
         </div>
       </div>
     </section>

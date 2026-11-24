@@ -217,6 +217,7 @@ const relativeSeat = computed<0 | 1 | 2 | 3>(() => {
           <slot name="summary" />
         </div>
         <div class="settlement-footer">
+          <slot v-if="!matchFinished" name="next-settings" />
           <div class="result-actions">
             <button class="secondary" @click="$emit('update:resultVisible', false)">查看牌桌</button>
             <button v-if="matchFinished" @click="rankingResult = result">查看最终排名</button>

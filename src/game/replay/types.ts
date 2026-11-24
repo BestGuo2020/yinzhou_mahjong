@@ -72,6 +72,7 @@ export interface ReplayStep {
 }
 
 export interface ReplayAnchor {
+  yingzhou?: { indicator: TileType; tailFaceUp: boolean; markedIndices: number[][] }
   /** 联机只知道暗牌张数时，牌面数组仍为空。 */
   concealedTileCounts?: number[]
   yaotongSidewaysDiscards?: number[][]
@@ -179,6 +180,7 @@ export interface ReplayMatch {
  * 各引擎按自身能力填字段（莲花麻将多翻精/精牌，血流留待后续接入）。
  */
 export interface ReplayFrameSource {
+  yingzhou?: ReplayAnchor['yingzhou']
   yaotongSidewaysDiscards?: number[][]
   matchName?: string
   roundLabel?: string

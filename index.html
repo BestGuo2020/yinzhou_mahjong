@@ -2,50 +2,31 @@
 <html lang="zh-CN" prefix="og: https://ogp.me/ns#">
   <head>
     <meta charset="UTF-8" />
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-2PMNQJPWBM"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag() { window.dataLayer.push(arguments); }
-      gtag('js', new Date());
-      gtag('config', 'G-2PMNQJPWBM');
-    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#1c4937" />
-    <meta name="description" content="幺筒麻将：108张牌，四人本地对局。一筒可作本牌或癞子，支持碰杠、报听、翻鸡与逐笔结算。" />
-    <meta name="application-name" content="幺筒麻将" />
-    <meta name="apple-mobile-web-app-title" content="幺筒麻将" />
-    <link rel="canonical" href="https://yaotongmahjong.guoguo-labs.online/" />
+    <meta name="description" content="136 张牌，一位玩家与三位本地 AI 同桌。可选活杠、死杠、死九和小牌禁胡，底分 10 分。" />
+    <meta name="application-name" content="颍州扎杠麻将" />
+    <meta name="apple-mobile-web-app-title" content="颍州扎杠麻将" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" sizes="180x180" />
     <link rel="manifest" href="./site.webmanifest" />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="zh_CN" />
-    <meta property="og:site_name" content="幺筒麻将" />
-    <meta property="og:title" content="幺筒麻将 · 一筒入局，好戏开场" />
-    <meta property="og:description" content="幺筒麻将：108张牌，四人本地对局。一筒可作本牌或癞子，支持碰杠、报听、翻鸡与逐笔结算。" />
-    <meta property="og:url" content="https://yaotongmahjong.guoguo-labs.online/" />
-    <meta property="og:image" content="https://yaotongmahjong.guoguo-labs.online/social-preview.png" />
-    <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="幺筒麻将分享封面，展示一筒、幺鸡（一条）、八筒和一万牌面" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="幺筒麻将 · 一筒入局，好戏开场" />
-    <meta name="twitter:description" content="幺筒麻将：108张牌，四人本地对局。一筒可作本牌或癞子，支持碰杠、报听、翻鸡与逐笔结算。" />
-    <meta name="twitter:image" content="https://yaotongmahjong.guoguo-labs.online/social-preview.png" />
-    <meta name="twitter:image:alt" content="幺筒麻将分享封面，展示一筒、幺鸡（一条）、八筒和一万牌面" />
+    <meta property="og:site_name" content="颍州扎杠麻将" />
+    <meta property="og:title" content="颍州扎杠麻将" />
+    <meta property="og:description" content="136 张牌，一位玩家与三位本地 AI 同桌。可选活杠、死杠、死九和小牌禁胡，底分 10 分。" />
+    <meta name="twitter:title" content="颍州扎杠麻将" />
+    <meta name="twitter:description" content="136 张牌，一位玩家与三位本地 AI 同桌。可选活杠、死杠、死九和小牌禁胡，底分 10 分。" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "WebSite",
-        "name": "幺筒麻将",
-        "url": "https://yaotongmahjong.guoguo-labs.online/",
-        "description": "幺筒麻将：108张牌，四人本地对局。一筒可作本牌或癞子，支持碰杠、报听、翻鸡与逐笔结算。",
+        "name": "颍州扎杠麻将",
+        "description": "136 张牌，一位玩家与三位本地 AI 同桌。可选活杠、死杠、死九和小牌禁胡，底分 10 分。",
         "inLanguage": "zh-CN"
       }
     </script>
-    <title>幺筒麻将 · 一筒入局，好戏开场</title>
+    <title>颍州扎杠麻将</title>
     <style>
       #game-startup {
         position: fixed;
@@ -107,12 +88,12 @@
     <noscript><style>#game-startup { display: none; }</style></noscript>
   </head>
   <body>
-    <noscript>请启用 JavaScript 以开始幺筒麻将对局。</noscript>
+    <noscript>请启用 JavaScript 以开始颍州扎杠麻将对局。</noscript>
     <section id="game-startup" aria-labelledby="startup-title">
       <div class="startup-panel">
         <div class="startup-brand">
           <img src="./favicon.svg" alt="" width="44" height="44" />
-          <h1 id="startup-title">幺筒麻将</h1>
+          <h1 id="startup-title">颍州扎杠麻将</h1>
         </div>
         <div class="startup-status">
           <p id="startup-status" role="status">正在加载游戏界面</p>

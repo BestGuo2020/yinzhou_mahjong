@@ -141,6 +141,7 @@ function seatState(player: GamePlayer): ReplaySeatState {
 
 function anchorOf(frame: ReplayFrameSource): ReplayAnchor {
   return {
+    ...(frame.yingzhou ? { yingzhou: toPlain(frame.yingzhou) } : {}),
     ...(frame.players.some(player => (player.concealedTileCount ?? player.hand.length) !== player.hand.length)
       ? { concealedTileCounts: frame.players.map(player => player.concealedTileCount ?? player.hand.length) } : {}),
     ...(frame.yaotongSidewaysDiscards ? { yaotongSidewaysDiscards: toPlain(frame.yaotongSidewaysDiscards) } : {}),
@@ -287,7 +288,7 @@ export function createReplayRecorder(options: ReplayRecorderOptions): ReplayReco
         },
         diceThrowerIndex: frame.diceThrowerIndex,
         flipTile: frame.flipTile ?? null,
-        jokerTiles: frame.jokerTiles?.length ? [...frame.jokerTiles] : [...DEFAULT_JOKERS],
+        jokerTiles: frame.yingzhou ? [] : frame.jokerTiles?.length ? [...frame.jokerTiles] : [...DEFAULT_JOKERS],
         wildcardTiles: [...(frame.wildcardTiles ?? [])],
         wallBreakIndex: frame.wallBreakIndex ?? 0,
         flipStack: frame.flipStack ?? null,
@@ -383,11 +384,11 @@ export function createReplayRecorder(options: ReplayRecorderOptions): ReplayReco
       rounds.push(record)
       match.roundCount = rounds.length
       safeSave(() => options.sink.saveRound(record))
-      // A completed Yaotong hand survives refresh even if the rest of the match is interrupted.
-      if (frame.yaotongState) {
+      // Keep completed local hands available after a refresh, including an unfinished match.
+      if (frame.yaotongState || frame.yingzhou) {
         const standings = computedStandings(match)
         const mine = standings?.find((entry) => entry.seat === match!.humanSeat)
-        Object.assign(match, { endedAt: now(), status: frame.yaotongState.result?.finished ? 'finished' : 'aborted',
+        Object.assign(match, { endedAt: now(), status: frame.yaotongState?.result?.finished ? 'finished' : 'aborted',
           finalStandings: standings, myRank: mine?.rank, myScore: mine?.score,
           summary: replayMatchSummary(rounds, match.players, match.humanSeat) })
         const checkpoint = toPlain(match)

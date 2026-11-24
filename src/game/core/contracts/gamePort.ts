@@ -82,6 +82,7 @@ export interface RoundResult {
   draw?: boolean
   winnerIndex?: number
   winner?: string
+  winLabel?: string
   roundLabel?: string
   honba?: number
   horses?: TileType[]

@@ -1,4 +1,4 @@
-import { isTableThemeName, type TableThemeName } from '../../../theme/themeIdentity'
+import { isTableThemeName, playableTheme, type TableThemeName } from '../../../theme/themeIdentity'
 
 export const TABLE_THEME_PREFERENCE_STORAGE_KEY = 'lianhua-guangma:table-theme:v1'
 
@@ -22,7 +22,7 @@ export function readTableThemePreference(
   try {
     const stored = storage.getItem(TABLE_THEME_PREFERENCE_STORAGE_KEY)
     if (stored === null) return null
-    const theme = isTableThemeName(stored) ? stored : 'jade'
+    const theme = playableTheme(stored)
     if (stored !== theme) storage.setItem(TABLE_THEME_PREFERENCE_STORAGE_KEY, theme)
     return theme
   } catch {
@@ -35,7 +35,7 @@ export function saveTableThemePreference(
   value: unknown,
   storage: StorageLike | undefined = typeof localStorage === 'undefined' ? undefined : localStorage,
 ): TableThemeName {
-  const theme = typeof value === 'string' && isTableThemeName(value) ? value : 'jade'
+  const theme = playableTheme(typeof value === 'string' ? value : null)
   try { storage?.setItem(TABLE_THEME_PREFERENCE_STORAGE_KEY, theme) } catch { /* 存储不可用不影响牌局 */ }
   return theme
 }
@@ -46,10 +46,10 @@ export function resolveInitialTableTheme(
   storedPreference: string | null | undefined = readTableThemePreference(),
 ): InitialTableTheme {
   if (value != null) {
-    return { theme: isTableThemeName(value) ? value : 'jade', explicit: true }
+    return { theme: playableTheme(value), explicit: true }
   }
   if (storedPreference != null) {
-    return { theme: isTableThemeName(storedPreference) ? storedPreference : 'jade', explicit: true }
+    return { theme: playableTheme(storedPreference), explicit: true }
   }
   return { theme: 'jade', explicit: false }
 }

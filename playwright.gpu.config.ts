@@ -6,7 +6,7 @@ const reuseExistingOnly = process.env.E2E_REUSE_ONLY === '1'
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: 'yaotong*.spec.ts',
+  testMatch: 'yingzhou*.spec.ts',
   outputDir: 'test-results/playwright-gpu',
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),

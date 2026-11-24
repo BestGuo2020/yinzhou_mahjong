@@ -8,7 +8,7 @@ import { displayImageSrc } from '../../game/core/presentation/imagePreload'
 
 const props = defineProps<{
   themeName: TableThemeName
-  characterId: CharacterId
+  characterId?: CharacterId
 }>()
 
 defineEmits<{ selectCharacter: [] }>()
@@ -36,9 +36,9 @@ function markImageFailed() {
 <template>
   <section class="lobby-visual" :data-visual-theme="themeName" aria-label="当前主题预览">
     <div class="lobby-brand">
-      <p class="eyebrow">YAOTONG MAHJONG</p>
-      <h1>幺筒<span>麻将</span></h1>
-      <p class="subtitle">一筒百变 · 碰杠争先 · 翻鸡见喜</p>
+      <p class="eyebrow">YINGZHOU MAHJONG</p>
+      <h1>颍州<span>扎杠麻将</span></h1>
+      <p class="subtitle">136 张牌 · 一位玩家与三位 AI 同桌</p>
     </div>
 
     <div

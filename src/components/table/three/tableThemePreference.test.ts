@@ -22,7 +22,7 @@ describe('牌桌主题默认选择', () => {
     expect(isTableThemeName('llm')).toBe(true)
     expect(isTableThemeName('llmAnime')).toBe(true)
     expect(resolveInitialTableTheme('rosewood')).toEqual({ theme: 'rosewood', explicit: true })
-    expect(resolveInitialTableTheme('llmAnime')).toEqual({ theme: 'llmAnime', explicit: true })
+    expect(resolveInitialTableTheme('llmAnime')).toEqual({ theme: 'llm', explicit: true })
   })
 
   it('未知 URL 和旧 majsoul URL 稳定回退墨玉', () => {
@@ -52,8 +52,9 @@ describe('牌桌主题默认选择', () => {
   it('读写合法主题，并在存储不可用时安全降级', () => {
     const storage = memoryStorage()
     expect(readTableThemePreference(storage)).toBeNull()
-    expect(saveTableThemePreference('llmAnime', storage)).toBe('llmAnime')
-    expect(readTableThemePreference(storage)).toBe('llmAnime')
+    expect(saveTableThemePreference('llmAnime', storage)).toBe('llm')
+    expect(readTableThemePreference(storage)).toBe('llm')
+    expect(readTableThemePreference(memoryStorage('llmAnime'))).toBe('llm')
     expect(saveTableThemePreference('majsoul', storage)).toBe('jade')
     expect(readTableThemePreference(storage)).toBe('jade')
 
