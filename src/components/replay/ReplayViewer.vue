@@ -95,7 +95,7 @@ const resultBanner = computed(() => {
   // 血流一局可能多次胡牌，没有单一赢家：只报「本局结束」，各家胡牌次数由结算帧分数与牌谱体现。
   if (final.winSeat == null) return `${head}本局结束`
   const winner = props.match.players[final.winSeat]?.name ?? ''
-  const kind = final.result?.winLabel ?? replayWinLabel(final.winType)
+  const kind = replayWinLabel(final.winType, final.result?.winLabel)
   const points = final.points ? ` · ${formatDelta(final.points * 3)}分` : ''
   return `${head}${winner} ${kind}${points}`
 })

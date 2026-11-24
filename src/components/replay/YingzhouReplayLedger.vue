@@ -6,23 +6,24 @@ import type { GamePlayer } from '../../game/core/contracts/types'
 import type { Transfer } from '../../game/variants/yaotong/types'
 import { BASE_POINTS } from '../../game/variants/yingzhou/rules'
 import type { TableThemeName } from '../../theme/themeIdentity'
-import { formatDelta } from '../../game/replay/format'
+import { formatDelta, replayWinText } from '../../game/replay/format'
 
 const props = defineProps<{
   result: RoundResult; players: GamePlayer[]
   themeName: TableThemeName; handNumber: number
 }>()
+const winLabel = computed(() => replayWinText(props.result.winLabel ?? '胡牌'))
 const formula = computed(() => {
   const r = props.result
   if (r.draw) return '流局留庄，本局不计入有效局数。'
-  const factors = r.details?.map(p => p.label + ' ' + p.multiplier + ' 倍').join(' ＋ ')
+  const factors = r.details?.map(p => replayWinText(p.label) + ' ' + p.multiplier + ' 倍').join(' ＋ ')
   const paid = r.robbedKong ? '被抢者独付 ' + r.totalWon : '每家付 ' + r.points
-  return `${factors || r.winLabel} · 底分 ${BASE_POINTS} · ${paid} 分`
+  return `${factors || winLabel.value} · 底分 ${BASE_POINTS} · ${paid} 分`
 })
 const transfers = computed<Transfer[]>(() => (props.result.scoreChanges ?? []).flatMap(entry =>
   entry.delta < 0 && props.result.winnerIndex != null ? [{
     from: entry.playerIndex, to: props.result.winnerIndex, account: '胡牌分',
-    base: BASE_POINTS, multiplier: props.result.totalMultiplier ?? 1, amount: -entry.delta, reason: props.result.winLabel ?? '胡牌',
+    base: BASE_POINTS, multiplier: props.result.totalMultiplier ?? 1, amount: -entry.delta, reason: winLabel.value,
   }] : []))
 const selected = ref(0)
 const detailsOpen = ref(false)

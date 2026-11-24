@@ -85,7 +85,9 @@ describe('扎与标记', () => {
     const seat = r.players[0]
     seat.hand = held('m2','m3','m4','m5','m6','m7','s3','s4','s5','p6','p6','p6','s8','s8')
     seat.drawnIndex = 13
-    expect(drawWin(seat, r.settings, r.indicator)?.multiplier).toBe(4)
+    expect(drawWin(seat, r.settings, r.indicator)).toMatchObject({
+      label: '自摸', multiplier: 4, parts: [{ label: '自摸', multiplier: 1 }, { label: '留扎亮牌', multiplier: 3 }],
+    })
     const direct = legalActions(r).find(a => a.kind === 'win' && a.win.kind === 'indicator')
     expect(direct).toBeDefined()
     const copy = structuredClone(r)

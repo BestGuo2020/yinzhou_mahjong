@@ -9,6 +9,7 @@ import {
   meldLabel,
   rankTone,
   replayMatchName,
+  replayWinLabel,
   replayVersionNotice,
   roundLabelFor,
   stepSummary,
@@ -91,6 +92,12 @@ describe('回放列表文案', () => {
 
 describe('牌谱事件文案', () => {
   const base: ReplayStep = { t: 'draw', seat: 0, wallLeft: 60, headDrawn: 20, currentPlayer: 0 }
+
+  it('旧牌谱显示自摸并保留原倍率及其他胡法', () => {
+    expect(replayWinLabel('self-draw', '普通自摸')).toBe('自摸')
+    expect(stepSummary({ ...base, t: 'win', text: '普通自摸 ×4' })).toBe('自摸 ×4')
+    expect(replayWinLabel('self-draw', '杠上开花')).toBe('杠上开花')
+  })
 
   it('摸牌 / 补牌 / 出牌', () => {
     expect(stepSummary({ ...base, tile: 'm5' })).toBe('摸 五万')

@@ -5,7 +5,7 @@ import { standardShanten } from '../../shared/ai/handProgress'
 import type { Round } from './engine'
 import { isSuited, nineOf, ordinary, standardWin, type HeldTile } from './rules'
 
-/** 只计算普通自摸的听口；报扎和杠开由各自的实时按钮提示。 */
+/** 只计算自摸的听口；报扎和杠开由各自的实时按钮提示。 */
 export function handWaits(round: Round, seatIndex: number, canDiscard: boolean) {
   const seat = round.players[seatIndex]
   const exposed = seat.melds.length

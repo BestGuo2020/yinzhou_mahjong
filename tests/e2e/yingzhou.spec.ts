@@ -139,7 +139,7 @@ function buttonStyle(button: Locator) {
   })
 }
 
-test('普通自摸结算突出赢家实收，并按座位显示四家输赢', async ({ page }, info) => {
+test('自摸结算突出赢家实收，并按座位显示四家输赢', async ({ page }, info) => {
   test.setTimeout(60_000)
   await page.setViewportSize({ width: 1280, height: 720 })
   await page.emulateMedia({ reducedMotion: 'reduce' })
@@ -148,7 +148,7 @@ test('普通自摸结算突出赢家实收，并按座位显示四家输赢', as
   const discard = page.locator('.hand-rack.playable').getByRole('button', { name: '八万', exact: true }).first()
   await expect(discard).toBeVisible({ timeout: 30_000 })
   await discard.click()
-  const card = page.getByRole('dialog', { name: '第 1 局 · 普通自摸', exact: true })
+  const card = page.getByRole('dialog', { name: '第 1 局 · 自摸', exact: true })
   await expect(card.locator('.score-total strong')).toHaveText('×1', { timeout: 15_000 })
   await expect(card.locator('.score-total em')).toHaveText('+30 分')
   await expect(card.locator('.round-rankings em')).toHaveText(['-10', '+30', '-10', '-10'])
@@ -156,6 +156,15 @@ test('普通自摸结算突出赢家实收，并按座位显示四家输赢', as
   await expect(card.locator('.score-details')).toHaveCount(0)
   await expect(card.getByRole('button')).toHaveText(['查看牌桌', '继续'])
   await card.screenshot({ path: info.outputPath('round-summary.png'), animations: 'disabled' })
+  await card.getByRole('button', { name: '查看牌桌' }).click()
+  await page.getByRole('button', { name: '退出对局' }).click()
+  await page.getByRole('button', { name: /对局回放/ }).click()
+  await page.getByRole('button', { name: '查看', exact: true }).click()
+  await expect(page.locator('.replay-game-name')).toBeVisible()
+  await page.keyboard.press('End')
+  await expect(page.getByTestId('replay-result')).toContainText('下家 自摸')
+  await page.getByRole('button', { name: '结算明细', exact: true }).click()
+  await expect(page.locator('.replay-ledger-dialog .yaotong-hand-score')).toHaveText('下家 · 自摸 1 倍 · 底分 10 · 每家付 10 分')
 })
 
 test('普通弃牌应牌的碰和杠使用原版高亮，隐藏工具不占横排位置', async ({ page }) => {

@@ -59,7 +59,7 @@ export function drawWin(seat: Seat, settings: Settings, indicator: TileType,
   const drawn = seat.hand[seat.drawnIndex]
   if (!drawn || !standardWin(seat.hand, seat.melds.length)) return null
   if (!kong && !ordinaryWinAllowed(seat, drawn.face, settings)) return null
-  const label = kong?.last ? '海底捞月' : kong ? '杠上开花' : '普通自摸'
+  const label = kong?.last ? '海底捞月' : kong ? '杠上开花' : '自摸'
   const win = baseWin(kong ? 'bloom' : 'self', drawn.face, label, kong ? (kong.kind === 'concealed' ? 3 : 2) : 1)
   if (kong) {
     win.parts[0].label = KONG_NAMES[kong.kind] + '开花'

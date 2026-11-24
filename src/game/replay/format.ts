@@ -86,9 +86,14 @@ export function meldLabel(kind?: ReplayMeldKind): string {
   return kind ? MELD_LABELS[kind] : '鸣牌'
 }
 
+/** 旧牌谱把自摸保存为“普通自摸”，胡牌事件还可能带有倍率。 */
+export function replayWinText(text: string): string {
+  return text.replace(/^普通自摸(?=$| ×\d+$)/, '自摸')
+}
+
 /** 牌谱事件一句话文案（不含玩家名，玩家名由组件按座位拼）。 */
 export function stepSummary(step: ReplayStep): string {
-  if (step.text) return step.text
+  if (step.text) return step.t === 'win' ? replayWinText(step.text) : step.text
   const tile = step.tile ? tileName(step.tile) : ''
   switch (step.t) {
     case 'draw':
@@ -107,7 +112,8 @@ export function stepSummary(step: ReplayStep): string {
 }
 
 /** 摘要的主语是赢家；点炮是出牌者的动作，不能接在赢家姓名后。 */
-export function replayWinLabel(winType: ReplayRoundFinal['winType']): string {
+export function replayWinLabel(winType: ReplayRoundFinal['winType'], recordedLabel?: string): string {
+  if (recordedLabel) return replayWinText(recordedLabel)
   if (winType === 'discard') return '胡牌'
   if (winType === 'robbed-kong') return '抢杠'
   if (winType === 'tianhu') return '天胡'
@@ -134,7 +140,7 @@ export function replayMatchSummary(
   const winner = last.final.winSeat
   if (winner == null) return `${last.roundLabel} 本局结束`
   const name = players[winner]?.name ?? ''
-  const method = last.final.result?.winLabel ?? replayWinLabel(last.final.winType)
+  const method = replayWinLabel(last.final.winType, last.final.result?.winLabel)
   return `${last.roundLabel} ${name}${method}${winner === humanSeat ? '（本家）' : ''}`
 }
 

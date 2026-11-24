@@ -19,7 +19,7 @@ const draft = ref({ ...props.settings })
     </div>
     <label class="remote-llm-create-option small-ban">
       <input v-model="draft.smallBan" type="checkbox" />
-      <span><b>小牌禁胡</b><small>普通自摸和抢补杠的胡张须为四至九的数牌。</small></span>
+      <span><b>小牌禁胡</b><small>自摸和抢补杠的胡张须为四至九的数牌。</small></span>
     </label>
     <div class="dialog-actions">
       <button class="secondary" type="button" data-action-role="light" @click="emit('close')">取消</button>

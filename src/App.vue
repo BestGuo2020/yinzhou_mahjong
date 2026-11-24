@@ -114,7 +114,7 @@ const hints = computed<YaotongHint[]>(() => {
   if (!tableActive.value || autoplay.value) return []
   if (round.value!.players[0].hand.some(tile => tile.marked)) return [{
     id: 'marked', protection: true, summary: '手中留有杠后标记牌',
-    reason: '标记牌可以参与杠开。普通自摸和抢补杠要先打清标记牌。', action: '可打出带“杠后”的牌，或保留它继续做杠开。三张普通牌仍可报扎。',
+    reason: '标记牌可以参与杠开。自摸和抢补杠要先打清标记牌。', action: '可打出带“杠后”的牌，或保留它继续做杠开。三张普通牌仍可报扎。',
   }]
   if (winButtons.value.some(a => a.win.kind === 'indicator' || a.win.kind === 'nine')) return [{
     id: 'zha', protection: false, summary: '手中的三张普通牌可以报扎',
