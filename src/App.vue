@@ -87,7 +87,7 @@ async function openReplay(id: string) {
 const rulesOpen = ref(false)
 const resultVisible = ref(true)
 const {
-  round, ready, settings, length, matchLength, players, phase, result, finished, actor, selectedIndex, opening, openingStage,
+  round, ready, settings, length, matchLength, matchNumber, players, phase, result, finished, actor, selectedIndex, opening, openingStage,
   dealAnimation, headDrawn, wall, autoplay, controls, mayDiscard, actionCue, prompt, waits, selectedWaits,
   winEffect, winPresentation, revealHands, winningPlayerIndex, weather, play, start, next, leave,
 } = useYingzhouGame(replay, rulesOpen, { play: playEffect, playAndWait: playEffectAndWait })
@@ -136,6 +136,7 @@ const shownMarks = computed(() => {
   return hand.flatMap((tile, i) => tile.marked ? [i] : [])
 })
 const matchName = computed(() => `${matchLength.value} 局场`)
+const handLabel = computed(() => round.value ? `第 ${round.value.handNumber} 局` : '')
 const label = computed(() => round.value ? roundLabel(round.value) : '')
 const standings = computed(() => [...players.value].sort((a, b) => b.score - a.score || a.seat - b.seat)
   .map((p, i) => ({ ...p, playerIndex: p.seat, rank: i + 1 })))
@@ -153,8 +154,8 @@ function quit() {
     :data-theme-particle="presentation.shell.particle" :data-theme-loading="presentation.presentation.loading"
     :style="themePresentationCssVariables(presentation)">
     <div v-if="!replayView" :class="{ 'has-three-scene': round }">
-      <GameShellHeader game-mode="local" :phase="phase" :has-players="!!round" :match-name="matchName"
-        :round-label="label" :honba="0" :base-score="BASE_POINTS" room-id="" :signal-quality="3" :theme-name="theme"
+      <GameShellHeader game-mode="local" :phase="phase" :has-players="!!round" :match-name="`第 ${matchNumber} 场`"
+        :round-label="handLabel" :honba="0" :base-score="BASE_POINTS" room-id="" :signal-quality="3" :theme-name="theme"
         @quit="quit" @open-rules="rulesOpen = true" @change-theme="changeTheme" />
       <LobbyView v-if="!round" v-model:settings="settings" v-model:length="length" :theme-name="theme"
         @start="startBgm(); start()" @open-rules="rulesOpen = true" @open-stats="statsOpen = true" @open-replay="replayNotice = ''; replayOpen = true" />
@@ -192,7 +193,7 @@ function quit() {
         </template>
       </GameTableHud>
       <SettlementOverlay v-if="round && result" v-model:result-visible="resultVisible" :result="result" ruleset-id="yingzhou"
-        :round-label="`第 ${round.handNumber} 局`" :result-title="result.draw ? '流局留庄' : result.winLabel"
+        :round-label="handLabel" :result-title="result.draw ? '流局留庄' : result.winLabel"
         :match-finished="finished" :dealer="round.dealer" :waiting-next-round="false" game-mode="local" :continue-countdown="0"
         :match-name="matchName" :standings="standings" player-id="" :human-seats="[0]" :joker-tiles="[]" :theme-name="theme"
         @next-round="next" @return-to-lobby="leave" />

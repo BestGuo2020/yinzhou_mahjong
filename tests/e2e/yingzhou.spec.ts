@@ -44,6 +44,7 @@ test('死九报扎、付分、按开场配置续局和本地回放', async ({ pa
   await page.getByRole('button', { name: '确定', exact: true }).click()
   const start = page.getByRole('button', { name: /开始对局/ })
   await clickWithSeed(start, 9890) // 庄家起手三张六筒。
+  await expect(page.locator('.round-info')).toHaveText('第 1 场 · 第 1 局')
   const hud = page.locator('.game-table-hud')
   await expect(hud).toHaveAttribute('data-concealed-counts', '14,13,13,13', { timeout: 35_000 })
   await expect(page.getByRole('button', { name: '本局亮牌' })).toContainText('六筒')
@@ -57,7 +58,7 @@ test('死九报扎、付分、按开场配置续局和本地回放', async ({ pa
   await expect(page.getByRole('dialog', { name: /玩法/ })).toHaveCount(0)
   await page.getByRole('button', { name: '查看结算', exact: true }).click()
   await clickWithSeed(result.getByRole('button', { name: '继续' }), 1)
-  await expect(page.locator('.round-info')).toContainText('第 2 局 · 死九')
+  await expect(page.locator('.round-info')).toHaveText('第 1 场 · 第 2 局')
   await expect(page.locator('.user-identity .dealer-badge')).toBeVisible()
   await expect(page.locator('.hand-rack.playable')).toBeVisible({ timeout: 35_000 })
   await expect(page.getByRole('button', { name: '本局亮牌' })).toContainText('小牌禁胡')
@@ -188,7 +189,8 @@ test.describe('手机完整场次', () => {
     await expect(final.getByRole('button', { name: '返回大厅' })).toBeInViewport({ ratio: 1 })
     await page.screenshot({ path: info.outputPath('final-ranking.png'), animations: 'disabled' })
     await final.getByRole('button', { name: '返回大厅' }).click()
-    await expect(page.getByRole('button', { name: /开始对局/ })).toBeVisible()
+    await page.getByRole('button', { name: /开始对局/ }).click()
+    await expect(page.locator('.round-info')).toHaveText('第 2 场 · 第 1 局')
   })
 })
 
