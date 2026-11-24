@@ -1,14 +1,13 @@
 import { computed, onScopeDispose, ref, shallowRef, watch, type Ref } from 'vue'
 import type { GamePhase, OpeningStage } from '../../core/contracts/gamePort'
 import type { TileType } from '../../core/contracts/types'
-import { tileName } from '../../core/rules/tiles'
 import { AI_DELAYS } from '../../core/controllers/playerController'
 import { LOCAL_TABLE_PACE, PACE_MS } from '../../core/local/localGameConfig'
 import { OPENING_PACE_MS, playOpeningCue } from '../../shared/runtime/localOpening'
 import type { ReplayRecording } from '../../replay/useReplayRecorder'
 import { chooseAction } from './ai'
 import { stepRound, dealRound, decisionSeat, followingRound, legalActions, type Action, type Round } from './engine'
-import { NAMES, replayFrame, tableResult } from './presentation'
+import { replayFrame, tableResult } from './presentation'
 import { type Settings } from './rules'
 import { useTablePresentation, type TableAudio } from './useTablePresentation'
 import { handWaits } from './waits'
@@ -69,21 +68,6 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
     if (round.value.result) return view.phase.value
     if (round.value.window.kind === 'check-rob' || round.value.window.kind === 'supplement') return 'kong'
     return round.value.window.kind === 'turn' ? 'discard' : round.value.window.kind === 'draw' ? 'drawing' : 'prompt'
-  })
-  const prompt = computed(() => {
-    const state = round.value
-    if (!state || opening.value || state.result) return ''
-    const name = NAMES[actor.value]
-    switch (state.window.kind) {
-      case 'check-rob': return NAMES[state.turn] + '申请补杠' + tileName(state.window.tile)
-      case 'supplement': return NAMES[state.turn] + '杠后补牌'
-      case 'rob': return `${NAMES[state.turn]}补杠${tileName(state.window.tile)} · 等待${name}决定是否抢胡`
-      case 'reveal': return `翻亮${tileName(state.indicator)} · ${name}可以报扎`
-      case 'bloom': return `${name}可以${state.window.win.label}`
-      case 'claim': return `${NAMES[state.turn]}打出${tileName(state.window.tile)} · 等待${name}应牌`
-      case 'draw': return name + '摸牌'
-      default: return name === '你' ? '轮到你出牌' : name + '出牌'
-    }
   })
   function open(state: Round) {
     effects.reset()
@@ -193,7 +177,7 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
   })
   onScopeDispose(leave)
   return { settings, length, matchLength, matchNumber, round, ready, autoplay, selectedIndex, opening, openingStage, dealAnimation, phase,
-    result: view.result, finished, actor, players, headDrawn, wall, controls, mayDiscard, prompt, waits, selectedWaits,
+    result: view.result, finished, actor, players, headDrawn, wall, controls, mayDiscard, waits, selectedWaits,
     actionCue: view.tableActionEvent, winEffect: view.winEffect, winPresentation: view.winPresentation, revealHands: view.revealHands,
     winningPlayerIndex: view.winningPlayerIndex, weather: effects.weather, start, next, leave, play }
 }

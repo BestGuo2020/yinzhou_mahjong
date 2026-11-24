@@ -13,12 +13,11 @@ import { resolveInitialTableTheme } from './components/table/three/tableThemePre
 import { playableTheme, type TableThemeName } from './theme/themeIdentity'
 import { themePresentationByName, themePresentationCssVariables } from './theme/themePresentation'
 import { useAudio } from './game/core/presentation/useAudio'
-import { tileName } from './game/core/rules/tiles'
 import { useReplayRecorder } from './game/replay/useReplayRecorder'
 import type { ReplayMatch, ReplayRound } from './game/replay/types'
 import { BASE_POINTS } from './game/variants/yingzhou/rules'
 import { actionKey } from './game/variants/yingzhou/engine'
-import { actionLabel, NAMES, roundLabel, tailFaceUp } from './game/variants/yingzhou/presentation'
+import { actionLabel, roundLabel, tailFaceUp } from './game/variants/yingzhou/presentation'
 import type { YaotongHint } from './game/variants/yaotong/guidance'
 import type { TileType } from './game/core/contracts/types'
 import { useYingzhouGame } from './game/variants/yingzhou/useYingzhouGame'
@@ -88,7 +87,7 @@ const rulesOpen = ref(false)
 const resultVisible = ref(true)
 const {
   round, ready, settings, length, matchLength, matchNumber, players, phase, result, finished, actor, selectedIndex, opening, openingStage,
-  dealAnimation, headDrawn, wall, autoplay, controls, mayDiscard, actionCue, prompt, waits, selectedWaits,
+  dealAnimation, headDrawn, wall, autoplay, controls, mayDiscard, actionCue, waits, selectedWaits,
   winEffect, winPresentation, revealHands, winningPlayerIndex, weather, play, start, next, leave,
 } = useYingzhouGame(replay, rulesOpen, { play: playEffect, playAndWait: playEffectAndWait })
 const tableActive = computed(() => !!round.value && ready.value && !opening.value && !round.value.result)
@@ -175,13 +174,6 @@ function quit() {
         @gang="chooseKong" @gang-from-discard="claim('kong')" @peng="claim('peng')" @pass="claim('pass')"
         @select-tile="selectedIndex = $event" @clear-selection="selectedIndex = -1" @discard="play({ kind: 'discard', index: $event })"
         @ready="ready = true">
-        <template #indicator-details>
-          <span>牌墙 {{ wall.length }} 张 · 已完成 {{ round.validBefore + Number(!!result && !result.draw) }}/{{ matchLength }} 局</span>
-          <span>骰子 {{ round.dice.join(' + ') }} · {{ round.wallSide === 0 ? '本家' : NAMES[round.wallSide] }}牌墙第 {{ Math.min(...round.dice) }} 墩</span>
-          <span v-if="round.settings.smallBan">小牌禁胡</span>
-          <span v-if="round.openingDiscards.length">翻出的字牌入池 · {{ round.openingDiscards.map(tileName).join('、') }}</span>
-          <strong role="status">{{ prompt }}</strong>
-        </template>
         <template #actions>
           <button v-for="option in winButtons" :key="actionKey(option)" class="action hu hu-plan" type="button" data-action-role="major"
             :aria-label="actionLabel(option)" :title="actionLabel(option)" @click="play(option)">

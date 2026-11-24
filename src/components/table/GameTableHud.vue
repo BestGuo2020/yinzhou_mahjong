@@ -651,13 +651,19 @@ function onAvatarError(entry: GamePlayer) {
       </div>
     </Transition>
     <Transition name="flip-cue">
+      <div v-if="flipTile && rulesetId === 'yingzhou'" key="yingzhou" class="yingzhou-indicator flip-indicator-head"
+        role="status" aria-label="本局亮牌">
+        <span>亮牌</span>
+        <MahjongTile :tile="flipTile" :theme-name="themeName" small disabled inert aria-hidden="true" />
+        <em>{{ tileName(flipTile) }}</em>
+      </div>
       <div
-        v-if="flipTile" key="flip" class="flip-indicator" :class="{ 'flip-open': flipOpen }"
-        role="button" tabindex="0" :aria-label="rulesetId === 'yingzhou' ? '本局亮牌' : '翻精指示牌'" :aria-expanded="flipOpen"
+        v-else-if="flipTile" key="flip" class="flip-indicator" :class="{ 'flip-open': flipOpen }"
+        role="button" tabindex="0" aria-label="翻精指示牌" :aria-expanded="flipOpen"
         @click="flipOpen = !flipOpen" @keydown.enter="flipOpen = !flipOpen" @keydown.space.prevent="flipOpen = !flipOpen"
       >
         <div class="flip-indicator-head">
-          <span>{{ rulesetId === 'yingzhou' ? '亮牌' : bloodFlow ? '精' : '翻精' }}</span>
+          <span>{{ bloodFlow ? '精' : '翻精' }}</span>
           <template v-if="bloodFlow">
             <MahjongTile v-for="tile in jokerTiles" :key="tile" :tile="tile" :joker-tiles="jokerTiles" :theme-name="themeName" small disabled />
           </template>
@@ -668,7 +674,6 @@ function onAvatarError(entry: GamePlayer) {
           <i class="flip-chevron" aria-hidden="true"></i>
         </div>
         <div class="flip-indicator-body">
-          <slot name="indicator-details" />
           <div v-if="rulesetId !== 'lotus-classic' && secondDice" class="second-dice-note">
             二骰 {{ secondDice[0] }} + {{ secondDice[1] }}
           </div>
@@ -922,18 +927,20 @@ function onAvatarError(entry: GamePlayer) {
 }
 
 /* 莲花麻将翻精指示牌（桌面右上角；桌面端始终完整显示） */
-.flip-indicator {
+.flip-indicator, .yingzhou-indicator {
   position: absolute;
   top: 50px;
   right: 18px;
   z-index: 30;
-  display: grid;
-  gap: 5px;
   padding: 6px 10px;
   border-radius: 10px;
   background: rgba(28, 20, 8, 0.72);
   border: 1px solid rgba(212, 175, 55, 0.6);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+.flip-indicator {
+  display: grid;
+  gap: 5px;
   cursor: pointer;
 }
 .flip-indicator-head {
@@ -957,15 +964,14 @@ function onAvatarError(entry: GamePlayer) {
   display: grid;
   gap: 5px;
 }
-.yaotong-table[data-ruleset="yingzhou"] .flip-indicator {
-  max-width: min(270px, 48cqw);
+.yingzhou-indicator {
+  white-space: nowrap;
+  pointer-events: none;
   color: var(--theme-text);
   background: var(--theme-panel);
   border-color: var(--theme-border);
 }
 .yaotong-table .flip-indicator-head > :is(span, em) { color: var(--theme-accent-text); }
-.yaotong-table .flip-indicator-body { color: var(--theme-text-muted); font-size: 12px; line-height: 1.4; }
-.yaotong-table .flip-indicator-body strong { color: var(--theme-text); }
 /* 展开提示箭头：桌面端常显完整卡片，无需提示 */
 .flip-chevron {
   display: none;
@@ -1007,6 +1013,12 @@ function onAvatarError(entry: GamePlayer) {
     border-radius: 8px;
   }
   .flip-indicator-head { min-width: 0; flex-wrap: nowrap; gap: 3px; }
+  .yingzhou-indicator {
+    top: calc(var(--safe-top) + var(--topbar-height) + var(--hud-gap));
+    right: calc(var(--safe-right) + 8px);
+    padding: 3px 6px;
+    border-radius: 8px;
+  }
   .flip-indicator-head > span { font-size: 12px; letter-spacing: 1px; }
   .flip-indicator-head > .mahjong-tile.small {
     --tile-width: clamp(18px, 4.8vw, 22px);
