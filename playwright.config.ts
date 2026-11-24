@@ -13,7 +13,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // 多主题用例同时创建 WebGL 牌桌，限制本机并发避免争抢显存。
+  workers: process.env.CI ? 1 : 2,
   reporter: process.env.CI ? 'dot' : 'list',
   use: {
     baseURL,

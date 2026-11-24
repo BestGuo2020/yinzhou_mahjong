@@ -1,0 +1,87 @@
+.yaotong-yao-use { display: block; margin-top: 4px; color: var(--theme-text-muted); font-size: 11px; line-height: 1.5; }
+.yaotong-ledger {
+  color: var(--theme-text);
+  text-align: center;
+}
+.yaotong-ledger h3 {
+  margin: 8px 0;
+  color: var(--theme-accent-text);
+}
+.yaotong-ledger p {
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 8px 0;
+}
+.yaotong-flip {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  align-items: center;
+  margin: 12px 0;
+  font-size: 12px;
+}
+.yaotong-flip .mahjong-tile {
+  --tile-width: 33px;
+  top: 0;
+  margin-bottom: 6px;
+  transform: none;
+  filter: none;
+  background-origin: border-box;
+  background-position: center;
+}
+@container game (max-height: 600px) {
+  .yaotong-flip .mahjong-tile { --tile-width: 27px; }
+}
+.yaotong-ledger details {
+  margin: 12px 0;
+  border: 1px solid var(--theme-border);
+  border-radius: 8px;
+  padding: 10px;
+  text-align: left;
+}
+.yaotong-ledger summary {
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--theme-accent-text);
+}
+.yaotong-ledger-scroll {
+  max-height: 180px;
+  overflow: auto;
+}
+.yaotong-ledger table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.yaotong-ledger td,
+.yaotong-ledger th {
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--theme-border);
+}
+.yaotong-ledger th:last-child,
+.yaotong-ledger td:last-child {
+  white-space: nowrap;
+  text-align: left;
+}
+.ledger-amount {
+  font-variant-numeric: tabular-nums;
+}
+.ledger-amount.income {
+  color: var(--theme-positive);
+  font-weight: 700;
+}
+.ledger-amount.expense {
+  color: var(--theme-negative);
+  font-weight: 700;
+}
+.yaotong-ledger td small {
+  display: block;
+  opacity: 0.65;
+  font-size: 9px;
+  margin-top: 3px;
+}
+.yaotong-ledger button {
+  font-size: 11px;
+  margin-top: 10px;
+  padding: 7px 12px;
+}

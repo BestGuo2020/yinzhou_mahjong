@@ -18,6 +18,7 @@ import { tileName } from '../../game/core/rules/tiles'
 import type { ActionPrompt, Announcement, DealAnimation, GamePhase, LastDiscard, OpeningStage, RoundResult, WaitInfo, WinEffect } from '../../game/core/contracts/gamePort'
 import type { GamePlayer, ScoreFlowEvent, TableActionEvent, TileType, WinPresentation } from '../../game/core/contracts/types'
 import type { TableThemeName } from './three/tableTheme'
+import type { KongWeatherCue } from '../../game/variants/yaotong/kongPresentation'
 import type { BloodFlowTableState } from '../../game/variants/lotus/bloodFlow/types'
 import BloodFlowSettlementHost from '../settlement/BloodFlowSettlementHost.vue'
 import BloodFlowWinPresentation from './BloodFlowWinPresentation.vue'
@@ -72,6 +73,7 @@ interface Props {
   userTingOptions: WaitInfo[]
   userDiscardWaits: WaitInfo | null
   userKongs: TileType[]
+  kongActionLabel?: string
   userHasWindKong: boolean
   /** 显示托管开关按钮 */
   autoPlayEnabled?: boolean
@@ -86,6 +88,7 @@ interface Props {
   blockedDiscardIndices?: number[]
   canPass?: boolean
   yaotongView?: YaotongTableView
+  kongWeather?: readonly KongWeatherCue[]
   bloodFlow?: BloodFlowTableState | null
   /** 联机（房间）对局：结算页的「退出本场」与暂离文案只在这种模式下有意义。 */
   online?: boolean
@@ -111,6 +114,8 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+// 共享按钮、头像与横屏布局；癞子、副露朝向等牌规仍各自判断。
+const usesYaotongLayout = computed(() => props.rulesetId === 'yaotong' || props.rulesetId === 'yingzhou')
 const userAnimeStyle = computed(() => props.themeName === 'llmAnime'
   ? { '--anime-accent': animeCharacterAccent(props.user.characterId) }
   : undefined)
@@ -291,7 +296,7 @@ const tableLoadRetry = createTableLoadRetryController({
     tableLoadError.value = message || '牌桌资源加载失败'
   },
 })
-const hoveredDiscard = ref<TileType | null>(null)
+const hoveredDiscard = ref<number | null>(null)
 const kongPickerOpen = ref(false)
 const chiPickerOpen = ref(false)
 
@@ -334,9 +339,12 @@ const userAvatar = computed(() => displayImageSrc(props.themeName === 'llmAnime'
   : props.user.avatar))
 const scoreDeltaFor = (playerIndex: number) => presentedScoreFlowEvent.value?.deltas.find((delta) => delta.playerIndex === playerIndex)?.amount ?? 0
 const scoreDirectionFor = (playerIndex: number) => scoreDirection(scoreDeltaFor(playerIndex))
-const hoveredWaits = computed(() => hoveredDiscard.value
-  ? props.userTingOptions.find((option) => option.discard === hoveredDiscard.value) ?? null
-  : null)
+function waitOption(index: number, tile: TileType) {
+  return props.userTingOptions.find(option =>
+    option.discardIndex === undefined ? option.discard === tile : option.discardIndex === index)
+}
+const hoveredWaits = computed(() => hoveredDiscard.value === null ? null
+  : waitOption(hoveredDiscard.value, props.user.hand[hoveredDiscard.value]) ?? null)
 const activeWaits = computed(() => hoveredWaits.value || props.userDiscardWaits
   || (props.selectedIndex < 0 && (props.bloodFlow || !props.isUserTurn) ? props.userCurrentWaits : null))
 const bloodFlowWaitTiles = computed(() => (activeWaits.value?.tiles ?? []).map(item => {
@@ -364,11 +372,10 @@ const showActionBar = computed(() => tableReady.value && Boolean(
   props.actionPrompt || props.isUserTurn || props.userCurrentWaits || props.extraActions ||
   props.openingStage !== null || props.phase === 'dealing' || props.phase === 'opening',
 ))
-const canOpenEmotes = computed(() => props.rulesetId === 'yaotong' && Boolean(props.emotesEnabled) && showActionBar.value)
+const canOpenEmotes = computed(() => usesYaotongLayout.value && Boolean(props.emotesEnabled) && showActionBar.value)
 const showTurnRow = computed(() => showActionBar.value || showAutoPlay.value)
-const tingDiscardTiles = computed(() => new Set(props.userTingOptions.map((option) => option.discard)))
 function isTingDiscard(index: number, tile: TileType) {
-  return props.isUserTurn && tingDiscardTiles.value.has(tile)
+  return props.isUserTurn && Boolean(waitOption(index, tile))
     && (!props.bloodFlow?.seats[props.user.seat].locked || index === userDrawnIndex.value)
 }
 /** 自摸窗口的改张建议牌（AI 同源计算；抢杠/点炮窗口 bloodFlow.reformHint 恒为 null）。 */
@@ -380,7 +387,7 @@ function toggleWaits() {
   if (waitsOpen.value) { waitsOpen.value = false; return }
   if (!activeWaits.value && props.userTingOptions.length) {
     const index = props.bloodFlow?.seats[props.user.seat].locked ? userDrawnIndex.value
-      : props.user.hand.indexOf(props.userTingOptions[0].discard!)
+      : props.userTingOptions[0].discardIndex ?? props.user.hand.indexOf(props.userTingOptions[0].discard!)
     if (index >= 0) emit('selectTile', index)
   }
   waitsOpen.value = true
@@ -426,8 +433,8 @@ const userDrawnIndex = computed(() => {
   return hand.length > baseHand ? hand.length - 1 : -1
 })
 
-watch([tableHudElement, () => props.rulesetId], ([hud, rulesetId], _, onCleanup) => {
-  if (!hud || rulesetId !== 'yaotong') return
+watch([tableHudElement, usesYaotongLayout], ([hud, enabled], _, onCleanup) => {
+  if (!hud || !enabled) return
   const identity = hud.querySelector('.user-identity')
   const rack = hud.querySelector('.hand-rack')
   if (!identity || !rack) return
@@ -459,12 +466,12 @@ function usesFinePointer() {
 
 function previewDesktopWaits(tile: TileType, index: number) {
   if (!usesFinePointer() || !isTingDiscard(index, tile)) return
-  hoveredDiscard.value = tile
+  hoveredDiscard.value = index
   waitsOpen.value = true
 }
 
 function clearDesktopWaits() {
-  if (!usesFinePointer() || !hoveredDiscard.value) return
+  if (!usesFinePointer() || hoveredDiscard.value === null) return
   hoveredDiscard.value = null
   waitsOpen.value = false
 }
@@ -560,7 +567,8 @@ function onAvatarError(entry: GamePlayer) {
   <div
     ref="tableHudElement"
     class="game-table-hud"
-    :class="{ 'blood-flow-table': Boolean(bloodFlow), 'yaotong-table': rulesetId === 'yaotong' }"
+    :class="{ 'blood-flow-table': Boolean(bloodFlow), 'yaotong-table': usesYaotongLayout }"
+    :data-ruleset="rulesetId"
     :data-table-theme="themeName"
     :data-phase="phase"
     :data-opening-stage="openingStage ?? ''"
@@ -605,7 +613,7 @@ function onAvatarError(entry: GamePlayer) {
       :settlement-indicator="yaotongView?.settlementIndicator"
       :sideways-discards="yaotongView?.sidewaysDiscards"
       :neutral-peng-orientation="rulesetId === 'yaotong'"
-      :kong-weather="yaotongView?.kongWeather"
+      :kong-weather="kongWeather ?? yaotongView?.kongWeather"
       :flip-stack="flipStack"
       :blood-flow-batches="bloodFlow?.batches"
       :blood-flow-compact="compactPiles"
@@ -676,7 +684,7 @@ function onAvatarError(entry: GamePlayer) {
       v-for="(player, index) in players.slice(1)" :key="player.seat" :player="player"
       :data-yaotong-seat="index + 1"
       :emote-click="canOpenEmotes"
-      :nickname-on-tap="rulesetId === 'yaotong' && !canOpenEmotes"
+      :nickname-on-tap="usesYaotongLayout && !canOpenEmotes"
       :position="seatPosition[index + 1]" :active="currentPlayer === index + 1"
       :action-active="tableActionEvent?.actorIndex === index + 1 || yaotongView?.declarationCues.some(cue => cue.actorIndex === index + 1)" :score-delta="scoreDeltaFor(index + 1)"
       :score-flow-id="presentedScoreFlowEvent?.id" :dealer="dealer === index + 1"
@@ -731,7 +739,7 @@ function onAvatarError(entry: GamePlayer) {
     <section class="user-area">
       <div class="user-identity" data-yaotong-seat="0" :class="{ active: currentPlayer === 0, 'action-active': tableActionEvent?.actorIndex === 0 || yaotongView?.declarationCues.some(cue => cue.actorIndex === 0), 'nickname-open': userNicknameOpen, 'beside-hand': userIdentityBesideHand }" :style="userAnimeStyle">
         <span v-if="dealer === 0" class="dealer-badge">庄</span>
-        <button v-if="rulesetId === 'yaotong'" type="button" class="avatar-button"
+        <button v-if="usesYaotongLayout" type="button" class="avatar-button"
           :aria-label="`查看${user.name}的昵称`" :aria-expanded="userNicknameOpen"
           @click.stop="userNicknameOpen = !userNicknameOpen" @keydown.esc="userNicknameOpen = false" @blur="userNicknameOpen = false">
           <img class="avatar" :src="userAvatar" :alt="`${user.name}头像`" @error="onAvatarError(user)" />
@@ -739,7 +747,7 @@ function onAvatarError(entry: GamePlayer) {
         <img v-else class="avatar" :src="userAvatar" :alt="`${user.name}头像`" @error="onAvatarError(user)" />
         <div class="player-info"><strong><span class="player-name">{{ user.name }}</span></strong><span>{{ user.score }}</span><YaotongSeatMarker v-if="yaotongView" :name="user.name" :status="yaotongView.seats[0]" /></div>
         <Transition name="nickname-reveal">
-          <div v-if="rulesetId === 'yaotong' && userNicknameOpen" class="nickname-popover user-nickname-popover" role="status" aria-live="polite">{{ user.name }}</div>
+          <div v-if="usesYaotongLayout && userNicknameOpen" class="nickname-popover user-nickname-popover" role="status" aria-live="polite">{{ user.name }}</div>
         </Transition>
         <button v-if="bloodFlow" type="button" class="blood-flow-pile-badge win-count-bottom" :data-pile-seat="user.seat"
           :aria-label="`${user.name}，胡${bloodFlow.seats[user.seat].winCount}次，查看流水`"
@@ -789,7 +797,7 @@ function onAvatarError(entry: GamePlayer) {
       <div v-if="showActionBar" class="action-bar">
         <slot name="actions" />
         <button v-if="userCurrentWaits || userTingOptions.length" class="action waiting-action" :class="{ active: waitsOpen }" data-action-role="secondary" aria-label="查看听牌提示" :title="userCurrentWaits ? '已听牌，查看听口' : '查看打哪张可听'" :aria-expanded="waitsOpen" @click="toggleWaits">
-          <TableControlIcon v-if="rulesetId === 'yaotong'" name="waits" />
+          <TableControlIcon v-if="usesYaotongLayout" name="waits" />
           <template v-else-if="themeName === 'llmAnime'"><b>听</b><span>牌</span></template>
           <img v-else class="action-icon" :src="displayImageSrc(`${imageBase}tips.png`)" alt="" />
         </button>
@@ -816,13 +824,15 @@ function onAvatarError(entry: GamePlayer) {
           <button v-if="!yaotongView?.holding && (!bloodFlow || !bloodFlow.seats[user.seat].locked)" class="action pass" data-action-role="danger" @click="$emit('pass')"><b>过</b></button>
         </template>
         <template v-else>
-          <button v-if="userKongs.length" class="action primary" :class="{ 'action-kong': !kongPickerOpen }" data-action-role="primary" @click="toggleKongPicker"><b :class="{ 'action-label': kongPickerOpen }">{{ kongPickerOpen ? '取消' : '杠' }}</b></button>
+          <button v-if="userKongs.length" class="action primary" :class="{ 'action-kong': !kongPickerOpen }"
+            :aria-label="kongPickerOpen ? '取消选杠' : kongActionLabel" :title="kongActionLabel"
+            data-action-role="primary" @click="toggleKongPicker"><b :class="{ 'action-label': kongPickerOpen }">{{ kongPickerOpen ? '取消' : '杠' }}</b></button>
           <button v-if="userHasWindKong" class="action primary" data-action-role="primary" @click="$emit('windKong')"><b class="action-label">风杠</b></button>
           <button v-if="userCanHu && !yaotongView?.confirmHuPlan && !yaotongView?.manualHuControls" class="action hu" data-action-role="major" @click="$emit('hu')"><b>胡</b></button>
         </template>
       </div>
       <button
-        v-if="showAutoPlay && rulesetId !== 'yaotong'" class="action autoplay-action" :class="{ active: autoPlay }" data-action-role="secondary"
+        v-if="showAutoPlay && !usesYaotongLayout" class="action autoplay-action" :class="{ active: autoPlay }" data-action-role="secondary"
         :aria-pressed="autoPlay" :aria-label="autoPlay ? '取消机器人托管，恢复手动操作' : '开启机器人托管，自动出牌与过牌'"
         :title="autoPlay ? '机器人托管中：点击恢复手动' : '点击机器人托管：到您的回合自动出牌/过牌'"
         @click="$emit('toggleAutoPlay')"
@@ -831,7 +841,7 @@ function onAvatarError(entry: GamePlayer) {
       </button>
       <div v-if="(isUserTurn || actionPrompt) && turnSeconds > 0" class="turn-timer" :class="{ 'prompt-timer': actionPrompt }"><span>{{ turnSeconds }}</span></div>
     </div>
-    <div v-if="rulesetId === 'yaotong' && showTurnRow" class="table-persistent-actions">
+    <div v-if="usesYaotongLayout && showTurnRow && $slots['persistent-actions']" class="table-persistent-actions">
       <slot name="persistent-actions" :show-actions="showActionBar" :show-auto-play="showAutoPlay" />
     </div>
     <div v-if="activeWaits && waitsOpen" class="waiting-tip compact-waiting-tip" :class="{ 'blood-flow-waiting-tip': bloodFlow }">
@@ -947,6 +957,15 @@ function onAvatarError(entry: GamePlayer) {
   display: grid;
   gap: 5px;
 }
+.yaotong-table[data-ruleset="yingzhou"] .flip-indicator {
+  max-width: min(270px, 48cqw);
+  color: var(--theme-text);
+  background: var(--theme-panel);
+  border-color: var(--theme-border);
+}
+.yaotong-table .flip-indicator-head > :is(span, em) { color: var(--theme-accent-text); }
+.yaotong-table .flip-indicator-body { color: var(--theme-text-muted); font-size: 12px; line-height: 1.4; }
+.yaotong-table .flip-indicator-body strong { color: var(--theme-text); }
 /* 展开提示箭头：桌面端常显完整卡片，无需提示 */
 .flip-chevron {
   display: none;

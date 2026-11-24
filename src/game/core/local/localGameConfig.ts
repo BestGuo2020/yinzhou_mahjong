@@ -22,3 +22,11 @@ export const PACE_MS = {
   skipDrawPengDelay: 350,
   redKongDraw: 600,
 } as const
+
+/** 幺筒和颍州单人桌共用的实测节奏。应牌时间从弃牌落桌起算。 */
+export const LOCAL_TABLE_PACE = {
+  aiDiscard: 1000,
+  aiDiscardAfterKong: 2000,
+  discardReaction: 1000,
+  extendedReaction: 2000,
+} as const

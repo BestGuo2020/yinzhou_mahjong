@@ -5,6 +5,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import MahjongTable3D from '../MahjongTable3D.vue'
 import MahjongTile from '../MahjongTile.vue'
 import YaotongLedger from '../yaotong/YaotongLedger.vue'
+import YingzhouSettlement from '../settlement/YingzhouSettlement.vue'
 import YaotongSeatMarker from '../yaotong/YaotongSeatMarker.vue'
 import { settlementTitle } from '../../game/variants/yaotong/presentation'
 import { YAOTONG_MODES } from '../../game/variants/yaotong/mode'
@@ -180,7 +181,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onKeydown); compac
           :reveal-all="Boolean(frame?.omniscientAvailable && player.revealAll.value)" :laizi-only="match.rulesetId === 'yaotong'"
           @jump="player.seek" @action="player.jumpAction" />
         <ReplayInfoBoard v-model:expanded="infoExpanded" :match="match" :round="round" :frame="frame" :result-label="resultBanner" />
-        <button v-if="frame?.settled && round?.final?.yaotongState" class="replay-view-toggle"
+        <button v-if="frame?.settled && (round?.final?.yaotongState || match.rulesetId === 'yingzhou' && round?.final?.result)" class="replay-view-toggle"
           @click="player.pause(); ledgerDialog?.showModal()">结算明细</button>
         <button
           v-if="!compact || !frame?.settled"
@@ -229,6 +230,8 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onKeydown); compac
     <dialog ref="ledgerDialog" class="replay-ledger-dialog" aria-label="回放结算明细">
       <header><h2>结算明细</h2><button aria-label="关闭结算明细" @click="ledgerDialog?.close()">×</button></header>
       <YaotongLedger v-if="round?.final?.yaotongState" :state="round.final.yaotongState" :players="ledgerPlayers" :theme-name="match.themeName" />
+      <YingzhouSettlement v-else-if="match.rulesetId === 'yingzhou' && round?.final?.result" section="details"
+        :result="round.final.result" :players="ledgerPlayers" :theme-name="match.themeName" :hand-number="round.roundIndex" />
     </dialog>
     <ReplayTimeline
       :rounds="rounds"

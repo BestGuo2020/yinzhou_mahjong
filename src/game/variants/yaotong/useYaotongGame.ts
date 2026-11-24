@@ -11,19 +11,19 @@ import {
   type StartOptions,
 } from './engine'
 import { AI_DELAYS } from '../../core/controllers/playerController'
-import { PACE_MS } from '../../core/local/localGameConfig'
+import { LOCAL_TABLE_PACE, PACE_MS } from '../../core/local/localGameConfig'
 import { OPENING_PACE_MS } from '../../shared/runtime/localOpening'
 import { discardWaits, waits, isUntouchedFirstDraw } from './hands'
 import type { Command, GameState } from './types'
 import { actionProtection, NO_PROTECTION, protectionReason, type YaotongMode } from './mode'
 import { YAO } from './tiles'
 
-export const YAOTONG_AI_DISCARD_MS = 1000
+export const YAOTONG_AI_DISCARD_MS = LOCAL_TABLE_PACE.aiDiscard
 /** 杠后补摸的出牌间隔：开杠的天气/播报约 2.2s，沿用 1000ms 会让「杠 → 打一张」连成一拍，
  *  牌被特效盖住、应牌窗口也被吃掉；这里拉到 2000ms，让杠结束再落牌。 */
-export const YAOTONG_AI_KONG_DISCARD_MS = 2000
-export const YAOTONG_REACTION_MS = 1000
-export const YAOTONG_EXTENDED_REACTION_MS = 2000
+export const YAOTONG_AI_KONG_DISCARD_MS = LOCAL_TABLE_PACE.aiDiscardAfterKong
+export const YAOTONG_REACTION_MS = LOCAL_TABLE_PACE.discardReaction
+export const YAOTONG_EXTENDED_REACTION_MS = LOCAL_TABLE_PACE.extendedReaction
 export const YAOTONG_WAIT_BUDGET_MS = 15000
 
 export interface YaotongExternalAuthority {

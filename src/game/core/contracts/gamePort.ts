@@ -127,6 +127,8 @@ export interface WaitTileInfo {
 
 export interface WaitInfo {
   discard: TileType | null
+  /** 同牌面可能含杠后标记，打出建议可定位到手中具体的一张。 */
+  discardIndex?: number
   tiles: WaitTileInfo[]
   any: boolean
   remaining: number

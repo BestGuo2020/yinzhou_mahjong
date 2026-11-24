@@ -11,13 +11,15 @@ import {
 type Window =
   | { kind: 'turn' | 'draw' | 'settled' }
   | { kind: 'claim' | 'rob' | 'reveal'; tile: TileType; seats: number[] }
+  | { kind: 'check-rob'; tile: TileType }
+  | { kind: 'supplement'; kong: Kong }
   | { kind: 'bloom'; win: Win }
 
 export type Action =
   | { kind: 'discard'; index: number }
   | { kind: 'kong'; kong: Kong; tile: TileType }
   | { kind: 'win'; win: Win }
-  | { kind: 'draw' | 'pass' | 'peng' }
+  | { kind: 'draw' | 'pass' | 'peng' | 'advance' }
 
 export interface Outcome {
   winner: number | null
@@ -26,7 +28,7 @@ export interface Outcome {
   deltas: number[]
 }
 
-export type RoundEvent = Pick<ReplayStep, 't' | 'seat' | 'text' | 'tile' | 'from' | 'actionType' | 'kind' | 'meldIndex' | 'lastDiscardId'>
+export type RoundEvent = Pick<ReplayStep, 't' | 'seat' | 'text' | 'tile' | 'from' | 'actionType' | 'kind' | 'meldIndex' | 'lastDiscardId' | 'fromTail'>
 export interface Round {
   settings: Settings
   dealer: number
@@ -37,6 +39,7 @@ export interface Round {
   headDrawn: number
   indicator: TileType
   openingDiscards: TileType[]
+  discardedMarks: number
   openingHands: TileType[][]
   players: Seat[]
   turn: number
@@ -106,7 +109,7 @@ export function dealRound(settings: Settings, opening: Opening = {}): Round {
   }
   const round: Round = {
     settings: { ...settings }, dealer, dice, breakIndex, wallSide: (dealer + dice[0] + dice[1] - 1) % 4,
-    wall: remaining, headDrawn: head, indicator: remaining[remaining.length - 1], openingDiscards, openingHands, players,
+    wall: remaining, headDrawn: head, indicator: remaining[remaining.length - 1], openingDiscards, discardedMarks: 0, openingHands, players,
     turn: dealer, origin: 'draw', window: { kind: 'turn' }, lastDiscard: null, result: null, serial: 0, event: null,
     handNumber: opening.handNumber ?? 1, validBefore: opening.validBefore ?? 0,
   }
@@ -164,7 +167,6 @@ function afterBloomWindow(round: Round) {
 
 function completeKong(round: Round, seatIndex: number, kind: Kong, tile: TileType) {
   const seat = round.players[seatIndex]
-  const oldMarks = seat.hand.filter(item => item.marked).length
   const from = kind === 'exposed' ? round.turn : null
   let meldIndex = seat.melds.length
   if (kind === 'added') {
@@ -180,17 +182,25 @@ function completeKong(round: Round, seatIndex: number, kind: Kong, tile: TileTyp
     seat.melds.push({ type: kind === 'concealed' ? 'angang' : 'gang', tile, tiles: [tile, tile, tile, tile], from: from ?? undefined })
   }
   round.turn = seatIndex
-  round.origin = 'supplement'
   round.lastDiscard = null
+  round.window = { kind: 'supplement', kong: kind }
+  round.event = {
+    t: 'meld', seat: seatIndex, tile, from, meldIndex, ...kongEvents[kind],
+    text: KONG_NAMES[kind] + tileName(tile),
+  }
+}
+
+function takeSupplement(round: Round, kind: Kong) {
+  const seat = round.players[round.turn]
+  const oldMarks = seat.hand.filter(item => item.marked).length
+  round.origin = 'supplement'
   const marked = round.settings.mode !== 'live'
   const supplement = marked
     ? round.settings.mode === 'nine' && isSuited(round.indicator) ? nineOf(round.indicator) : round.indicator
     : round.wall.pop()!
   addDraw(seat, supplement, marked)
-  round.event = {
-    t: 'meld', seat: seatIndex, tile, from, meldIndex, ...kongEvents[kind],
-    text: `${KONG_NAMES[kind]}${tileName(tile)}，补${marked ? '标记' : ''}${tileName(supplement)}`,
-  }
+  round.event = { t: 'draw', seat: round.turn, tile: supplement, fromTail: true,
+    text: '杠补' + (marked ? '标记' : '') + tileName(supplement) }
   const win = drawWin(seat, round.settings, round.indicator, { kind, oldMarks, last: !marked && !round.wall.length })
   if (win) round.window = { kind: 'bloom', win }
   else afterBloomWindow(round)
@@ -200,6 +210,7 @@ export function legalActions(round: Round): Action[] {
   const window = round.window
   if (window.kind === 'settled') return []
   if (window.kind === 'draw') return [{ kind: 'draw' }]
+  if (window.kind === 'check-rob' || window.kind === 'supplement') return [{ kind: 'advance' }]
   const seat = round.players[decisionSeat(round)]
   if (window.kind === 'bloom') return [{ kind: 'win', win: window.win }, { kind: 'pass' }]
   if (window.kind === 'claim') {
@@ -243,6 +254,7 @@ function discard(round: Round, index: number) {
   sortHeld(seat.hand)
   seat.drawnIndex = -1
   seat.discards.push(tile.face)
+  if (tile.marked) round.discardedMarks++
   round.lastDiscard = { from: round.turn, tile: tile.face, id: round.serial }
   round.event = { t: 'discard', seat: round.turn, tile: tile.face, lastDiscardId: round.serial,
     text: '打出' + (tile.marked ? '标记' : '') + tileName(tile.face) }
@@ -274,7 +286,7 @@ export function actionKey(action: Action): string {
 }
 
 /** 人与 AI 共用同一个入口。重取合法动作，让过期按钮或重复点击无法自行指定胡分。 */
-export function act(round: Round, actor: number, requested: Action): boolean {
+export function stepRound(round: Round, actor: number, requested: Action): boolean {
   if (actor !== decisionSeat(round)) return false
   const action = legalActions(round).find(option => actionKey(option) === actionKey(requested))
   if (!action) return false
@@ -282,6 +294,18 @@ export function act(round: Round, actor: number, requested: Action): boolean {
   const seat = round.players[actor]
   round.event = { t: 'notice', seat: actor, text: '过' }
   switch (action.kind) {
+    case 'advance': {
+      const window = round.window
+      if (window.kind === 'supplement') takeSupplement(round, window.kong)
+      if (window.kind === 'check-rob') {
+        const seats = following(actor).filter(index => robWin(round.players[index], window.tile, round.settings))
+        if (seats.length) {
+          round.window = { kind: 'rob', tile: window.tile, seats }
+          round.event = null
+        } else completeKong(round, actor, 'added', window.tile)
+      }
+      break
+    }
     case 'win': winRound(round, actor, action.win); break
     case 'pass': pass(round); break
     case 'discard': discard(round, action.index); break
@@ -310,16 +334,22 @@ export function act(round: Round, actor: number, requested: Action): boolean {
     }
     case 'kong': {
       if (action.kong === 'added') {
-        const seats = following(actor).filter(index => robWin(round.players[index], action.tile, round.settings))
-        if (seats.length) {
-          round.window = { kind: 'rob', tile: action.tile, seats }
-          round.event = { t: 'notice', seat: actor, tile: action.tile, text: '申请补杠' + tileName(action.tile) }
-          break
-        }
+        round.window = { kind: 'check-rob', tile: action.tile }
+        round.event = { t: 'notice', seat: actor, tile: action.tile, text: '申请补杠' + tileName(action.tile) }
+        break
       }
       completeKong(round, actor, action.kong, action.tile)
       break
     }
+  }
+  return true
+}
+
+/** 无头对局即时走完同一批强制步骤；牌桌在相邻步骤之间播放动作。 */
+export function act(round: Round, actor: number, requested: Action): boolean {
+  if (!stepRound(round, actor, requested)) return false
+  while (round.window.kind === 'check-rob' || round.window.kind === 'supplement') {
+    stepRound(round, round.turn, { kind: 'advance' })
   }
   return true
 }
