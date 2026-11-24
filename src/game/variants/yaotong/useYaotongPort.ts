@@ -21,6 +21,7 @@ import type {
 } from '../../core/contracts/types'
 import { defaultAvatarForSeat } from '../../core/presentation/avatar'
 import { activeBgmTrackPort, DEFAULT_BGM_FILE } from '../../core/presentation/useAudio'
+import { MATCH_FORMATS } from '../../core/rules/matchFormats'
 import { READY_BGM_ASSET } from '../../core/presentation/audioAssets'
 import {
   TABLE_ACTION_CUE_DURATION_MS,
@@ -363,7 +364,7 @@ export function useYaotongPort(
       .map((p, i) => ({ ...p, rank: i + 1 })),
   )
   const matchName = computed(
-    () => ({ 4: '东风场', 8: '半庄场', 16: '全庄场' })[local.state.value?.matchLength ?? length.value],
+    () => MATCH_FORMATS[local.state.value?.matchLength ?? length.value].name,
   )
   const roundLabel = computed(() =>
     local.state.value ? yaotongRoundLabel(local.state.value.dealerRound) : '',

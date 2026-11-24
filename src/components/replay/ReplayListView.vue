@@ -4,7 +4,7 @@
 // AI 分析记录（方案 §9.2）：每行显示分析区状态（未开启／完整／部分缺失／已删除），
 // 并提供「导出分析包」与「只删分析、保留牌谱」两个独立入口 —— 两者互不影响。
 import { computed, ref, watch } from 'vue'
-import { formatMatchDate, formatRank, gameModeLabel, matchSubtitle, replayVersionNotice } from '../../game/replay/format'
+import { formatMatchDate, formatRank, gameModeLabel, matchSubtitle, replayMatchName, replayVersionNotice } from '../../game/replay/format'
 import { buildReplayExport, downloadReplayExport, replayExportFilename } from '../../game/replay/export'
 import { importReplayFile } from '../../game/replay/importReplay'
 import { REPLAY_KEEP_OPTIONS, readReplayKeepCount, saveReplayKeepCount } from '../../game/replay/preferences'
@@ -88,7 +88,7 @@ watch(() => props.open, (open) => {
 }, { immediate: true })
 
 async function removeMatch(match: ReplayMatch) {
-  if (!window.confirm(`删除这场回放？${match.rulesetName} · ${match.matchName}（${formatMatchDate(match.startedAt)}）`)) return
+  if (!window.confirm(`删除这场回放？${match.rulesetName} · ${replayMatchName(match)}（${formatMatchDate(match.startedAt)}）`)) return
   busy.value = true
   await props.storage.remove(match.id)
   // §9.2：分析区不得比它引用的展示回放活得更久 ⇒ 删场次时同步删除分析数据
@@ -294,7 +294,7 @@ const analysisImportInput = ref<HTMLInputElement | null>(null)
             <div class="replay-row-main">
               <strong>
                 <em class="replay-row-mode" :data-mode="match.gameMode">{{ gameModeLabel(match) }}</em>
-                {{ match.rulesetName }} · {{ match.matchName }}
+                {{ match.rulesetName }} · {{ replayMatchName(match) }}
               </strong>
               <span class="replay-row-sub">{{ match.yaotongMode ? `${YAOTONG_MODES[match.yaotongMode]?.name ?? ''} · ` : '' }}{{ matchSubtitle(match) }}</span>
             </div>

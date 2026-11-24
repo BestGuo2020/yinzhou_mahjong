@@ -2,6 +2,7 @@ import type { GamePlayer } from '../../core/contracts/types'
 import type { RoundResult } from '../../core/contracts/gamePort'
 import { defaultAvatarForSeat } from '../../core/presentation/avatar'
 import { tileName } from '../../core/rules/tiles'
+import { MATCH_FORMATS, type MatchLength } from '../../core/rules/matchFormats'
 import type { ReplayFrameSource } from '../../replay/types'
 import { decisionSeat, type Action, type Round } from './engine'
 import { BASE_POINTS, KONG_NAMES, MODES } from './rules'
@@ -41,12 +42,12 @@ export function tableResult(round: Round): RoundResult | null {
   }
 }
 
-export function replayFrame(round: Round, length: number): ReplayFrameSource {
+export function replayFrame(round: Round, length: MatchLength): ReplayFrameSource {
   return {
     players: tablePlayers(round), wallTotal: 136, wallLeft: round.wall.length, headDrawn: round.headDrawn,
     currentPlayer: decisionSeat(round), round: round.handNumber,
     roundLabel: roundLabel(round) + (round.settings.smallBan ? ' · 小牌禁胡' : ''), dealer: round.dealer,
-    honba: 0, matchType: length === 4 ? 'east' : 'hanchan', matchName: `${length} 局场`,
+    honba: 0, matchType: length === 4 ? 'east' : 'hanchan', matchName: MATCH_FORMATS[length].name,
     diceValues: round.dice, diceThrowerIndex: round.dealer, wallBreakIndex: round.breakIndex, jokerTiles: [],
     yingzhou: { indicator: round.indicator, tailFaceUp: tailFaceUp(round), markedIndices: markedIndices(round) },
   }

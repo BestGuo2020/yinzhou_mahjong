@@ -3,6 +3,7 @@ import type { GamePhase, OpeningStage } from '../../core/contracts/gamePort'
 import type { TileType } from '../../core/contracts/types'
 import { AI_DELAYS } from '../../core/controllers/playerController'
 import { LOCAL_TABLE_PACE, PACE_MS } from '../../core/local/localGameConfig'
+import type { MatchLength } from '../../core/rules/matchFormats'
 import { OPENING_PACE_MS, playOpeningCue } from '../../shared/runtime/localOpening'
 import type { ReplayRecording } from '../../replay/useReplayRecorder'
 import { chooseAction } from './ai'
@@ -14,7 +15,7 @@ import { handWaits } from './waits'
 
 export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, audio: TableAudio) {
   const settings = ref<Settings>({ mode: 'live', smallBan: false })
-  const length = ref<4 | 8 | 16>(4)
+  const length = ref<MatchLength>(4)
   const matchLength = ref(length.value)
   const matchNumber = ref(0)
   const round = ref<Round | null>(null)

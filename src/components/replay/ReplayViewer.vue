@@ -13,7 +13,7 @@ import ReplayEventLog from './ReplayEventLog.vue'
 import ReplayInfoBoard from './ReplayInfoBoard.vue'
 import ReplayTimeline from './ReplayTimeline.vue'
 import { useReplayPlayer } from '../../game/replay/useReplayPlayer'
-import { formatDelta, formatRank, replayWinLabel } from '../../game/replay/format'
+import { formatDelta, formatRank, replayMatchName, replayWinLabel } from '../../game/replay/format'
 import { defaultAvatarForSeat } from '../../game/core/presentation/avatar'
 import { displayImageSrc } from '../../game/core/presentation/imagePreload'
 import { themePresentationByName, themePresentationCssVariables } from '../../theme/themePresentation'
@@ -172,7 +172,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onKeydown); compac
       </button>
       <div class="replay-title">
         <strong><span class="replay-game-name">{{ match.rulesetName }} · </span>{{ round?.roundLabel ?? '对局' }}<span class="replay-title-suffix">回放</span></strong>
-        <span class="replay-subtitle"><span v-if="match.yaotongMode">{{ YAOTONG_MODES[match.yaotongMode]?.name }} · </span>{{ match.matchName }}<span class="replay-title-rank"> · {{ match.status === 'finished' ? formatRank(match.myRank) : '未完成' }}</span></span>
+        <span class="replay-subtitle"><span v-if="match.yaotongMode">{{ YAOTONG_MODES[match.yaotongMode]?.name }} · </span>{{ replayMatchName(match) }}<span class="replay-title-rank"> · {{ match.status === 'finished' ? formatRank(match.myRank) : '未完成' }}</span></span>
       </div>
       <div class="replay-view-mode">
         <ReplayEventLog v-model:open="logOpen" :compact="compact"

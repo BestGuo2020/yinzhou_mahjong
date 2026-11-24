@@ -8,6 +8,7 @@ import {
   matchSubtitle,
   meldLabel,
   rankTone,
+  replayMatchName,
   replayVersionNotice,
   roundLabelFor,
   stepSummary,
@@ -17,6 +18,13 @@ import { REPLAY_SCHEMA_VERSION, type ReplayStep } from './types'
 const NOON = new Date(2026, 8, 14, 12, 0, 0).getTime()
 
 describe('回放列表文案', () => {
+  it('把旧颍州牌谱的场长显示为东风场、半庄场和全庄场', () => {
+    expect(['4 局场', '8 局场', '16 局场'].map(matchName => replayMatchName({ rulesetId: 'yingzhou', matchName })))
+      .toEqual(['东风场', '半庄场', '全庄场'])
+    expect(replayMatchName({ rulesetId: 'yingzhou', matchName: '练习场' })).toBe('练习场')
+    expect(replayMatchName({ rulesetId: 'yaotong', matchName: '4 局场' })).toBe('4 局场')
+  })
+
   it('对局日期：今天只显示时刻，本年内显示月日，跨年带年份', () => {
     const today = new Date(2026, 8, 14, 21, 3, 0).getTime()
     expect(formatMatchDate(today, NOON)).toBe('21:03')

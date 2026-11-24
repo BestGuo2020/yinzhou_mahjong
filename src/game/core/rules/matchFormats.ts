@@ -1,0 +1,8 @@
+export const MATCH_LENGTHS = [4, 8, 16] as const
+export type MatchLength = typeof MATCH_LENGTHS[number]
+
+export const MATCH_FORMATS = {
+  4: { name: '东风场', winds: '东风一圈' },
+  8: { name: '半庄场', winds: '东、南两圈' },
+  16: { name: '全庄场', winds: '东、南、西、北四圈' },
+} as const satisfies Record<MatchLength, { name: string; winds: string }>

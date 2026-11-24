@@ -1,6 +1,7 @@
 // 回放列表与牌谱的纯文案工具（全部无副作用，便于单测）。
 import type { MatchType, TileType } from '../core/contracts/types'
 import { tileName } from '../core/rules/tiles'
+import { MATCH_FORMATS, MATCH_LENGTHS } from '../core/rules/matchFormats'
 import type { ReplayMatch, ReplayMeldKind, ReplayPlayer, ReplayRound, ReplayRoundFinal, ReplayStep } from './types'
 import { settlementTitle } from '../variants/yaotong/presentation'
 import { REPLAY_SCHEMA_VERSION } from './types'
@@ -9,6 +10,13 @@ const pad = (value: number) => String(value).padStart(2, '0')
 
 /** 「东风场」/「半庄场」。 */
 export const MATCH_NAME_LABELS: Record<MatchType, string> = { east: '东风场', hanchan: '半庄场' }
+
+/** 旧颍州牌谱保存的是“4 局场”等数字名称，仅在展示时换成对应的场次名。 */
+export function replayMatchName({ rulesetId, matchName }: Pick<ReplayMatch, 'rulesetId' | 'matchName'>): string {
+  if (rulesetId !== 'yingzhou') return matchName
+  const length = MATCH_LENGTHS.find(count => matchName === `${count} 局场`)
+  return length === undefined ? matchName : MATCH_FORMATS[length].name
+}
 
 /**
  * 对局日期：今天 → 「21:03」；本年内 → 「9月14日 21:03」；跨年 → 「2025年9月14日」。

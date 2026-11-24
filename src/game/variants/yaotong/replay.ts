@@ -1,5 +1,6 @@
 import type { GamePlayer, TableActionType, TileType } from '../../core/contracts/types'
 import type { RoundResult } from '../../core/contracts/gamePort'
+import { MATCH_FORMATS } from '../../core/rules/matchFormats'
 import { defaultAvatarForSeat } from '../../core/presentation/avatar'
 import type { ReplayFrameSource, ReplayRecorderHooks, ReplayStep } from '../../replay/types'
 import { observeGameEvents } from './engine'
@@ -28,7 +29,7 @@ export function yaotongReplayFrame(state: GameState, characterId?: string, tailC
     players, wallLeft: state.wall.length, headDrawn: 108 - state.wall.length - tailDraws,
     currentPlayer: state.current, round: state.dealerRound, dealer: state.dealer, honba: state.repeats,
     matchType: state.matchLength === 4 ? 'east' : 'hanchan',
-    matchName: ({ 4: '东风场', 8: '半庄场', 16: '全庄场' })[state.matchLength],
+    matchName: MATCH_FORMATS[state.matchLength].name,
     roundLabel: yaotongRoundLabel(state.dealerRound), wallTotal: 108, diceValues: [...state.dice],
     diceThrowerIndex: state.dealer, jokerTiles: ['p1'], wildcardTiles: [],
     wallBreakIndex: ([0, 82, 54, 28][state.wallSide] + state.reservedStacks * 2) % 108,

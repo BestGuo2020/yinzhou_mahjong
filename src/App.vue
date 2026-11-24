@@ -13,6 +13,7 @@ import { resolveInitialTableTheme } from './components/table/three/tableThemePre
 import { playableTheme, type TableThemeName } from './theme/themeIdentity'
 import { themePresentationByName, themePresentationCssVariables } from './theme/themePresentation'
 import { useAudio } from './game/core/presentation/useAudio'
+import { MATCH_FORMATS } from './game/core/rules/matchFormats'
 import { useReplayRecorder } from './game/replay/useReplayRecorder'
 import type { ReplayMatch, ReplayRound } from './game/replay/types'
 import { BASE_POINTS } from './game/variants/yingzhou/rules'
@@ -134,7 +135,7 @@ const shownMarks = computed(() => {
   if (win?.winnerIndex === 0 && !win.robbedKong) hand = hand.filter((_, i) => i !== win.sourceIndex)
   return hand.flatMap((tile, i) => tile.marked ? [i] : [])
 })
-const matchName = computed(() => `${matchLength.value} 局场`)
+const matchName = computed(() => MATCH_FORMATS[matchLength.value].name)
 const handLabel = computed(() => round.value ? `第 ${round.value.handNumber} 局` : '')
 const label = computed(() => round.value ? roundLabel(round.value) : '')
 const standings = computed(() => [...players.value].sort((a, b) => b.score - a.score || a.seat - b.seat)
