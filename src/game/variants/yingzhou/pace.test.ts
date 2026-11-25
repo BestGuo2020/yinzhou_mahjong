@@ -30,7 +30,7 @@ function setup(round = fixture(), voice = async (_name: string) => {}) {
   stops.push(() => scope.stop())
   const paused = ref(false)
   const play = vi.fn()
-  const replay = { hooks: { roundStart: vi.fn(), step: vi.fn(), roundEnd: vi.fn() }, active: () => false } as unknown as ReplayRecording
+  const replay = { hooks: { roundStart: vi.fn(), step: vi.fn(), roundEnd: vi.fn() }, finish: vi.fn(), active: () => false } as unknown as ReplayRecording
   const game = scope.run(() => useYingzhouGame(replay, paused, { play, playAndWait: voice }))!
   game.start()
   game.round.value = round
@@ -205,6 +205,59 @@ describe('颍州实桌沿用幺筒节奏', () => {
     game.start()
     expect(game.round.value!.settings).toEqual({ mode: 'fixed', smallBan: false })
     expect(game.matchLength.value).toBe(4)
+  })
+
+  it('东风场中途有连庄时，最终结算和末局牌谱都落在东四局', async () => {
+    const { game, replay } = setup()
+    game.autoplay.value = true
+    for (const [index, winner] of [0, 1, 2, 3, 0].entries()) {
+      const round = game.round.value!
+      round.players[winner].hand = held(round.indicator, round.indicator, round.indicator)
+      round.window = { kind: 'reveal', tile: round.indicator, seats: [winner] }
+      await nextTick()
+      await vi.runAllTimersAsync()
+      expect(game.result.value?.winnerIndex).toBe(winner)
+      if (index < 4) {
+        expect(game.finished.value).toBe(false)
+        expect(replay.finish).not.toHaveBeenCalled()
+        game.next()
+      }
+    }
+    expect(game.finished.value).toBe(true)
+    expect(game.result.value?.roundLabel).toBe('东4局')
+    expect(replay.hooks.roundEnd).toHaveBeenLastCalledWith(
+      expect.objectContaining({ roundLabel: '东4局' }), expect.objectContaining({ round: 4 }),
+    )
+    expect(replay.finish).toHaveBeenCalledExactlyOnceWith('finished')
+    const last = game.round.value
+    game.next()
+    expect(game.round.value).toBe(last)
+  })
+
+  it.each([[4, '东4局'], [8, '南4局'], [16, '北4局']] as const)('%i 庄次的末局流局、庄家胡牌都留庄，闲家胡牌才结束', async (length, label) => {
+    const last = fixture()
+    last.dealerRound = length
+    last.wall = []
+    const { game, replay } = setup(last)
+    game.matchLength.value = length
+    await vi.advanceTimersByTimeAsync(openTime)
+    game.play({ kind: 'discard', index: 0 })
+    await vi.runAllTimersAsync()
+    expect(game.result.value).toMatchObject({ roundLabel: label, draw: true })
+    expect(game.finished.value).toBe(false)
+    for (const [honba, winner] of [[1, 0], [2, 1]]) {
+      game.next()
+      const round = game.round.value!
+      expect(round).toMatchObject({ dealerRound: length, dealer: 0, honba })
+      round.players[winner].hand = held(round.indicator, round.indicator, round.indicator)
+      round.window = { kind: 'reveal', tile: round.indicator, seats: [winner] }
+      game.autoplay.value = true
+      await nextTick()
+      await vi.runAllTimersAsync()
+      expect(game.result.value).toMatchObject({ roundLabel: label, winnerIndex: winner })
+      expect(game.finished.value).toBe(winner !== 0)
+    }
+    expect(replay.finish).toHaveBeenCalledExactlyOnceWith('finished')
   })
 
   it('开场等语音与最短时长，随后掷骰、按原间隔逆时针发牌、跳牌', async () => {

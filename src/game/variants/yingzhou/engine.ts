@@ -60,7 +60,6 @@ export interface Round {
   serial: number
   event: RoundEvent | null
   handNumber: number
-  validBefore: number
   dealerRound: number
   honba: number
 }
@@ -72,7 +71,6 @@ interface Opening {
   random?: () => number
   scores?: number[]
   handNumber?: number
-  validBefore?: number
   dealerRound?: number
   honba?: number
 }
@@ -128,20 +126,24 @@ export function dealRound(settings: Settings, opening: Opening = {}): Round {
     settings: { ...settings }, dealer, dice, breakIndex, wallSide: (dealer + dice[0] + dice[1] - 1) % 4,
     wall: remaining, headDrawn: head, indicator: remaining[remaining.length - 1], openingDiscards, discardedMarks: 0, openingBatches, players,
     turn: dealer, origin: 'draw', window: { kind: 'turn' }, lastDiscard: null, result: null, serial: 0, event: null,
-    handNumber: opening.handNumber ?? 1, validBefore: opening.validBefore ?? 0,
+    handNumber: opening.handNumber ?? 1,
     dealerRound: opening.dealerRound ?? 1, honba: opening.honba ?? 0,
   }
   offerReveal(round, [dealer, ...following(dealer)])
   return round
 }
 
+export function nextDealer(round: Round) {
+  return round.result?.winner ?? round.dealer
+}
+
 export function followingRound(previous: Round, opening: Opening = {}) {
   if (!previous.result) throw new Error('本局尚未结束')
-  const dealer = previous.result.winner ?? previous.dealer
+  const dealer = nextDealer(previous)
   const sameDealer = dealer === previous.dealer
   return dealRound(previous.settings, {
     ...opening, dealer, scores: previous.players.map(seat => seat.score),
-    handNumber: previous.handNumber + 1, validBefore: previous.validBefore + Number(previous.result.winner !== null),
+    handNumber: previous.handNumber + 1,
     dealerRound: sameDealer ? previous.dealerRound : previous.dealerRound + 1,
     honba: sameDealer ? previous.honba + 1 : 0,
   })

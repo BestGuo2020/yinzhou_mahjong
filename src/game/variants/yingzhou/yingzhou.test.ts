@@ -291,12 +291,12 @@ describe('杠补顺序与结算', () => {
     win(copy, 'bloom')
     expect(copy.result?.win?.label).toBe('海底捞月')
     expect(copy.result?.deltas).toEqual([90,-30,-30,-30])
-    expect(followingRound(copy)).toMatchObject({ dealer: 0, dealerRound: 1, honba: 1, validBefore: 1 })
+    expect(followingRound(copy)).toMatchObject({ dealer: 0, dealerRound: 1, honba: 1 })
     run(r, { kind: 'pass' })
     expect(r.result?.winner).toBeNull()
     const next = followingRound(r)
     expect(next.settings).toEqual(r.settings)
-    expect(next).toMatchObject({ dealer: 0, handNumber: 2, dealerRound: 1, honba: 1, validBefore: 0 })
+    expect(next).toMatchObject({ dealer: 0, handNumber: 2, dealerRound: 1, honba: 1 })
     expect(next.players.every(s => !s.discards.length && s.hand.every(t => !t.marked))).toBe(true)
   })
 })
@@ -326,7 +326,7 @@ describe('抢杠和小牌限制', () => {
     expect(r.result?.deltas).toEqual([-60,0,0,60])
     const next = followingRound(r)
     expect(next.settings).toEqual(r.settings)
-    expect(next).toMatchObject({ dealer: 3, dealerRound: 2, honba: 0, validBefore: 1 })
+    expect(next).toMatchObject({ dealer: 3, dealerRound: 2, honba: 0 })
     expect(next.players.map(p => p.score)).toEqual([-60,0,0,60])
   })
   it.each(['p1','s2','m3','red'] as const)('小牌禁胡限制 %s 的自摸和抢杠，杠开可胡', face => {
@@ -376,7 +376,6 @@ describe('完整对局', () => {
     r.dealerRound = dealerRound
     r.honba = 2
     r.handNumber = dealerRound + 2
-    r.validBefore = dealerRound - 1
     r.players[3].hand = held(r.indicator, r.indicator, r.indicator)
     r.window = { kind: 'reveal', tile: r.indicator, seats: [3] }
     win(r, 'indicator')
@@ -384,7 +383,7 @@ describe('完整对局', () => {
     expect(replayFrame(r, 16)).toMatchObject({ round: dealerRound, roundLabel: `${before} · 2本场 · 活杠`, honba: 2 })
 
     const next = followingRound(r)
-    expect(next).toMatchObject({ dealer: 3, handNumber: r.handNumber + 1, validBefore: dealerRound })
+    expect(next).toMatchObject({ dealer: 3, handNumber: r.handNumber + 1 })
     expect(replayFrame(next, 16)).toMatchObject({ round: dealerRound + 1, roundLabel: `${after} · 活杠`, honba: 0 })
   })
   it.each(['live','fixed','nine'] as const)('%s 四个座位连续合法决策直至结束', mode => {

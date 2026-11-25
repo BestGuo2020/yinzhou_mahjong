@@ -1,6 +1,6 @@
 # AGENTS.md
 
-颍州扎杠麻将使用 Vue 3 和 Three.js，由一名玩家与三名本地 AI 对局。当前入口使用 `src/game/variants/yingzhou/`，每场按 4／8／16 个有效局推进。玩法依据 `docs/颍州扎杠麻将完整规则.md` 和 `docs/颍州扎杠麻将新手规则.md`。
+颍州扎杠麻将使用 Vue 3 和 Three.js，由一名玩家与三名本地 AI 对局。当前入口使用 `src/game/variants/yingzhou/`，每场打 4／8／16 个庄次。仅闲家胡牌时换庄推进局号，末局换庄时整场结束。玩法依据 `docs/颍州扎杠麻将完整规则.md` 和 `docs/颍州扎杠麻将新手规则.md`。
 
 本地 AI、LLM、训练评测、分析回放和它们依赖的旧玩法引擎必须保留；不能按 `lotus`、`bloodFlow` 等目录名批量删除。现有联机底层代码（WebSocket）也保留，等待幺筒适配。下方上游名称约束继续适用于保留模块。
 

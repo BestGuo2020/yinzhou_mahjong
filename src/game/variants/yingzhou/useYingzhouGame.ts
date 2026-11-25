@@ -8,7 +8,7 @@ import type { MatchLength } from '../../core/rules/matchFormats'
 import { OPENING_PACE_MS, playOpeningCue } from '../../shared/runtime/localOpening'
 import type { ReplayRecording } from '../../replay/useReplayRecorder'
 import { chooseAction } from './ai'
-import { stepRound, dealRound, decisionSeat, followingRound, legalActions, type Action, type Round } from './engine'
+import { stepRound, dealRound, decisionSeat, followingRound, legalActions, nextDealer, type Action, type Round } from './engine'
 import { replayFrame, tableResult } from './presentation'
 import { type Settings } from './rules'
 import { useTablePresentation, type TableAudio } from './useTablePresentation'
@@ -33,7 +33,10 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
   const dealtBatches = computed(() => opening.value ? round.value!.openingBatches.slice(0, Math.max(0, dealStep.value)) : [])
   const openingStage = computed<OpeningStage | null>(() => opening.value
     ? dealStep.value < 0 ? 'start' : dealStep.value === 0 ? 'dice' : 'deal' : null)
-  const finished = computed(() => !!round.value?.result && round.value.validBefore + Number(round.value.result.winner !== null) >= matchLength.value)
+  const finished = computed(() => {
+    const state = round.value
+    return !!state && state.dealerRound === matchLength.value && nextDealer(state) !== state.dealer
+  })
   const actor = computed(() => round.value ? decisionSeat(round.value) : -1)
   const playable = computed(() => ready.value && !opening.value && !paused.value && !autoplay.value
     && !pending.value && !round.value?.result && actor.value === 0)

@@ -22,7 +22,7 @@ const showEffectsPreview = import.meta.env.DEV
     <div class="lobby-layout">
       <LobbyThemeVisual :theme-name="themeName" />
       <section class="lobby-actions" aria-label="对局操作">
-        <GameSettingsSummary :match-name="MATCH_FORMATS[length].name" :match-description="`${MATCH_FORMATS[length].winds} · ${length} 个有效局`"
+        <GameSettingsSummary :match-name="MATCH_FORMATS[length].name" :match-description="`${MATCH_FORMATS[length].winds} · ${length} 个庄次`"
           :rule-name="MODES[settings.mode].name" :rule-description="settings.smallBan ? '小牌禁胡已开启' : MODES[settings.mode].description"
           @select-match="picker = 'length'" @select-rule="picker = 'rules'" />
         <button type="button" class="start-button" data-action-role="primary" @click="emit('start')">
@@ -39,7 +39,7 @@ const showEffectsPreview = import.meta.env.DEV
     <YingzhouRulePicker v-if="picker === 'rules'" :settings="settings" :theme-name="themeName"
       @confirm="settings = $event; picker = null" @close="picker = null" />
     <LobbyDialog v-if="picker === 'length'" title="选择场次" variant="match" :theme-name="themeName" @close="picker = null">
-      <YaotongMatchPicker :model-value="length" count-wins @close="picker = null" @confirm="length = $event; picker = null" />
+      <YaotongMatchPicker :model-value="length" yingzhou @close="picker = null" @confirm="length = $event; picker = null" />
     </LobbyDialog>
   </section>
 </template>

@@ -124,7 +124,7 @@ test('死九报扎、付分、按开场配置续局和本地回放', async ({ pa
   const formatPicker = page.getByRole('dialog', { name: '选择场次' })
   await formatPicker.getByRole('button', { name: /全庄场/ }).click()
   await formatPicker.getByRole('button', { name: '确定', exact: true }).click()
-  await expect(page.getByRole('button', { name: /场次 全庄场/ })).toContainText('16 个有效局')
+  await expect(page.getByRole('button', { name: /场次 全庄场/ })).toContainText('16 个庄次')
   await page.getByRole('button', { name: /玩法 活杠/ }).click()
   await page.getByRole('button', { name: /死九/ }).click()
   await page.getByRole('checkbox', { name: /小牌禁胡/ }).check()
@@ -306,7 +306,7 @@ test('普通弃牌应牌的碰和杠使用原版高亮，隐藏工具不占横�
 
 test.describe('手机完整场次', () => {
   test.use({ isMobile: true, hasTouch: true, reducedMotion: 'reduce', viewport: { width: 390, height: 844 } })
-  test('竖屏指引、四局后的末局结算和最终排名', async ({ page }, info) => {
+  test('竖屏指引、东风场连庄后打到东四局才显示最终排名', async ({ page }, info) => {
     test.setTimeout(110_000)
     await page.goto('/?theme=rosewood&quality=low')
     await expect(page.getByRole('button', { name: '进入全屏横屏' })).toBeVisible({ timeout: 30_000 })
@@ -318,18 +318,23 @@ test.describe('手机完整场次', () => {
     await clickWithSeed(page.getByRole('button', { name: /开始对局/ }), 9890)
     const table = page.locator('canvas.mahjong-scene')
     const firstCanvas = await table.evaluateHandle(canvas => canvas)
-    for (let hand = 1; hand <= 4; hand++) {
-      const win = page.getByRole('button', { name: hand === 1 ? '扎亮牌 ×3' : '扎九 ×2' })
-      await expect(win).toBeVisible({ timeout: 30_000 })
+    // 首把本家连庄，随后下家、对家、上家、本家依次起手扎亮牌换庄。
+    const nextSeeds = [2207, 1411, 1422, 3386]
+    const labels = ['东1局', '东1局 · 1本场', '东2局', '东3局', '东4局']
+    for (const [index, label] of labels.entries()) {
       const badge = page.locator('.round-info')
-      await expect(badge).toHaveText(hand === 1 ? '东风场 · 东1局' : `东风场 · 东1局 · ${hand - 1}本场`)
-      if (hand === 2) await badge.screenshot({ path: info.outputPath('repeat-round-label.png') })
-      await win.click()
-      await expect(page.locator('.table-action-cue.win')).toHaveText(hand === 1 ? '扎亮牌' : '扎九')
-      const dialog = page.getByRole('dialog', { name: /^东1局 · 扎/ })
-      await expect(dialog).toBeVisible({ timeout: 12_000 })
-      if (hand < 4) {
-        await clickWithSeed(dialog.getByRole('button', { name: '继续', exact: true }), 861569)
+      await expect(badge).toHaveText(`东风场 · ${label}`)
+      if (index === 1) await badge.screenshot({ path: info.outputPath('repeat-round-label.png') })
+      if (index === 0 || index === 4) {
+        const win = page.getByRole('button', { name: '扎亮牌 ×3' })
+        await expect(win).toBeVisible({ timeout: 30_000 })
+        await win.click()
+      }
+      const dialog = page.getByRole('dialog', { name: `${label.split(' · ')[0]} · 扎亮牌`, exact: true })
+      await expect(dialog).toBeVisible({ timeout: 30_000 })
+      if (index < nextSeeds.length) {
+        await expect(dialog.getByRole('button', { name: '查看最终排名' })).toHaveCount(0)
+        await clickWithSeed(dialog.getByRole('button', { name: '继续', exact: true }), nextSeeds[index])
         await expect(dialog).toHaveCount(0)
         expect(await table.evaluate((canvas, first) => canvas === first, firstCanvas)).toBe(true)
         await expect(page.locator('.table-loading')).toHaveCount(0)
@@ -338,7 +343,7 @@ test.describe('手机完整场次', () => {
     const final = page.getByRole('dialog', { name: '最终排名' })
     await expect(final.locator('> p')).toHaveText('东风场 · 对局结束')
     await expect(final.locator('.final-rankings article')).toHaveCount(4)
-    await expect(final.locator('.final-rankings article').first()).toContainText('270')
+    await expect(final.locator('.final-rankings article').first()).toContainText('90')
     await final.evaluate(async el => {
       const layer = el.closest('.final-backdrop')!
       await Promise.all(layer.getAnimations({ subtree: true })
@@ -379,9 +384,9 @@ for (const mobile of [false, true]) {
         const length = page.getByRole('dialog', { name: '选择场次' })
         await expect(length.locator('.picker-options b')).toHaveText(['东风场', '半庄场', '全庄场'])
         await expect(length.locator('.picker-options small')).toHaveText([
-          '东风一圈，打满 4 个有效局结束。', '东、南两圈，打满 8 个有效局结束。', '东、南、西、北四圈，打满 16 个有效局结束。',
+          '东风一圈 · 4 个庄次', '东、南两圈 · 8 个庄次', '东、南、西、北四圈 · 16 个庄次',
         ])
-        await expect(length.getByText('有人胡牌才计一局，庄家连庄也算。流局由原庄重打。')).toBeInViewport({ ratio: 1 })
+        await expect(length.getByText('庄家胡牌或流局，原庄重打本局。闲家胡牌换庄，末局换庄时结束。')).toBeInViewport({ ratio: 1 })
         await expect(length.getByRole('button', { name: '确定', exact: true })).toBeInViewport({ ratio: 1 })
         if (theme === 'jade') await length.screenshot({ path: info.outputPath('match-picker.png'), animations: 'disabled' })
         await length.getByRole('button', { name: /半庄场/ }).click()
