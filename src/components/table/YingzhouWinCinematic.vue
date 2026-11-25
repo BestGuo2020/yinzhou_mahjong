@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { WinEffect } from '../../game/core/contracts/gamePort'
 import { tileName } from '../../game/core/rules/tiles'
 import type { WinKind } from '../../game/variants/yingzhou/rules'
-import { WIN_PLAYBACK_RATE, YINGZHOU_WIN_MOTION, type RobSourceAnchor } from '../../game/variants/yingzhou/winMotion'
+import { YINGZHOU_WIN_MOTION, type RobSourceAnchor } from '../../game/variants/yingzhou/winMotion'
 import { assetUrl, clamp, paintWinFrame, ramp, winArtwork } from './yingzhouCinematic'
 
 const props = defineProps<{ effect: WinEffect; kind: WinKind; label: string; winner: string;
@@ -29,10 +29,10 @@ onMounted(() => {
   observer = new ResizeObserver(resize)
   observer.observe(surface)
   const started = performance.now() - Math.max(0, Date.now() - props.effect.id)
-  const end = props.effect.duration * WIN_PLAYBACK_RATE
-  const { land: landedAt, takeoff, impact } = YINGZHOU_WIN_MOTION[props.kind]
+  const { rate, land: landedAt, takeoff, impact } = YINGZHOU_WIN_MOTION[props.kind]
+  const end = props.effect.duration * rate
   function frame(time: number) {
-    const ms = Math.max(0, time - started) * WIN_PLAYBACK_RATE
+    const ms = Math.max(0, time - started) * rate
     if (sourceTag.value) sourceTag.value.style.opacity = String(1 - ramp(ms, takeoff, takeoff + 160))
     const alpha = ramp(ms, landedAt, landedAt + 115) * (1 - ramp(ms, end - 230, end))
     const land = ramp(ms, impact - 110, impact + 55)
