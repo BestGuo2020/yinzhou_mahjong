@@ -6,6 +6,8 @@ import { OPENING_PACE_MS } from '../../shared/runtime/localOpening'
 import { dealRound } from './engine'
 import { ordinary } from './rules'
 import { useYingzhouGame } from './useYingzhouGame'
+import { tileAudioFile } from '../../core/rules/tiles'
+import { chooseAction } from './ai'
 import { handWaits } from './waits'
 
 const held = (...faces: TileType[]) => faces.map(ordinary)
@@ -29,7 +31,7 @@ function setup(round = fixture(), voice = async (_name: string) => {}) {
   game.start()
   game.round.value = round
   game.ready.value = true
-  return { game, state: game.round.value!, play, paused }
+  return { game, state: game.round.value!, play, paused, replay }
 }
 beforeEach(() => { vi.useFakeTimers(); vi.stubGlobal('window', globalThis) })
 afterEach(() => { stops.splice(0).forEach(stop => stop()); vi.useRealTimers(); vi.unstubAllGlobals() })
@@ -52,7 +54,7 @@ describe('颍州实桌沿用幺筒节奏', () => {
     expect(game.matchLength.value).toBe(4)
   })
 
-  it('开场等语音与最短时长，随后掷骰、按原间隔顺时针发牌、跳牌', async () => {
+  it('开场等语音与最短时长，随后掷骰、按原间隔逆时针发牌、跳牌', async () => {
     let ended!: () => void
     const voice = vi.fn((name: string) => name === 'game_start.mp3' ? new Promise<void>(r => { ended = r }) : Promise.resolve())
     const { game, play } = setup(fixture(), voice)
@@ -64,13 +66,80 @@ describe('颍州实桌沿用幺筒节奏', () => {
     await vi.advanceTimersByTimeAsync(1150)
     expect(game.players.value.map(p => p.hand.length)).toEqual([4,0,0,0])
     await vi.advanceTimersByTimeAsync(259)
-    expect(game.players.value[3].hand).toHaveLength(0)
+    expect(game.players.value[1].hand).toHaveLength(0)
     await vi.advanceTimersByTimeAsync(1)
-    expect(game.players.value[3].hand).toHaveLength(4)
-    await vi.advanceTimersByTimeAsync(12 * 260 + 450 + 650)
+    expect(game.players.value.map(p => p.hand.length)).toEqual([4,4,0,0])
+    for (let batch = 2; batch < 13; batch++) {
+      await vi.advanceTimersByTimeAsync(260)
+      expect(game.dealAnimation.value.playerIndex).toBe(batch % 4)
+    }
+    expect(game.players.value.map(p => p.hand.length)).toEqual([14,12,12,12])
+    expect(game.dealAnimation.value.sourceOffsets).toEqual([48,52])
+    expect(game.dealAnimation.value.remainingWallOffsets?.slice(0, 5)).toEqual([49,50,51,53,54])
+    await vi.advanceTimersByTimeAsync(260 + 450 + 650)
     expect(play.mock.calls.filter(([file]) => file === 'deal.mp3')).toHaveLength(12)
     expect(game.mayDiscard.value).toBe(true)
     expect(voice.mock.calls.map(([file]) => file)).toEqual(['game_start.mp3','dice.mp3'])
+  })
+  it('本家正常摸末张后选牌打出，最后一张进河并报完实际打出的字牌才结算', async () => {
+    let finishVoice!: () => void
+    const voice = vi.fn((name: string) => name === '5z.mp3' ? new Promise<void>(r => { finishVoice = r }) : Promise.resolve())
+    const f = fixture()
+    f.wall = ['s8']; f.indicator = 's8'; f.window = { kind: 'draw' }
+    const { game, state, replay } = setup(f, voice)
+    await vi.advanceTimersByTimeAsync(openTime + 2000)
+    expect(state.wall).toHaveLength(0)
+    expect(state.players[0].hand.at(-1)?.face).toBe('s8')
+    expect(game.mayDiscard.value).toBe(true)
+    expect(game.result.value).toBeNull()
+    game.play({ kind: 'discard', index: state.players[0].hand.findIndex(t => t.face === 'red') })
+    expect(game.players.value[0].discards.at(-1)).toBe('red')
+    expect(state.lastDiscard).toMatchObject({ from: 0, tile: 'red' })
+    expect(replay.hooks.step).toHaveBeenLastCalledWith(expect.objectContaining({ t: 'discard', seat: 0, tile: 'red' }), expect.anything())
+    await vi.advanceTimersByTimeAsync(1100)
+    expect(voice.mock.calls.filter(([file]) => file === '5z.mp3')).toHaveLength(1)
+    expect(game.revealHands.value).toBe(false)
+    expect(game.result.value).toBeNull()
+    finishVoice()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(game.result.value?.draw).toBe(true)
+    expect(replay.hooks.roundEnd).toHaveBeenCalledTimes(1)
+  })
+
+  it('AI 摸末张照常思考、出牌，短音或静音时也留足一秒看弃牌', async () => {
+    const f = fixture()
+    f.turn = 1; f.wall = ['s8']; f.indicator = 's8'; f.window = { kind: 'draw' }
+    const voice = vi.fn(async (_name: string) => {})
+    const { game, state } = setup(f, voice)
+    await vi.advanceTimersByTimeAsync(openTime + 1)
+    expect(state.players[1].hand).toHaveLength(14)
+    const choice = chooseAction(state)
+    if (choice.kind !== 'discard') throw new Error('本牌例应由 AI 出牌')
+    const face = state.players[1].hand[choice.index].face
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(state.lastDiscard).toMatchObject({ from: 1, tile: face })
+    expect(game.players.value[1].discards).toEqual([face])
+    await vi.advanceTimersByTimeAsync(998)
+    expect(voice).toHaveBeenCalledWith(tileAudioFile(face))
+    expect(game.result.value).toBeNull()
+    await vi.advanceTimersByTimeAsync(2)
+    expect(game.result.value?.draw).toBe(true)
+  })
+  it('末张报牌期间离桌，旧语音结束也不会弹出上一局结算', async () => {
+    let ended!: () => void
+    const f = fixture()
+    f.wall = ['s8']; f.indicator = 's8'; f.window = { kind: 'draw' }
+    const { game, state } = setup(f, name => name === '8s.mp3' ? new Promise<void>(r => { ended = r }) : Promise.resolve())
+    await vi.advanceTimersByTimeAsync(openTime + 1)
+    game.play({ kind: 'discard', index: state.players[0].drawnIndex })
+    await vi.advanceTimersByTimeAsync(100)
+    game.leave()
+    game.start()
+    ended()
+    await vi.advanceTimersByTimeAsync(1500)
+    expect(game.round.value?.result).toBeNull()
+    expect(game.result.value).toBeNull()
+    expect(game.revealHands.value).toBe(false)
   })
   it('河牌留桌一秒，AI 摸进后独立思考一秒；暂停和离桌取消旧动作', async () => {
     const { game, state, paused } = setup()

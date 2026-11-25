@@ -4,6 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { AUDIO_ASSETS, resolveAudioAsset, resolveBgmAsset } from './audioAssets'
+import { TILE_TYPES, tileAudioFile } from '../rules/tiles'
 
 const root = resolve('public/audio')
 const supplied = ['sounds', 'bgm'].flatMap((dir) =>
@@ -40,8 +41,11 @@ describe('Ogg Vorbis sound library', () => {
     ['hufangmj.ogg', 'sounds/tuidao.ogg'],
     ['HuMusic.ogg', 'bgm/ting_bgm.ogg'],
   ])('legacy %s resolves to actual %s', (logical, file) => expect(resolveAudioAsset(logical)).toBe(file))
+  it('all 34 faces have a discard announcement', () => {
+    for (const face of TILE_TYPES) expect(resolveAudioAsset(tileAudioFile(face))).toMatch(/^sounds\/[1-9][mpsz]\.ogg$/)
+  })
   it('missing old sounds do not produce broken URLs or masquerade as a BGM track', () => {
-    for (const file of ['click.mp3', '1z.mp3', '../secret.wav', 'unknown.wav'])
+    for (const file of ['click.mp3', '8z.mp3', '../secret.wav', 'unknown.wav'])
       expect(resolveAudioAsset(file)).toBeNull()
     expect(resolveBgmAsset('peng.wav')).toBeNull()
     expect(resolveBgmAsset('bg.ogg')).toBe('bgm/bgm.ogg')

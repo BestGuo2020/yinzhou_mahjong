@@ -29,19 +29,38 @@ function kongHand(face: TileType) {
 }
 
 describe('起牌和胡型', () => {
-  it('按双骰从第 n 墩而非下一墩开抓；顺时针每次四张，庄家跳牌', () => {
+  it('二加三从庄家右起第二墩拿牌，逆时针每次四张，庄家跳牌', () => {
     const physical = [...TILE_TYPES, ...TILE_TYPES, ...TILE_TYPES, ...TILE_TYPES]
     const r = dealRound({ mode: 'live', smallBan: false }, { dealer: 0, dice: [2, 3], wall: physical })
     const rotated = [...physical.slice(2), ...physical.slice(0, 2)]
     expect(r.breakIndex).toBe(2)
     expect(r.wallSide).toBe(0)
-    expect(r.openingHands[3].slice(0, 4)).toEqual(rotated.slice(4, 8))
-    expect(r.openingHands[0].slice(-2)).toEqual([rotated[48], rotated[52]])
+    expect(r.openingBatches[1]).toEqual({ seat: 1, offsets: [4, 5, 6, 7], tiles: rotated.slice(4, 8) })
+    expect(r.openingBatches[12]).toEqual({ seat: 0, offsets: [48, 52], tiles: [rotated[48], rotated[52]] })
     expect(r.players.map(p => p.hand.length)).toEqual([14, 13, 13, 13])
     expect(r.wall).toEqual(rotated.slice(53))
     expect(r.indicator).toBe(rotated.at(-1))
     // 从 2 号庄家起，和为 6 数到 3 号玩家的墙；双三从第三墩起。
     expect(dealRound(r.settings, { dealer: 2, dice: [3, 3], wall: physical }).breakIndex).toBe(38)
+  })
+  it.each([0, 1, 2, 3])('庄家在座位 %i 时，所有双骰组合的开墙、发牌和余墙都对得上', dealer => {
+    const physical = [...TILE_TYPES, ...TILE_TYPES, ...TILE_TYPES, ...TILE_TYPES]
+    for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) {
+      const round = dealRound({ mode: 'live', smallBan: false }, { dealer, dice: [a,b], wall: physical })
+      const side = (dealer + a + b - 1) % 4
+      const cut = [0,102,68,34][side] + (Math.min(a,b) - 1) * 2
+      expect([round.wallSide, round.breakIndex]).toEqual([side, cut])
+      const opened = [...physical.slice(cut), ...physical.slice(0, cut)]
+      const taken = round.openingBatches.flatMap(batch => batch.offsets)
+      expect(taken).toEqual([...Array.from({ length: 49 }, (_, i) => i), 52, 49, 50, 51])
+      round.openingBatches.forEach((batch, index) => {
+        expect(batch.seat).toBe((dealer + index) % 4)
+        expect(batch.tiles).toEqual(batch.offsets.map(offset => opened[offset]))
+      })
+      expect(round.players.map(p => p.hand.length)).toEqual([0,1,2,3].map(i => i === dealer ? 14 : 13))
+      expect(round.wall).toEqual(opened.slice(53))
+      expect(round.indicator).toBe(opened.at(-1))
+    }
   })
   it('死九从尾端依次剔除字牌，允许一筒为固定亮牌', () => {
     const faces = createWall()
@@ -114,6 +133,88 @@ describe('扎与标记', () => {
     s.players[0].melds = [{ type: 'peng', tile:'p6', tiles:['p6','p6','p6'] }]
     s.players[0].hand = [mark('p6')]
     expect(legalActions(s).some(a => a.kind === 'kong')).toBe(false)
+  })
+})
+
+describe('过', () => {
+  it('过掉别人的碰杠机会，弃牌留在原牌河，由出牌者的下家摸牌', () => {
+    const r = fixture()
+    r.turn = 1
+    r.players[1].hand = held('m3')
+    r.players[0].hand = held('m3','m3','m3')
+    run(r, { kind: 'discard', index: 0 })
+    expect(legalActions(r).map(a => a.kind)).toEqual(['peng','kong','pass'])
+    run(r, { kind: 'pass' })
+    expect([r.turn, r.window.kind]).toEqual([2, 'draw'])
+    expect(r.players[1].discards).toEqual(['m3'])
+    expect(r.players[0].hand).toEqual(held('m3','m3','m3'))
+    expect(r.players[0].melds).toEqual([])
+  })
+
+  it('过自摸和报扎后留在本家选牌，下一次摸到同一张仍可留扎自摸', () => {
+    const r = fixture('nine', 'p6')
+    const seat = r.players[0]
+    seat.hand = held('m2','m3','m4','m5','m6','m7','s3','s4','s5','p6','p6','p6','s8','s8')
+    seat.drawnIndex = 13
+    r.wall = ['red','north','white','s8','p6']
+    const hand = [...seat.hand]
+    const wall = [...r.wall]
+    const offered = legalActions(r).filter(a => a.kind === 'win')
+    expect(offered.map(a => a.win.kind)).toEqual(['indicator','self'])
+    run(r, { kind: 'pass' })
+    expect(decisionSeat(r)).toBe(0)
+    expect(seat.hand).toEqual(hand)
+    expect(seat.discards).toEqual([])
+    expect(r.wall).toEqual(wall)
+    expect(r.event).toMatchObject({ t: 'notice', seat: 0, text: '过' })
+    expect(legalActions(r)).toEqual(hand.map((_, index) => ({ kind: 'discard', index })))
+    expect(act(r, 0, { kind: 'pass' })).toBe(false)
+    expect(act(r, 0, offered[0])).toBe(false)
+    run(r, { kind: 'discard', index: 13 })
+    for (const opponent of [1, 2, 3]) {
+      expect(decisionSeat(r)).toBe(opponent)
+      run(r, { kind: 'draw' })
+      run(r, { kind: 'discard', index: 0 })
+    }
+    run(r, { kind: 'draw' })
+    expect(legalActions(r).filter(a => a.kind === 'win').map(a => a.win.kind)).toEqual(['indicator','self'])
+    win(r, 'self')
+    expect(r.result?.deltas).toEqual([120,-40,-40,-40])
+  })
+
+  it('庄家过起手报扎后只询问新的选择，自摸和暗杠也可以一起过', () => {
+    const r = fixture('nine', 'p6')
+    const seat = r.players[0]
+    seat.hand = held('m1','m1','m1','m1','m2','m3','p6','p6','p6','s3','s4','s5','s8','s8')
+    seat.drawnIndex = 13
+    r.players[1].hand = held('p9','p9','p9')
+    r.window = { kind: 'reveal', tile: 'p6', seats: [0, 1] }
+    run(r, { kind: 'pass' })
+    expect(decisionSeat(r)).toBe(1)
+    expect(legalActions(r)[0]).toMatchObject({ kind: 'win', win: { kind: 'nine' } })
+    run(r, { kind: 'pass' })
+    expect(legalActions(r).filter(a => a.kind !== 'discard')).toEqual([
+      expect.objectContaining({ kind: 'win', win: expect.objectContaining({ kind: 'self', multiplier: 4 }) }),
+      { kind: 'kong', kong: 'concealed', tile: 'm1' }, { kind: 'pass' },
+    ])
+    run(r, { kind: 'pass' })
+    expect(legalActions(r).every(a => a.kind === 'discard')).toBe(true)
+    expect(seat.melds).toHaveLength(0)
+  })
+
+  it('过补杠保留原碰牌和第四张，自己仍需出牌', () => {
+    const r = fixture('fixed')
+    const seat = r.players[0]
+    seat.melds = [{ type: 'peng', tile: 's8', tiles: ['s8','s8','s8'] }]
+    seat.hand = held('m1','m4','m7','p1','p4','p7','s1','s4','s7','red','s8')
+    seat.drawnIndex = 10
+    expect(legalActions(r)).toContainEqual({ kind: 'kong', kong: 'added', tile: 's8' })
+    run(r, { kind: 'pass' })
+    expect(seat.melds[0]).toMatchObject({ type: 'peng', tiles: ['s8','s8','s8'] })
+    expect(seat.hand[10]).toEqual(ordinary('s8'))
+    expect(legalActions(r).every(a => a.kind === 'discard')).toBe(true)
+    run(r, { kind: 'discard', index: 10 })
+    expect(seat.discards).toEqual(['s8'])
   })
 })
 
@@ -253,6 +354,13 @@ describe('抢杠和小牌限制', () => {
     r.players[0].hand = waitFor('s8')
     r.window = { kind: 'draw' }
     run(r, { kind: 'draw' })
+    const passed = structuredClone(r)
+    run(passed, { kind: 'pass' })
+    expect(passed.result).toBeNull()
+    expect(legalActions(passed).every(a => a.kind === 'discard')).toBe(true)
+    run(passed, { kind: 'discard', index: 0 })
+    expect(passed.event).toMatchObject({ t: 'discard', tile: 'm2' })
+    expect(passed.result).toMatchObject({ winner: null, deltas: [0,0,0,0] })
     win(r, 'self')
     expect(r.result?.deltas).toEqual([30,-10,-10,-10])
   })

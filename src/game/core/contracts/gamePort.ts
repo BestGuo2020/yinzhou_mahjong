@@ -55,6 +55,9 @@ export interface DealAnimation {
   playerIndex: number
   count: number
   serial: number
+  /** 从开墙点数起，本批拿走的张位及发完这批后仍在墙上的张位。 */
+  sourceOffsets?: readonly number[]
+  remainingWallOffsets?: readonly number[]
 }
 
 export interface RoundScoreDetail {

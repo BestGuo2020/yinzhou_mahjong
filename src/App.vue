@@ -109,7 +109,7 @@ function claim(kind: 'pass' | 'peng' | 'kong') {
   if (action) play(action)
 }
 const winButtons = computed(() => controls.value.filter(option => option.kind === 'win'))
-const mayPass = computed(() => !claimPrompt.value && controls.value.some(option => option.kind === 'pass'))
+const mayPass = computed(() => controls.value.some(option => option.kind === 'pass'))
 const hints = computed<YaotongHint[]>(() => {
   if (!tableActive.value || autoplay.value) return []
   if (round.value!.players[0].hand.some(tile => tile.marked)) return [{
@@ -166,7 +166,7 @@ function quit() {
         :deal-animation="dealAnimation" :opening-stage="openingStage" :last-discard="round.lastDiscard"
         :flip-tile="opening ? null : round.indicator" :tail-indicator="!opening && tailFaceUp(round) ? round.indicator : null"
         :joker-tiles="[]" :marked-indices="shownMarks" :is-user-turn="mayDiscard" :selected-index="selectedIndex"
-        :table-action-event="actionCue" :action-prompt="claimPrompt" :announcement="null" :score-flow-event="null"
+        :table-action-event="actionCue" :action-prompt="claimPrompt" :can-pass="mayPass" :announcement="null" :score-flow-event="null"
         :result="result" :win-effect="winEffect" :win-presentation="winPresentation" :reveal-hands="revealHands" :winning-player-index="winningPlayerIndex"
         :match-name="matchName" :round-label="label" :match-finished="finished" :turn-seconds="0"
         :user-current-waits="waits.current" :user-ting-options="waits.options" :user-discard-waits="selectedWaits"
@@ -181,7 +181,6 @@ function quit() {
             <b :class="option.win.label.length > 2 ? 'hu-plan-label' : 'action-label'">{{ option.win.label }}</b>
             <span class="action-detail">×{{ option.win.multiplier }}</span>
           </button>
-          <button v-if="mayPass" class="action pass" type="button" data-action-role="danger" @click="claim('pass')"><b>过</b></button>
           <TableGuidance :hints="hints" />
         </template>
       </GameTableHud>

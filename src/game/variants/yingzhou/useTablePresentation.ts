@@ -1,6 +1,7 @@
 import { ref, watch } from 'vue'
 import { createLocalGameState } from '../../core/local/localGameState'
 import { createLocalTransientEventPresenter } from '../../core/local/localTransientEventPresenter'
+import { LOCAL_TABLE_PACE } from '../../core/local/localGameConfig'
 import { prefersReducedMotion } from '../../core/presentation/winEffect'
 import { createPresentationScheduler } from '../../shared/runtime/presentationScheduler'
 import { playDiscardName } from '../../shared/runtime/discardAudio'
@@ -90,9 +91,10 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
   function present(round: Round) {
     const event = round.event
     if (!event) return
+    let discardName: Promise<void> | undefined
     if (event.t === 'discard' && event.tile) {
       audio.play('dapai.mp3', .8)
-      void playDiscardName(event.tile, { playSound: audio.play, playSoundAndWait: audio.playAndWait, current: () => current() === round })
+      discardName = playDiscardName(event.tile, { playSound: audio.play, playSoundAndWait: audio.playAndWait, current: () => current() === round })
     } else if (event.t === 'draw') audio.play('give.mp3', .7)
     else if (round.window.kind === 'check-rob') {
       const { tile } = round.window
@@ -116,7 +118,13 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
     }
     if (round.result) {
       weather.value = []
-      settle(round)
+      if (discardName) {
+        // 最后一张弃牌要完整落入牌河并报完牌名，再亮手牌、弹结算。
+        view.phase.value = 'checking'
+        void Promise.all([discardName, scheduler.wait(LOCAL_TABLE_PACE.discardReaction)]).then(() => {
+          if (current() === round) settle(round)
+        })
+      } else settle(round)
     }
   }
   watch(view.revealHands, value => { if (value) audio.play('tuidao.wav', .55) }, { flush: 'sync' })

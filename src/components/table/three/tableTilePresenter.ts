@@ -194,9 +194,8 @@ function addConcealedHand(playerIndex) {
     const motionKey = `deal:${props.dealAnimation.serial}:${playerIndex}:${index}`
     const continuing = continuingDeals.get(motionKey)
     if (dealThisHand && index >= animatedFromIndex && (pendingDealAnimation || continuing)) {
-      // 发牌从牌山 head 槽位（下一张要摸的牌所在处）飞出，而不是从中控台上方。
-      const head = wallDrawHeadPos()
-      const origin = continuing?.origin ?? new THREE.Vector3(head.x, WALL_DEAL_ORIGIN_Y, head.z)
+      const offset = props.dealAnimation.sourceOffsets?.[index - animatedFromIndex]
+      const origin = continuing?.origin ?? dealTileOrigin(offset)
       const inst = addTableTile(pos, quat, face, 1, origin)
       dealTweens.push({
         motionKey,
@@ -441,19 +440,13 @@ function resolveFlipStack() {
   return (props.flipStack + localSeat * (WALL_TOTAL / 8)) % (WALL_TOTAL / 2)
 }
 
-// 牌山 head 位置 = 下一张要摸的牌所在处：wall[0] 经 wallHeadDrawn 沿环顺时针推进。
-function wallDrawHeadPos() {
-  const headOffset = props.wallHeadDrawn ?? 0
+function dealTileOrigin(offset?: number) {
   const breakIndex = resolveBreakIndex()
-  if (props.flipStack != null) {
-    const physical = wallPhysicalIndex(headOffset, breakIndex)
-    const slot = wallStackSlot(Math.floor(physical / 2))
-    return { x: slot.x, z: slot.z }
-  }
   const total = props.wallTotal ?? WALL_TOTAL
-  const { stackIndex } = wallTilePlacement(0, (breakIndex + headOffset) % total, props.wall?.length ?? 0, headOffset, total)
+  const { stackIndex, layer } = offset == null ? remainingWallPlacement(0, breakIndex, total)
+    : wallTilePlacement(offset, breakIndex, total, 0, total)
   const slot = wallStackSlot(stackIndex, total)
-  return { x: slot.x, z: slot.z }
+  return new THREE.Vector3(slot.x, offset == null ? WALL_DEAL_ORIGIN_Y : .41 + layer * .47, slot.z)
 }
 
 /**
@@ -524,28 +517,28 @@ function addFlipIndicator() {
 // headOffset = wallHeadDrawn（从牌头累计摸走的张数），使 head 顺时针推进（抓牌顺时针）；
 // 开杠/红中从牌尾补张（pop）不计入，因此牌尾端会正确地随之缩短。
 // 莲花麻将：翻精墩整体移出牌墙，牌墙张位跳过翻精墩，并在该墩翻出指示牌。
+function remainingWallPlacement(index: number, breakIndex: number, total: number) {
+  const offset = props.dealAnimation.remainingWallOffsets?.[index]
+  if (offset !== undefined) return wallTilePlacement(offset, breakIndex, total, 0, total)
+  const headOffset = props.wallHeadDrawn ?? 0
+  const length = props.wall?.length ?? 0
+  if (props.flipStack == null) return wallTilePlacement(index, (breakIndex + headOffset) % total, length, headOffset, total)
+  const tailDrawn = Math.max(0, WALL_TOTAL - 2 - headOffset - length)
+  // 补走一张顶层牌后，同墩剩余的底层牌仍应留在原物理张位。
+  const physicalIndex = tailDrawn % 2 === 1 && index === length - 1 ? index + 1 : index
+  const physical = wallPhysicalIndex(headOffset + physicalIndex, breakIndex)
+  return { stackIndex: Math.floor(physical / 2), layer: 1 - (physical % 2) }
+}
+
 function addWall() {
   const tiles = props.wall || []
   if (!tiles.length) return
   const breakIndex = resolveBreakIndex()
-  const headOffset = props.wallHeadDrawn ?? 0
   const total = props.wallTotal ?? WALL_TOTAL
-  const hasFlip = props.flipStack != null
-  const tailStack = props.tailIndicator ? wallTilePlacement(tiles.length - 1, (breakIndex + headOffset) % total, tiles.length, headOffset, total).stackIndex : -1
+  const tailStack = props.tailIndicator ? remainingWallPlacement(tiles.length - 1, breakIndex, total).stackIndex : -1
   let tailStackShown = false
   tiles.forEach((_, index) => {
-    const { stackIndex, layer } = hasFlip
-      ? (() => {
-        const tailDrawn = Math.max(0, WALL_TOTAL - 2 - headOffset - tiles.length)
-        // 补走一张顶层牌后，同墩剩余的底层牌仍应留在原物理张位。
-        const physicalIndex = tailDrawn % 2 === 1 && index === tiles.length - 1 ? index + 1 : index
-        const physical = wallPhysicalIndex(headOffset + physicalIndex, breakIndex)
-        return {
-          stackIndex: Math.floor(physical / 2),
-          layer: 1 - (physical % 2),
-        }
-      })()
-      : wallTilePlacement(index, (breakIndex + headOffset) % total, tiles.length, headOffset, total)
+    const { stackIndex, layer } = remainingWallPlacement(index, breakIndex, total)
     const slot = wallStackSlot(stackIndex, total)
     const y = .41 + layer * .47
     const quat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, slot.rotationY, 0))

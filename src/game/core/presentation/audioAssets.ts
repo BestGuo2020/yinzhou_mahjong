@@ -7,6 +7,7 @@ export const DEFAULT_BGM_ASSET = 'bgm/bgm.ogg'
 export const READY_BGM_ASSET = 'bgm/ting_bgm.ogg'
 export const EFFECT_AUDIO_ASSETS = [
   ...['m', 'p', 's'].flatMap((suit) => Array.from({ length: 9 }, (_, i) => `sounds/${i + 1}${suit}.ogg`)),
+  ...Array.from({ length: 7 }, (_, i) => `sounds/${i + 1}z.ogg`),
   ...[
     'game_start',
     'peng',
@@ -75,7 +76,7 @@ const aliases: Readonly<Record<string, string>> = {
   'chihushandian.ogg': 'sounds/chihushandian.ogg',
 }
 
-/** No fabricated URL for removed click/honor sounds; missing sounds never hold a game timer. */
+/** Only registered files get URLs; missing sounds never hold a game timer. */
 export function resolveAudioAsset(name: string): string | null {
   if (available.has(name)) return name
   if (aliases[name]) return aliases[name]

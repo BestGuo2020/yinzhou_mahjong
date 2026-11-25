@@ -6,6 +6,7 @@ import type { ResolvedTableProps } from './tableRenderTypes'
 import type { GamePlayer, Meld, TableActionType, TileType } from '../../../game/core/contracts/types'
 import * as winEffect from '../../../game/core/presentation/winEffect'
 import { discardTileLayout } from '../../../game/core/presentation/tableLayout'
+import { wallStackSlot, WALL_TOTAL } from '../../../game/core/rules/wallLayout'
 
 function setup(meld?: Meld, action?: TableActionType) {
   let now = 0
@@ -202,6 +203,34 @@ describe('shared normal tile animations survive state refreshes', () => {
     expect(s.presenter.animate(150, new THREE.Vector3())).toBe(false)
     s.setNow(200); s.presenter.rebuild()
     expect(s.presenter.animate(200, new THREE.Vector3())).toBe(false)
+  })
+
+  it.each([
+    { taken: [0,1,2,3], remaining: Array.from({ length: 132 }, (_, i) => i + 4) },
+    { taken: [48,52], remaining: [49,50,51, ...Array.from({ length: 83 }, (_, i) => 53 + i)] },
+  ])('颍州从本批实际拿走的墩和层飞牌，跳牌留下的三张在原位', ({ taken, remaining }) => {
+    const s = setup()
+    const cut = 102
+    const position = (offset: number) => {
+      const physical = (cut + offset) % WALL_TOTAL
+      const slot = wallStackSlot(Math.floor(physical / 2))
+      return new THREE.Vector3(slot.x, physical % 2 ? .41 : .88, slot.z)
+    }
+    s.props.wallBreakIndex = cut
+    s.props.wallTotal = WALL_TOTAL
+    s.props.wallHeadDrawn = WALL_TOTAL - remaining.length
+    s.props.wall = Array(remaining.length).fill('east')
+    s.props.openingStage = 'deal'
+    s.props.revealHands = true
+    s.props.players[3].hand = (['m1','m2','m3','m4'] as TileType[]).slice(0, taken.length)
+    s.props.dealAnimation = { playerIndex: 3, count: taken.length, serial: 1, sourceOffsets: taken, remainingWallOffsets: remaining }
+    s.presenter.rebuild()
+    const flying = s.rendered.filter(t => t.face)
+    const wall = s.rendered.filter(t => !t.face)
+    expect(flying).toHaveLength(taken.length)
+    expect(wall).toHaveLength(remaining.length)
+    flying.forEach((t, i) => expect(t.position.distanceTo(position(taken[i]))).toBeLessThan(.00001))
+    wall.forEach((t, i) => expect(t.position.distanceTo(position(remaining[i]))).toBeLessThan(.00001))
   })
 
   it('continues the existing flip motion without replaying a finished flip', () => {

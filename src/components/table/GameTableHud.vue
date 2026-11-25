@@ -834,6 +834,7 @@ function onAvatarError(entry: GamePlayer) {
             data-action-role="primary" @click="toggleKongPicker"><b :class="{ 'action-label': kongPickerOpen }">{{ kongPickerOpen ? '取消' : '杠' }}</b></button>
           <button v-if="userHasWindKong" class="action primary" data-action-role="primary" @click="$emit('windKong')"><b class="action-label">风杠</b></button>
           <button v-if="userCanHu && !yaotongView?.confirmHuPlan && !yaotongView?.manualHuControls" class="action hu" data-action-role="major" @click="$emit('hu')"><b>胡</b></button>
+          <button v-if="rulesetId === 'yingzhou' && canPass" type="button" class="action pass" data-action-role="danger" @click="$emit('pass')"><b>过</b></button>
         </template>
       </div>
       <button

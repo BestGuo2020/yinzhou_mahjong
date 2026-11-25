@@ -1,6 +1,7 @@
 import { computed, onScopeDispose, ref, shallowRef, watch, type Ref } from 'vue'
-import type { GamePhase, OpeningStage } from '../../core/contracts/gamePort'
+import type { DealAnimation, GamePhase, OpeningStage } from '../../core/contracts/gamePort'
 import type { TileType } from '../../core/contracts/types'
+import { WALL_TOTAL } from '../../core/rules/wallLayout'
 import { AI_DELAYS } from '../../core/controllers/playerController'
 import { LOCAL_TABLE_PACE, PACE_MS } from '../../core/local/localGameConfig'
 import type { MatchLength } from '../../core/rules/matchFormats'
@@ -29,7 +30,8 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
   let reactionUntil = 0
   let stepStarted = 0
   let openingCue: { step: number; done: Promise<void> } | null = null
-  const opening = computed(() => !!round.value && dealStep.value <= 16)
+  const opening = computed(() => !!round.value && dealStep.value <= round.value.openingBatches.length)
+  const dealtBatches = computed(() => opening.value ? round.value!.openingBatches.slice(0, Math.max(0, dealStep.value)) : [])
   const openingStage = computed<OpeningStage | null>(() => opening.value
     ? dealStep.value < 0 ? 'start' : dealStep.value === 0 ? 'dice' : 'deal' : null)
   const finished = computed(() => !!round.value?.result && round.value.validBefore + Number(round.value.result.winner !== null) >= matchLength.value)
@@ -47,22 +49,25 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
     if (!state) return []
     const seats = effects.visiblePlayers(state)
     if (!opening.value) return seats
-    seats.forEach((seat, i) => {
-      const order = (state.dealer - i + 4) % 4
-      const batches = Math.floor((Math.min(12, Math.max(0, dealStep.value)) + 3 - order) / 4)
-      const last = dealStep.value >= 13 + order ? (i === state.dealer ? 2 : 1) : 0
-      seat.hand = state.openingHands[i].slice(0, batches * 4 + last)
+    seats.forEach(seat => {
+      seat.hand = []
       seat.drawnTileIndex = -1
     })
+    for (const batch of dealtBatches.value) seats[batch.seat].hand.push(...batch.tiles)
     return seats
   })
   const headDrawn = computed(() => opening.value ? players.value.reduce((n, p) => n + p.hand.length, 0) : round.value?.headDrawn ?? 0)
-  const wall = computed(() => opening.value ? Array<TileType>(136 - headDrawn.value).fill('east') : round.value?.wall ?? [])
-  const dealAnimation = computed(() => ({
-    playerIndex: (round.value!.dealer - (dealStep.value - 1) % 4 + 4) % 4,
-    count: !opening.value || dealStep.value < 1 ? 0 : dealStep.value <= 12 ? 4 : dealStep.value === 13 ? 2 : 1,
-    serial: Math.max(0, dealStep.value),
-  }))
+  const wall = computed(() => opening.value ? Array<TileType>(WALL_TOTAL - headDrawn.value).fill('east') : round.value?.wall ?? [])
+  const dealAnimation = computed<DealAnimation>(() => {
+    const batch = dealtBatches.value.at(-1)
+    const serial = Math.max(0, dealStep.value)
+    if (!batch) return { playerIndex: -1, count: 0, serial }
+    const taken = new Set(dealtBatches.value.flatMap(b => b.offsets))
+    return {
+      playerIndex: batch.seat, count: batch.tiles.length, serial, sourceOffsets: batch.offsets,
+      remainingWallOffsets: Array.from({ length: WALL_TOTAL }, (_, i) => i).filter(i => !taken.has(i)),
+    }
+  })
   const phase = computed<GamePhase>(() => {
     if (!round.value) return 'lobby'
     if (opening.value) return dealStep.value <= 0 ? 'opening' : 'dealing'
@@ -153,14 +158,14 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
       const step = dealStep.value
       const nextBatch = () => {
         dealStep.value++
-        if (dealStep.value >= 1 && dealStep.value <= 12) audio.play('deal.mp3', .72)
+        if (state.openingBatches[dealStep.value - 1]?.tiles.length === 4) audio.play('deal.mp3', .72)
         if (!opening.value) defer(OPENING_PACE_MS.firstTurn, () => {})
       }
       if (step <= 0) {
         if (openingCue?.step !== step) openingCue = { step, done: playOpeningCue(step < 0 ? 'start' : 'dice',
           { wait: effects.scheduler.wait, playSoundAndWait: audio.playAndWait }) }
         void openingCue.done.then(() => { if (active && round.value === state) nextBatch() })
-      } else later(step <= 13 ? OPENING_PACE_MS.batch : OPENING_PACE_MS.single, nextBatch)
+      } else later(state.openingBatches[step - 1].tiles.length > 1 ? OPENING_PACE_MS.batch : OPENING_PACE_MS.single, nextBatch)
       return
     }
     const window = state.window

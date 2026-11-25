@@ -9,8 +9,12 @@ import {
 } from './rules'
 
 type Window =
-  | { kind: 'turn' | 'draw' | 'settled' }
-  | { kind: 'claim' | 'rob' | 'reveal'; tile: TileType; seats: number[] }
+  | { kind: 'turn'; declined?: 'zha' | 'all' }
+  | { kind: 'draw' }
+  | { kind: 'settled' }
+  | { kind: 'claim'; tile: TileType; seats: number[] }
+  | { kind: 'rob'; tile: TileType; seats: number[] }
+  | { kind: 'reveal'; tile: TileType; seats: number[]; turnSeatPassed?: true }
   | { kind: 'check-rob'; tile: TileType }
   | { kind: 'supplement'; kong: Kong }
   | { kind: 'bloom'; win: Win }
@@ -29,6 +33,12 @@ export interface Outcome {
 }
 
 export type RoundEvent = Pick<ReplayStep, 't' | 'seat' | 'text' | 'tile' | 'from' | 'actionType' | 'kind' | 'meldIndex' | 'lastDiscardId' | 'fromTail'>
+interface OpeningBatch {
+  seat: number
+  /** 每张牌相对于开墙点的张位，庄家跳牌的两个张位不相邻。 */
+  offsets: number[]
+  tiles: TileType[]
+}
 export interface Round {
   settings: Settings
   dealer: number
@@ -40,7 +50,7 @@ export interface Round {
   indicator: TileType
   openingDiscards: TileType[]
   discardedMarks: number
-  openingHands: TileType[][]
+  openingBatches: OpeningBatch[]
   players: Seat[]
   turn: number
   origin: 'draw' | 'peng' | 'supplement'
@@ -63,7 +73,6 @@ interface Opening {
   validBefore?: number
 }
 
-const clockwise = (dealer: number, offset: number) => (dealer - offset + 4) % 4
 const following = (seat: number) => [1, 2, 3].map(offset => (seat + offset) % 4)
 const kongEvents = {
   exposed: { kind: 'gang-discard', actionType: 'discard-gang' },
@@ -85,16 +94,20 @@ export function dealRound(settings: Settings, opening: Opening = {}): Round {
     hand: [], melds: [], discards: [], drawnIndex: -1, score: opening.scores?.[seat] ?? 0,
   }))
   let head = 0
-  for (let batch = 0; batch < 3; batch++) {
-    for (let offset = 0; offset < 4; offset++) {
-      players[clockwise(dealer, offset)].hand.push(...wall.slice(head, head + 4).map(ordinary))
-      head += 4
-    }
+  const openingBatches: OpeningBatch[] = []
+  function dealBatch(offsets: number[]) {
+    const seat = (dealer + openingBatches.length) % 4
+    const tiles = offsets.map(index => wall[index])
+    players[seat].hand.push(...tiles.map(ordinary))
+    openingBatches.push({ seat, offsets, tiles })
+    head += tiles.length
   }
-  // 庄家拿第 1、3 墩的上张，三位闲家依次拿中间三张。
-  for (let offset = 0; offset < 4; offset++) players[clockwise(dealer, offset)].hand.push(ordinary(wall[head++]))
-  players[dealer].drawnIndex = players[dealer].hand.push(ordinary(wall[head++])) - 1
-  const openingHands = players.map(seat => seat.hand.map(tile => tile.face))
+  // 从庄家开始，逆时针依次给下家、对家和上家，每家四张，发三轮。
+  for (let batch = 0; batch < 12; batch++) dealBatch([head, head + 1, head + 2, head + 3])
+  const jump = head
+  dealBatch([jump, jump + 4])
+  for (let offset = 1; offset <= 3; offset++) dealBatch([jump + offset])
+  players[dealer].drawnIndex = players[dealer].hand.length - 1
   for (const [index, seat] of players.entries()) {
     if (index !== dealer) sortHeld(seat.hand)
     else {
@@ -109,7 +122,7 @@ export function dealRound(settings: Settings, opening: Opening = {}): Round {
   }
   const round: Round = {
     settings: { ...settings }, dealer, dice, breakIndex, wallSide: (dealer + dice[0] + dice[1] - 1) % 4,
-    wall: remaining, headDrawn: head, indicator: remaining[remaining.length - 1], openingDiscards, discardedMarks: 0, openingHands, players,
+    wall: remaining, headDrawn: head, indicator: remaining[remaining.length - 1], openingDiscards, discardedMarks: 0, openingBatches, players,
     turn: dealer, origin: 'draw', window: { kind: 'turn' }, lastDiscard: null, result: null, serial: 0, event: null,
     handNumber: opening.handNumber ?? 1, validBefore: opening.validBefore ?? 0,
   }
@@ -218,12 +231,14 @@ export function legalActions(round: Round): Action[] {
     if (ordinaryCount(seat.hand, window.tile) >= 3) actions.push({ kind: 'kong', kong: 'exposed', tile: window.tile })
     return [...actions, { kind: 'pass' }]
   }
-  const zha = zhaWin(seat.hand, round.indicator, round.settings.mode)
   if (window.kind === 'reveal' || window.kind === 'rob') {
-    const win = window.kind === 'rob' ? robWin(seat, window.tile, round.settings) : zha
+    const win = window.kind === 'rob' ? robWin(seat, window.tile, round.settings) : zhaWin(seat.hand, round.indicator, round.settings.mode)
     return win ? [{ kind: 'win', win }, { kind: 'pass' }] : [{ kind: 'pass' }]
   }
+  const discards: Action[] = seat.hand.map((_, index) => ({ kind: 'discard', index }))
+  if (window.declined === 'all') return discards
   const actions: Action[] = []
+  const zha = window.declined === 'zha' ? null : zhaWin(seat.hand, round.indicator, round.settings.mode)
   if (zha) actions.push({ kind: 'win', win: zha })
   const self = round.origin === 'draw' && drawWin(seat, round.settings, round.indicator)
   if (self) actions.push({ kind: 'win', win: self })
@@ -233,19 +248,26 @@ export function legalActions(round: Round): Action[] {
       if (seat.melds.some(meld => meld.type === 'peng' && meld.tile === tile)) actions.push({ kind: 'kong', kong: 'added', tile })
     }
   }
-  seat.hand.forEach((_, index) => actions.push({ kind: 'discard', index }))
-  return actions
+  if (actions.length) actions.push({ kind: 'pass' })
+  return [...actions, ...discards]
 }
 
 function pass(round: Round) {
   const window = round.window
+  if (window.kind === 'turn') {
+    round.window = { kind: 'turn', declined: 'all' }
+    return
+  }
   if (window.kind === 'bloom') return afterBloomWindow(round)
   if (!('seats' in window)) return
-  window.seats.shift()
+  const responder = window.seats.shift()
+  if (window.kind === 'reveal' && responder === round.turn) window.turnSeatPassed = true
   if (window.seats.length) return
   if (window.kind === 'rob') return completeKong(round, round.turn, 'added', window.tile)
   if (window.kind === 'claim') return nextDraw(round)
-  round.window = { kind: 'turn' }
+  // 庄家过了起手报扎，在同一手牌上只保留尚未询问的自摸和杠。
+  round.window = window.kind === 'reveal' && window.turnSeatPassed
+    ? { kind: 'turn', declined: 'zha' } : { kind: 'turn' }
 }
 
 function discard(round: Round, index: number) {
@@ -316,7 +338,6 @@ export function stepRound(round: Round, actor: number, requested: Action): boole
       round.origin = 'draw'
       round.window = { kind: 'turn' }
       round.event = { t: 'draw', seat: actor, tile }
-      if (!round.wall.length && !legalActions(round).some(option => option.kind === 'win')) drawnGame(round)
       break
     }
     case 'peng': {
