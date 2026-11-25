@@ -192,6 +192,7 @@ test('横屏在同面普通牌中识别并打出死九的标记补牌', async ({
   await expect(hand.getByRole('button', { name: '九筒', exact: true })).toHaveCount(2)
   const marked = hand.getByRole('button', { name: '九筒，杠后标记牌' })
   await expect(marked).toBeInViewport()
+  await expect(hud.getByRole('button', { name: '系统防护' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: /扎九 ×/ })).toHaveCount(0)
   await page.screenshot({ path: testInfo.outputPath('marked-nine-landscape.png') })
   await marked.click()

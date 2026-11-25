@@ -90,10 +90,9 @@ const rulesOpen = ref(false)
 const resultVisible = ref(true)
 const {
   round, ready, settings, length, matchLength, players, phase, result, finished, actor, selectedIndex, opening, openingStage,
-  dealAnimation, headDrawn, wall, autoplay, controls, mayDiscard, actionCue, waits, selectedWaits,
+  dealAnimation, headDrawn, wall, controls, mayDiscard, actionCue, waits, selectedWaits,
   winEffect, winPatterns, winPresentation, revealHands, winningPlayerIndex, weather, play, start, next, leave,
 } = useYingzhouGame(replay, rulesOpen, { play: playEffect, playAndWait: playEffectAndWait })
-const tableActive = computed(() => !!round.value && ready.value && !opening.value && !round.value.result)
 const ownKongs = computed(() => controls.value.filter(option => option.kind === 'kong' && option.kong !== 'exposed'))
 const kongTiles = computed(() => ownKongs.value.flatMap(option => option.kind === 'kong' ? [option.tile] : []))
 function chooseKong(tile?: TileType) {
@@ -113,11 +112,6 @@ function claim(kind: 'pass' | 'peng' | 'kong') {
 const winButtons = computed(() => controls.value.filter(option => option.kind === 'win'))
 const mayPass = computed(() => controls.value.some(option => option.kind === 'pass'))
 const hints = computed<YaotongHint[]>(() => {
-  if (!tableActive.value || autoplay.value) return []
-  if (round.value!.players[0].hand.some(tile => tile.marked)) return [{
-    id: 'marked', protection: true, summary: '手中留有杠后标记牌',
-    reason: '标记牌可以参与杠开。自摸和抢补杠要先打清标记牌。', action: '可打出带“杠后”的牌，或保留它继续做杠开。三张普通牌仍可报扎。',
-  }]
   if (winButtons.value.some(a => a.win.kind === 'indicator' || a.win.kind === 'nine')) return [{
     id: 'zha', protection: false, summary: '手中的三张普通牌可以报扎',
     reason: '直接报扎可以立即结算，也可以留着三张继续摸打。', action: '选择胡法即可结算。想留扎时可以过，或打出其他牌。',
@@ -173,7 +167,7 @@ function quit() {
         :match-name="matchName" :round-label="label" :match-finished="finished" :turn-seconds="0"
         :user-current-waits="waits.current" :user-ting-options="waits.options" :user-discard-waits="selectedWaits"
         :user-kongs="kongTiles" :kong-action-label="ownKongs.length === 1 ? actionLabel(ownKongs[0]) : '选择杠牌'" :user-has-wind-kong="false"
-        :user-can-hu="false" :extra-actions="controls.length > 0 || hints.length > 0" :kong-weather="weather"
+        :user-can-hu="false" :extra-actions="controls.length > 0" :kong-weather="weather"
         @gang="chooseKong" @gang-from-discard="claim('kong')" @peng="claim('peng')" @pass="claim('pass')"
         @select-tile="selectedIndex = $event" @clear-selection="selectedIndex = -1" @discard="play({ kind: 'discard', index: $event })"
         @ready="ready = true">
