@@ -50,7 +50,7 @@
       font-style="italic"
       letter-spacing="-3"
       stroke-linejoin="round"
-      transform="skewX(-8)"
+      :transform="`skewX(${skewDegrees})`"
     >
       <!-- 立体底边 -->
       <g :filter="`url(#${shadowId})`">
@@ -140,6 +140,12 @@ const props = defineProps({
   fontFamily: {
     type: String,
     default: 'Arial, Helvetica, sans-serif',
+  },
+
+  // 字体自身斜度之外的水平倾斜角。
+  skewDegrees: {
+    type: Number,
+    default: -8,
   },
 })
 

@@ -1,38 +1,56 @@
 import { expect, test } from '@playwright/test'
 
-test('三倍场抢补杠由被抢者独付，输赢数字从左滑入后金币飞向本家', async ({ page }, info) => {
-  await page.setViewportSize({ width: 844, height: 390 })
-  await page.emulateMedia({ reducedMotion: 'no-preference' })
-  await page.addInitScript(() => {
-    const play = HTMLMediaElement.prototype.play
-    HTMLMediaElement.prototype.play = function () {
-      if (this.dataset.effectName?.startsWith('coin_')) performance.mark(this.dataset.effectName)
-      return play.call(this)
-    }
+for (const { device, viewport, mobile, expectedSkew } of [
+  { device: 'PC', viewport: { width: 1280, height: 720 }, mobile: false, expectedSkew: 0 },
+  { device: '手机横屏', viewport: { width: 844, height: 390 }, mobile: true, expectedSkew: -8 },
+]) {
+  test.describe(device, () => {
+    test.use({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: mobile ? 3 : 1 })
+    test('三倍场抢补杠由被抢者独付，输赢数字从左滑入后金币飞向本家', async ({ page }, info) => {
+      await page.emulateMedia({ reducedMotion: 'no-preference' })
+      await page.addInitScript(() => {
+        const play = HTMLMediaElement.prototype.play
+        HTMLMediaElement.prototype.play = function () {
+          if (this.dataset.effectName?.startsWith('coin_')) performance.mark(this.dataset.effectName)
+          return play.call(this)
+        }
+      })
+      await page.goto('/?preview=win-effects&effect=rob&coins=3&quality=low&theme=jade')
+      const layer = page.getByRole('status', { name: '三倍场金币收付' })
+      await expect(layer).toBeVisible({ timeout: 35_000 })
+      await expect(layer.locator('.effect-number')).toHaveCount(2)
+      await expect(layer.getByRole('img', { name: '+18000000' })).toBeVisible()
+      await expect(layer.getByRole('img', { name: '−18000000' })).toBeVisible()
+      expect(await layer.locator('text').first().evaluate(el => ({
+        family: getComputedStyle(el).fontFamily.split(',')[0],
+        loaded: [...document.fonts].some(face => face.family === 'Archivo' && face.status === 'loaded'),
+      }))).toEqual({ family: 'Archivo', loaded: true })
+      const skews = await layer.locator('.effect-number > g').evaluateAll(groups => groups.map(g => {
+        const matrix = (g as SVGGraphicsElement).getScreenCTM()!
+        return Math.atan2(matrix.c, matrix.d) * 180 / Math.PI
+      }))
+      expect(skews).toHaveLength(2)
+      for (const skew of skews) expect(skew).toBeCloseTo(expectedSkew)
+      const frames = await layer.locator('.coin-slide').first().evaluate(el =>
+        (el.getAnimations()[0].effect as KeyframeEffect).getKeyframes())
+      expect(frames[0]).toMatchObject({ opacity: '0', transform: 'translateX(-28%)' })
+      await page.waitForFunction(() => {
+        const slide = document.querySelector('.coin-slide')
+        return slide && Number(getComputedStyle(slide).opacity) === 1
+      })
+      await page.screenshot({ path: info.outputPath('payout-digits.png'), scale: 'css' })
+      await page.waitForFunction(() => {
+        const canvas = document.querySelector<HTMLCanvasElement>('.coin-payout canvas')
+        const ctx = canvas?.getContext('2d')
+        return !!canvas && !!ctx && ctx.getImageData(0, 0, canvas.width, canvas.height).data.some((v, i) => i % 4 === 3 && v > 128)
+      })
+      await page.screenshot({ path: info.outputPath('coin-flight.png') })
+      await expect(layer).toHaveCount(0)
+      expect(await page.evaluate(() => performance.getEntriesByType('mark')
+        .map(entry => entry.name).filter(name => name.startsWith('coin_')))).toEqual(['coin_flight.ogg'])
+    })
   })
-  await page.goto('/?preview=win-effects&effect=rob&coins=3&quality=low&theme=jade')
-  const layer = page.getByRole('status', { name: '三倍场金币收付' })
-  await expect(layer).toBeVisible({ timeout: 35_000 })
-  await expect(layer.locator('.effect-number')).toHaveCount(2)
-  await expect(layer.getByRole('img', { name: '+18000000' })).toBeVisible()
-  await expect(layer.getByRole('img', { name: '−18000000' })).toBeVisible()
-  expect(await layer.locator('text').first().evaluate(el => ({
-    family: getComputedStyle(el).fontFamily.split(',')[0],
-    loaded: [...document.fonts].some(face => face.family === 'Archivo' && face.status === 'loaded'),
-  }))).toEqual({ family: 'Archivo', loaded: true })
-  const frames = await layer.locator('.coin-slide').first().evaluate(el =>
-    (el.getAnimations()[0].effect as KeyframeEffect).getKeyframes())
-  expect(frames[0]).toMatchObject({ opacity: '0', transform: 'translateX(-28%)' })
-  await page.waitForFunction(() => {
-    const canvas = document.querySelector<HTMLCanvasElement>('.coin-payout canvas')
-    const ctx = canvas?.getContext('2d')
-    return !!canvas && !!ctx && ctx.getImageData(0, 0, canvas.width, canvas.height).data.some((v, i) => i % 4 === 3 && v > 128)
-  })
-  await page.screenshot({ path: info.outputPath('coin-flight.png') })
-  await expect(layer).toHaveCount(0)
-  expect(await page.evaluate(() => performance.getEntriesByType('mark')
-    .map(entry => entry.name).filter(name => name.startsWith('coin_')))).toEqual(['coin_flight.ogg'])
-})
+}
 
 test('从大厅逐一重播四种胡法，实桌动作字和胡牌位都可见', async ({ page }) => {
   test.setTimeout(90_000)

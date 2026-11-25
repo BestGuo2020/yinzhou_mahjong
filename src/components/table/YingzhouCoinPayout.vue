@@ -19,6 +19,8 @@ const transfers = computed(() => (props.result.scoreChanges ?? [])
   .filter(entry => entry.delta !== 0)
   .map(entry => ({ seat: entry.playerIndex, name: entry.name, coins: coinsForPoints(entry.delta, 3) })))
 const fontHeight = computed(() => Math.min(78, Math.max(34, height.value * .102)))
+// 小横屏沿用 8° 额外倾斜，图层从 48px 增至 72px 时逐渐过渡到 Archivo 自带的斜体。
+const numberSkew = computed(() => -8 * Math.min(1, Math.max(0, (72 - fontHeight.value) / 24)))
 const numberWidth = computed(() => width.value * .29)
 
 function numberPosition(seat: number) {
@@ -114,7 +116,9 @@ onBeforeUnmount(() => {
     <template v-if="seats.length">
       <div v-for="item in transfers" :key="item.seat" class="coin-amount" :style="numberPosition(item.seat)"
         :data-seat="item.seat" :aria-label="item.name + ' ' + item.coins + ' 金币'">
-        <div class="coin-slide"><EffectNumber :value="item.coins" :height="fontHeight" font-family="Archivo, Arial, sans-serif" /></div>
+        <div class="coin-slide">
+          <EffectNumber :value="item.coins" :height="fontHeight" :skew-degrees="numberSkew" font-family="Archivo, Arial, sans-serif" />
+        </div>
       </div>
     </template>
   </div>
