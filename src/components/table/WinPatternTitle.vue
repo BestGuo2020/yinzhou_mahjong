@@ -22,14 +22,15 @@ const titleStyle = computed(() => {
     : { top: `${(props.compact ? [0, 42, 8, 42] : [0, 38, 12, 38])[seat]}%` }
   const unit = props.main ? (props.compact ? 52 : 110) : props.tier >= 2 ? (props.compact ? 36 : 66) : (props.compact ? 30 : 54)
   const position = props.tableFocus
-    ? { left: `${[54, 67, 47, 33][seat]}%`, top: `${[54, 39, 27, 39][seat]}%` }
+    ? { left: '50%', top: '50%' }
     : { left: `${left}%`, ...anchor }
+  const translateY = props.tableFocus ? `calc(-50% + ${m.y}px)` : `${m.y}px`
   return { ...position,
     width: props.tableFocus ? `min(${props.text.length * 64}px, 36vw, ${props.text.length * 9}vh)`
       : `min(${(props.text.length * .92 + .4) * unit}px,${props.main ? 65 : 34}vw)`,
     fontFamily: bloodFlowImpactProfile(props.themeName, props.tier).font,
     opacity: m.opacity,
-    transform: `translate(-50%,${m.y}px) perspective(650px) rotateY(${m.tilt}deg) rotateX(${m.tilt * .3}deg) scale(${1 + (m.scale - 1) * .55}) rotate(${m.rotation}deg)`,
+    transform: `translate(-50%,${translateY}) perspective(650px) rotateY(${m.tilt}deg) rotateX(${m.tilt * .3}deg) scale(${1 + (m.scale - 1) * .55}) rotate(${m.rotation}deg)`,
   }
 })
 </script>

@@ -5,7 +5,7 @@ import type { TableThemeName } from '../table/three/tableTheme'
 import type { YaotongWinPatternCue } from '../../game/variants/yaotong/presentation'
 import { bloodFlowTitleMotion } from '../../theme/bloodFlowPresentation'
 
-const props = defineProps<{ cue: YaotongWinPatternCue; themeName: TableThemeName; compact?: boolean; detail?: string }>()
+const props = defineProps<{ cue: YaotongWinPatternCue; themeName: TableThemeName; compact?: boolean; detail?: string; centered?: boolean }>()
 const now = ref(Date.now())
 let frame = 0
 function tick() {
@@ -27,7 +27,7 @@ const titles = computed(() => props.cue.winners.map(winner => ({ ...winner,
   <div class="yaotong-win-patterns" aria-live="polite">
     <WinPatternTitle v-for="winner in titles" :key="winner.seat" :text="winner.label" :theme-name="themeName"
       :seat-index="winner.seat" :tier="winner.tier" :motion="winner.motion" :compact="compact"
-      :main="titles.length === 1 && winner.seat === 0 && winner.tier >= 2" :table-focus="cue.tableFocus"
+      :main="titles.length === 1 && winner.seat === 0 && winner.tier >= 2" :table-focus="centered || cue.tableFocus"
       :data-title-seat="winner.seat" :detail="detail" />
   </div>
 </template>

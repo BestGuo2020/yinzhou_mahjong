@@ -3,28 +3,18 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { WinEffect } from '../../game/core/contracts/gamePort'
 import { tileName } from '../../game/core/rules/tiles'
 import type { WinKind } from '../../game/variants/yingzhou/rules'
-import { YINGZHOU_WIN_MOTION, type WinTileAnchors } from '../../game/variants/yingzhou/winMotion'
+import { YINGZHOU_WIN_MOTION, type RobSourceAnchor } from '../../game/variants/yingzhou/winMotion'
 import { assetUrl, clamp, paintWinFrame, ramp, winArtwork } from './yingzhouCinematic'
 
 const props = defineProps<{ effect: WinEffect; kind: WinKind; label: string; winner: string;
-  sourceName?: string; anchors?: WinTileAnchors | null }>()
+  sourceName?: string; robSource?: RobSourceAnchor | null }>()
 const layer = ref<HTMLElement | null>(null)
 const sourceTag = ref<HTMLElement | null>(null)
 const canvas = ref<HTMLCanvasElement | null>(null)
 const failed = ref(false)
 const titleSrc = computed(() => winArtwork[props.kind].label === props.label && !failed.value
   ? assetUrl('title-' + props.kind) : '')
-const currentAnchors = computed(() => props.anchors?.id === props.effect.id ? props.anchors : null)
-const sourceAnchor = computed(() => currentAnchors.value?.source)
-const position = computed(() => {
-  const target = currentAnchors.value?.target
-  return {
-    // Land over the winner's side of the felt, leaving the tile itself exposed.
-    '--cx': (target ? Math.min(68, Math.max(32, 50 + (target.left - 50) * .68)) : 50) + '%',
-    '--cy': (target ? Math.min(59, Math.max(34, target.top - 16)) : 48) + '%',
-    '--word-width': (props.label.length * 10 + 4) + '%',
-  }
-})
+const sourceAnchor = computed(() => props.robSource?.id === props.effect.id ? props.robSource : null)
 let raf = 0
 let observer: ResizeObserver | undefined
 onMounted(() => {
@@ -73,7 +63,7 @@ onBeforeUnmount(() => { cancelAnimationFrame(raf); observer?.disconnect() })
     :style="{ left: 'clamp(4.7em,' + sourceAnchor.left + '%,calc(100% - 4.7em))', top: sourceAnchor.top + '%' }">
     {{ sourceName }}补杠<span>·</span>{{ tileName(effect.tile) }}
   </div>
-  <div ref="layer" class="win-cinematic" :data-win-kind="kind" :style="position" role="status"
+  <div ref="layer" class="win-cinematic" :data-win-kind="kind" :style="{ '--word-width': (label.length * 10 + 4) + '%' }" role="status"
     :aria-label="[winner, label, sourceName, tileName(effect.tile)].filter(Boolean).join('，')">
     <div class="win-stage">
       <canvas ref="canvas" aria-hidden="true"></canvas>
@@ -103,11 +93,11 @@ onBeforeUnmount(() => { cancelAnimationFrame(raf); observer?.disconnect() })
 .rob-source-tag.below::after { top: auto; bottom: 100%; }
 .win-cinematic {
   position: absolute; inset: 0; z-index: 42; pointer-events: none; overflow: hidden; opacity: 0;
-  background: radial-gradient(ellipse 56% 48% at var(--cx) var(--cy), #100b08ed 0%, #130d0bd6 27%, #11100cb3 50%, #15100955 73%, transparent 100%);
+  background: radial-gradient(ellipse 56% 48% at center, #100b08ed 0%, #130d0bd6 27%, #11100cb3 50%, #15100955 73%, transparent 100%);
 }
 .win-stage {
   width: min(89%, 146vh, 1150px); aspect-ratio: 1000 / 560;
-  position: absolute; top: var(--cy); left: var(--cx); transform: translate(-50%, -50%);
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
 }
 .win-cinematic[data-win-kind="rob"] .win-stage { width: min(70%, 116vh, 920px); }
 .win-stage canvas {
@@ -115,7 +105,7 @@ onBeforeUnmount(() => { cancelAnimationFrame(raf); observer?.disconnect() })
   mask-image: radial-gradient(ellipse 64% 70% at 50% 50%, black 63%, transparent 100%);
 }
 .win-lettering {
-  position: absolute; top: 49.5%; left: 50%; width: var(--word-width); opacity: var(--title-alpha, 0);
+  position: absolute; top: 50%; left: 50%; width: var(--word-width); opacity: var(--title-alpha, 0);
   transform: translate(-50%, -50%) translateY(var(--title-y)) rotate(var(--title-tilt)) scale(var(--title-scale));
   filter: drop-shadow(0 .3em .24em #180b06cb);
 }

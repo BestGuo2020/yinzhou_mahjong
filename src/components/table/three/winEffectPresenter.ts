@@ -21,8 +21,7 @@ interface WinEffectAnimation {
   anchor: THREE.Vector3
   burstAnchor: THREE.Vector3
   outward: THREE.Vector3
-  beam: THREE.Mesh<THREE.CylinderGeometry, THREE.MeshBasicMaterial>
-  beamGlow: THREE.Mesh<THREE.CylinderGeometry, THREE.MeshBasicMaterial>
+  setBeamStrength(strength: number): void
   starburst: THREE.Sprite
   glow: THREE.Sprite
   diamonds: DiamondParticle[]
@@ -36,7 +35,7 @@ interface WinEffectAnimation {
 
 export interface WinEffectPresenterOptions {
   winHandOrigin?(seat: number, index: number): FlightPose | null
-  onWinTileAnchors?(id: number, target: FlightPose, source?: THREE.Vector3): void
+  onRobSource?(id: number, point: THREE.Vector3): void
   tileFlight?: { source:FlightPose; target:FlightPose; timing:WinningTileFlightTiming }
   visual?: {color:number;sparks:readonly number[];shape:string;particleCount:number;particleSpeed:number;beamHeight:number;beamRadius:number;intensity:number;starburstScale:number}
   winLayout?: (playerIndex: number) => { x: number; y: number; z: number; rotation: number }
@@ -320,6 +319,49 @@ function getDiamondGeometry() {
   return diamondGeometry
 }
 
+function addWinBeams(group: THREE.Group, anchor: { x: number; y: number; z: number }) {
+  const animeEffect = props.themeName === 'llmAnime'
+  // 信标式竖直光束：从胡牌牌垂直射向天空（垂直于牌面），带光晕
+  const beamMaterial = ownDynamic(new THREE.MeshBasicMaterial({
+    map: getBeamTexture(),
+    color: options.visual?.color ?? (animeEffect ? 0x36dfff : 0xffffff),
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    toneMapped: !animeEffect,
+    side: THREE.DoubleSide,
+  }))
+  beamMaterial.userData.outlineParameters = { visible: false }
+  const beam = new THREE.Mesh(getBeamGeometry(), beamMaterial)
+  beam.position.set(anchor.x, anchor.y + .25 + (options.visual?.beamHeight??8.5) / 2, anchor.z)
+  if(options.visual)beam.visible=options.visual.beamHeight>0
+  beam.name = 'win-beam-core'
+  group.add(beam)
+  const beamGlowMaterial = ownDynamic(new THREE.MeshBasicMaterial({
+    map: getBeamTexture(),
+    color: options.visual?.color ?? (animeEffect ? 0xff4f9a : 0xffffff),
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    toneMapped: !animeEffect,
+    side: THREE.DoubleSide,
+  }))
+  beamGlowMaterial.userData.outlineParameters = { visible: false }
+  const beamGlow = new THREE.Mesh(getBeamGlowGeometry(), beamGlowMaterial)
+  beamGlow.position.set(anchor.x, anchor.y + .3 + (options.visual?options.visual.beamHeight*.82:7) / 2, anchor.z)
+  if(options.visual)beamGlow.visible=options.visual.beamHeight>0
+  beamGlow.name = 'win-beam-glow'
+  group.add(beamGlow)
+
+  return (strength: number) => {
+    const intensity = strength * (options.visual?.intensity ?? 1)
+    beamMaterial.opacity = intensity * (animeEffect ? .92 : .8)
+    beamGlowMaterial.opacity = intensity * (animeEffect ? .62 : .32)
+  }
+}
+
 function addWinEffect(startedAt = options.startedAt ?? performance.now()) {
   if (!props.winEffect?.tile) return
   const animeEffect = props.themeName === 'llmAnime'
@@ -341,46 +383,17 @@ function addWinEffect(startedAt = options.startedAt ?? performance.now()) {
       : indices.map(index => options.winHandOrigin?.(win.winnerIndex, index) ?? null)
     const target = yingzhouAnchor({ x: anchor.x, y: anchor.y, z: anchor.z,
       rotation: effectLayout(props.winEffect.winnerIndex).rotation }, display.zhaIndices.length === 3)
-    options.onWinTileAnchors?.(props.winEffect.id, target, origin?.position)
+    if (origin) options.onRobSource?.(props.winEffect.id, origin.position)
     // A scene rebuild may happen mid-flight. Keep title, audio and tiles on the original clock.
     const start = startedAt - Math.max(0, Date.now() - props.winEffect.id)
-    yingzhouFrame = createYingzhouWinEffect(options, group, display, target, sources, start)
+    const setBeamStrength = props.winEffect.reducedMotion ? undefined : addWinBeams(group, target)
+    yingzhouFrame = createYingzhouWinEffect(options, group, display, target, sources, start, setBeamStrength)
     scene.add(group)
     dynamicGroups.push(group)
     return
   }
 
-  // 信标式竖直光束：从胡牌牌垂直射向天空（垂直于牌面），带光晕
-  const beamMaterial = ownDynamic(new THREE.MeshBasicMaterial({
-    map: getBeamTexture(),
-    color: options.visual?.color ?? (animeEffect ? 0x36dfff : 0xffffff),
-    transparent: true,
-    opacity: 0,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    toneMapped: !animeEffect,
-    side: THREE.DoubleSide,
-  }))
-  beamMaterial.userData.outlineParameters = { visible: false }
-  const beam = new THREE.Mesh(getBeamGeometry(), beamMaterial)
-  beam.position.set(anchor.x, anchor.y + .25 + (options.visual?.beamHeight??8.5) / 2, anchor.z)
-  if(options.visual)beam.visible=options.visual.beamHeight>0
-  group.add(beam)
-  const beamGlowMaterial = ownDynamic(new THREE.MeshBasicMaterial({
-    map: getBeamTexture(),
-    color: options.visual?.color ?? (animeEffect ? 0xff4f9a : 0xffffff),
-    transparent: true,
-    opacity: 0,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    toneMapped: !animeEffect,
-    side: THREE.DoubleSide,
-  }))
-  beamGlowMaterial.userData.outlineParameters = { visible: false }
-  const beamGlow = new THREE.Mesh(getBeamGlowGeometry(), beamGlowMaterial)
-  beamGlow.position.set(anchor.x, anchor.y + .3 + (options.visual?options.visual.beamHeight*.82:7) / 2, anchor.z)
-  if(options.visual)beamGlow.visible=options.visual.beamHeight>0
-  group.add(beamGlow)
+  const setBeamStrength = addWinBeams(group, anchor)
 
   // 星芒：光束底部向外爆发的光芒（与信标光束叠加）
   const starburstMaterial = ownDynamic(new THREE.SpriteMaterial({
@@ -466,7 +479,7 @@ function addWinEffect(startedAt = options.startedAt ?? performance.now()) {
   dynamicGroups.push(group)
   winEffectAnimation = {
     startedAt, anchor, burstAnchor, outward,
-    beam, beamGlow, starburst, glow, diamonds, winningTile,
+    setBeamStrength, starburst, glow, diamonds, winningTile,
     startPosition, startRotation, seatRotation,
     duration: props.winEffect.duration ?? WIN_EFFECT_DURATION,
     reducedMotion: Boolean(props.winEffect.reducedMotion),
@@ -492,9 +505,7 @@ function addWinEffect(startedAt = options.startedAt ?? performance.now()) {
     }
     const beamIn = THREE.MathUtils.smoothstep(progress, .08, .15)
     const beamOut = 1 - THREE.MathUtils.smoothstep(progress, .55, 1)
-    const beamVis = beamIn * beamOut
-    effect.beam.material.opacity = beamVis * (props.themeName === 'llmAnime' ? .92 : .8)*(options.visual?.intensity??1)
-    effect.beamGlow.material.opacity = beamVis * (props.themeName === 'llmAnime' ? .62 : .32)*(options.visual?.intensity??1)
+    effect.setBeamStrength(beamIn * beamOut)
     const burstIn = THREE.MathUtils.smoothstep(progress, .08, .16)
     const burstOut = 1 - THREE.MathUtils.smoothstep(progress, .3, .42)
     effect.starburst.material.opacity = burstIn * burstOut * .85

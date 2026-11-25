@@ -43,6 +43,10 @@ test('从大厅逐一重播四种胡法，实桌动作字和胡牌位都可见',
     await page.clock.runFor(32)
     const label = hud.getByRole('img', { name: title, exact: true })
     await expect(label).toBeInViewport()
+    const stage = (await hud.locator('.win-stage').boundingBox())!
+    const table = (await hud.locator('.mahjong-scene').boundingBox())!
+    expect(Math.abs(stage.x + stage.width / 2 - table.x - table.width / 2)).toBeLessThan(1)
+    expect(Math.abs(stage.y + stage.height / 2 - table.y - table.height / 2)).toBeLessThan(1)
     expect(await label.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(100)
     expect(await hud.locator('.win-lettering').evaluate(el => Number(getComputedStyle(el).opacity))).toBeGreaterThan(.5)
     await expect(hud.locator('canvas[data-win-effect-seats]')).toHaveAttribute('data-win-effect-seats', '[0]')

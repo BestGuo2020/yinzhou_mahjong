@@ -11,8 +11,7 @@ export const YINGZHOU_WIN_MOTION = {
 } as const
 export const HAND_REVEAL_MS = 240
 
-export interface TablePoint { left: number; top: number }
-export interface WinTileAnchors { id: number; source?: TablePoint; target: TablePoint }
+export interface RobSourceAnchor { id: number; left: number; top: number }
 
 export interface YingzhouWinDisplay {
   kind: Win['kind']

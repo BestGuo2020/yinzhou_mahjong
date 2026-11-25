@@ -17,15 +17,26 @@ function create(kind: YingzhouWinDisplay['kind'], reducedMotion = false) {
   // The renderer reads just the theme and the active win from the table snapshot.
   const props = { winEffect, themeName: 'rosewood' } as ResolvedTableProps
   const group = new THREE.Group()
+  const beamStrength = vi.fn()
   const sample = createYingzhouWinEffect({ props, makeFaceTile: () => new THREE.Group(), ownDynamic: x => x },
     group, { kind, zhaIndices: kind === 'nine' ? [0, 1, 2] : [], revealAt: null }, anchor,
-    [source, { ...source, x: -3 }, { ...source, x: -2 }], 1000)
-  return { group, sample }
+    [source, { ...source, x: -3 }, { ...source, x: -2 }], 1000, reducedMotion ? undefined : beamStrength)
+  return { group, sample, beamStrength }
 }
 
 afterEach(() => vi.unstubAllGlobals())
 
 describe('颍州胡牌的桌面动画', () => {
+  it.each(['self', 'rob', 'bloom', 'indicator', 'nine'] as const)('%s 的光束在落牌后亮起并在亮牌前收束', kind => {
+    const { sample, beamStrength } = create(kind)
+    const { land, impact, duration } = YINGZHOU_WIN_MOTION[kind]
+    sample(1000 + land)
+    expect(beamStrength).toHaveBeenLastCalledWith(0)
+    sample(1000 + impact)
+    expect(beamStrength).toHaveBeenLastCalledWith(1)
+    sample(1000 + duration)
+    expect(beamStrength).toHaveBeenLastCalledWith(0)
+  })
   it('抢杠飞牌从被抢座位出发，落到赢家位置，结束后停止请求帧', () => {
     const { group, sample } = create('rob')
     const tile = group.children[0]

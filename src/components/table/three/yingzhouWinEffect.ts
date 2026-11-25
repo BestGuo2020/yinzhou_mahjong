@@ -90,7 +90,7 @@ function moveTile(mesh: THREE.Group, kind: YingzhouWinDisplay['kind'], source: F
 }
 
 export function createYingzhouWinEffect(options: Resources, group: THREE.Group, display: YingzhouWinDisplay,
-  anchor: FlightPose, sources: readonly (FlightPose | null)[], startedAt: number) {
+  anchor: FlightPose, sources: readonly (FlightPose | null)[], startedAt: number, setBeamStrength?: (strength: number) => void) {
   const { props, ownDynamic } = options
   const effect = props.winEffect!
   const tiles = addYingzhouTiles(group, options.makeFaceTile, effect.tile, anchor, display)
@@ -129,6 +129,7 @@ export function createYingzhouWinEffect(options: Resources, group: THREE.Group, 
   function sample(time: number) {
     const ms = Math.max(0, time - startedAt)
     if (!still) tiles.forEach((tile, i) => moveTile(tile, kind, sources[i] ?? targets[i], targets[i], i, ms))
+    setBeamStrength?.(stage(ms, land, impact) * (1 - stage(ms, effect.duration - 350, effect.duration)))
     if (motion && kind === 'rob') {
       // The shower follows the stolen tile down, after its face is visible at the destination.
       flecks.forEach((sprite, index) => {
