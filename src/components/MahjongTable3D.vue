@@ -28,7 +28,6 @@ import { createMultiWinEffectPresenter } from './table/three/multiWinEffectPrese
 import { createTableTilePresenter } from './table/three/tableTilePresenter'
 import { tileMarkerFor } from './table/three/tileMarker'
 import type { TableProps } from './table/three/tableRenderTypes'
-import type { RobSourceAnchor } from '../game/variants/yingzhou/winMotion'
 import { bloodFlowPileAnchor } from './table/three/bloodFlowWinPile'
 import { createBloodFlowWinEffects } from './table/three/bloodFlowWinEffects'
 import { createYaotongKongWeather } from './table/three/yaotongKongWeather'
@@ -49,12 +48,9 @@ const emit = defineEmits<{
   ready: []
   loadError: [message: string]
   pileAnchors: [anchors: { left: number; top: number }[]]
-  robSource: [anchor: RobSourceAnchor]
 }>()
 
 const canvas = ref(null)
-let robSourcePosition: { id: number; point: THREE.Vector3 } | null = null
-let projectedAspect = -1
 let renderer
 let outlineEffect: OutlineEffect | null = null
 let scene
@@ -360,12 +356,6 @@ function render(time = 0) {
     renderer.toneMappingExposure = exposure
     const cameraPosition = tableCameraPosition(renderProfile, cameraShakeX, cameraShakeZ)
     applyTableCamera(cameraPosition)
-    if (robSourcePosition && props.winEffect?.id === robSourcePosition.id && projectedAspect !== camera.aspect) {
-      camera.updateMatrixWorld()
-      const p = scratchVector.copy(robSourcePosition.point).project(camera)
-      projectedAspect = camera.aspect
-      emit('robSource', { id: robSourcePosition.id, left: (p.x + 1) * 50, top: (1 - p.y) * 50 })
-    }
     if (props.bloodFlowBatches) {
       camera.updateMatrixWorld()
       if(import.meta.env.DEV&&canvas.value)canvas.value.dataset.bloodFlowFlights=JSON.stringify(tableTiles.flightDebug().map(f=>{
@@ -564,10 +554,6 @@ onMounted(async () => {
   })
   const winEffectOptions = {
     winHandOrigin: tableTiles.winHandOrigin,
-    onRobSource(id: number, point: THREE.Vector3) {
-      robSourcePosition = { id, point }
-      projectedAspect = -1
-    },
     scene,
     camera,
     props,

@@ -107,7 +107,7 @@ function addConcealedHand(playerIndex) {
     ? props.winPresentation
     : null
   const moving = presentation?.yingzhou && props.winEffect && !props.winEffect.reducedMotion && !presentation.robbedKong
-    ? (presentation.yingzhou.zhaIndices.length ? presentation.yingzhou.zhaIndices : [presentation.sourceIndex]) : []
+    ? presentation.yingzhou.zhaIndices : []
   const beforeEffect = presentation?.yingzhou && !props.winEffect && !props.revealHands
   const displayedHand = moving.length || beforeEffect ? rawHand : splitWinningTile(rawHand, presentation).hand
   // 赢家：和牌张已移入胡牌区（splitWinningTile 移除），暗手按 split 后的张数显示，

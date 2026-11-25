@@ -1,11 +1,11 @@
 import * as THREE from 'three'
 import type { TileType } from '../../../game/core/contracts/types'
 import type { YingzhouWinDisplay } from '../../../game/variants/yingzhou/winMotion'
-import { YINGZHOU_WIN_MOTION } from '../../../game/variants/yingzhou/winMotion'
+import { WIN_PLAYBACK_RATE, YINGZHOU_WIN_MOTION } from '../../../game/variants/yingzhou/winMotion'
 import { TABLE_LAYOUT } from '../../../game/core/presentation/tableLayout'
 import { themePresentationByName } from '../../../theme/themePresentation'
 import type { WinEffectPresenterOptions } from './winEffectPresenter'
-import type { FlightPose } from './winningTileFlight'
+import { sampleWinningTileFlight, type FlightPose } from './winningTileFlight'
 import { DEFAULT_TABLE_SCENE_PROFILE } from './sceneRenderProfile'
 
 type Resources = Pick<WinEffectPresenterOptions, 'ownDynamic' | 'makeFaceTile' | 'props'>
@@ -52,17 +52,12 @@ function angleBetween(from: number, to: number, t: number) {
   return from + Math.atan2(Math.sin(to - from), Math.cos(to - from)) * t
 }
 
-// All positions refer to one real tile. Pick it up at its slot, give the
-// player time to read its face, then carry it into the winner's display.
-function moveTile(mesh: THREE.Group, kind: YingzhouWinDisplay['kind'], source: FlightPose,
-  target: FlightPose, index: number, ms: number) {
-  const { takeoff, land } = YINGZHOU_WIN_MOTION[kind]
-  const zha = kind === 'indicator' || kind === 'nine'
-  const rob = kind === 'rob', bloom = kind === 'bloom'
-  const stagger = zha ? index * 140 : 0
-  const lift = THREE.MathUtils.smoothstep(ms, stagger, stagger + Math.min(240, takeoff))
-  const leave = takeoff + stagger
-  const touch = land - 150 - (zha ? (2 - index) * 95 : 0)
+// Each of the three declared tiles leaves its actual hand slot in turn.
+function moveZhaTile(mesh: THREE.Group, source: FlightPose, target: FlightPose, index: number, ms: number, land: number) {
+  const stagger = index * 140
+  const leave = 160 + stagger
+  const lift = THREE.MathUtils.smoothstep(ms, stagger, leave)
+  const touch = land - 150 - (2 - index) * 95
   const travel = THREE.MathUtils.smoothstep(ms, leave, touch)
   const settle = THREE.MathUtils.smoothstep(ms, touch, touch + 150)
   const arc = Math.sin(travel * Math.PI)
@@ -71,22 +66,18 @@ function moveTile(mesh: THREE.Group, kind: YingzhouWinDisplay['kind'], source: F
   const midX = (source.x + target.x) / 2, midZ = (source.z + target.z) / 2
   const middle = Math.hypot(midX, midZ) || 1
   const bend = Math.min(2.4, Math.hypot(target.x - source.x, target.z - source.z) * .22) * arc
-  const fan = zha ? (index - 1) * arc * .62 : 0
+  const fan = (index - 1) * arc * .62
   const raised = lift * (1 - travel)
   mesh.position.set(
     THREE.MathUtils.lerp(source.x, target.x, travel) - bend * midX / middle + Math.cos(target.rotation) * fan,
-    THREE.MathUtils.lerp(source.y, target.y, travel) + raised * (rob ? 1.35 : .85)
-      + arc * (bloom ? 3.2 : rob ? 2.6 : 1.8) + bounce * .28,
+    THREE.MathUtils.lerp(source.y, target.y, travel) + raised * .85 + arc * 1.8 + bounce * .28,
     THREE.MathUtils.lerp(source.z, target.z, travel) - bend * midZ / middle - Math.sin(target.rotation) * fan,
   )
   const readable = angleBetween(source.rotation, 0, lift * .85)
-  // Flip the supplement early and show its face at the highest point.
-  const flip = bloom ? -1.1 * Math.sin(Math.PI * THREE.MathUtils.smoothstep(ms, leave - 80, leave + 180)) : 0
-  const tilt = THREE.MathUtils.lerp(source.tilt ?? 0, -.32, lift) * (1 - travel) + arc * (bloom ? .72 : -.32) + flip
-  const roll = arc * (zha ? (index - 1) * .34 : rob ? -.22 : .12)
+  const tilt = THREE.MathUtils.lerp(source.tilt ?? 0, -.32, lift) * (1 - travel) - arc * .32
+  const roll = arc * (index - 1) * .34
   mesh.rotation.set(tilt, angleBetween(readable, target.rotation, travel), roll, 'YXZ')
-  mesh.scale.setScalar(1 + raised * (rob ? .85 : zha ? .29 : .58)
-    + arc * (zha ? .55 : 1.14) + bounce * .08)
+  mesh.scale.setScalar(1 + raised * .29 + arc * .55 + bounce * .08)
 }
 
 export function createYingzhouWinEffect(options: Resources, group: THREE.Group, display: YingzhouWinDisplay,
@@ -97,8 +88,10 @@ export function createYingzhouWinEffect(options: Resources, group: THREE.Group, 
   const palette = themePresentationByName(props.themeName).palette
   const kind = display.kind
   const isZha = display.zhaIndices.length === 3
-  const { rate, land, impact } = YINGZHOU_WIN_MOTION[kind]
-  const end = effect.duration * rate
+  const { cinematicStart, beamStart, impact } = YINGZHOU_WIN_MOTION[kind]
+  const end = effect.duration * WIN_PLAYBACK_RATE
+  const beamPeak = Math.max(impact, beamStart + 160)
+  const flight = { takeoffAt: 0, impactAt: impact, landedAt: impact + 100 }
   const targets = tiles.map(tile => ({ x: tile.position.x, y: tile.position.y, z: tile.position.z, rotation: anchor.rotation }))
   const stage = THREE.MathUtils.smoothstep
   const still = effect.reducedMotion
@@ -128,21 +121,24 @@ export function createYingzhouWinEffect(options: Resources, group: THREE.Group, 
     }
   }
   function sample(time: number) {
-    const ms = Math.max(0, time - startedAt) * rate
-    if (!still) tiles.forEach((tile, i) => moveTile(tile, kind, sources[i] ?? targets[i], targets[i], i, ms))
-    setBeamStrength?.(stage(ms, land, impact) * (1 - stage(ms, end - 350, end)))
-    if (motion && kind === 'rob') {
-      // The shower follows the stolen tile down, after its face is visible at the destination.
+    const ms = Math.max(0, time - startedAt) * WIN_PLAYBACK_RATE
+    setBeamStrength?.(stage(ms, beamStart, beamPeak) * (1 - stage(ms, end - 350, end)))
+    const source = sources[0]
+    if (motion && kind === 'rob' && source) {
+      const pose = sampleWinningTileFlight(source, anchor, flight, ms)
+      tiles[0].position.set(pose.x, pose.y, pose.z)
+      tiles[0].rotation.y = pose.rotation
+      tiles[0].scale.setScalar(pose.scale)
       flecks.forEach((sprite, index) => {
-        const t = stage(ms, land + index * 18, impact + 270 + index * 18)
-        const angle = index * 2.39996
-        sprite.position.set(anchor.x + Math.cos(angle) * (.85 - t * .42), anchor.y + .3 + (1 - t) * 2.3,
-          anchor.z + Math.sin(angle) * (.85 - t * .42))
-        sprite.scale.set(.16, .34, 1)
-        sprite.material.opacity = Math.sin(t * Math.PI)
+        const lag = (index + 1) * 15
+        const trace = sampleWinningTileFlight(source, anchor, flight, ms - lag)
+        sprite.position.set(trace.x, trace.y + .18, trace.z)
+        sprite.scale.setScalar(.37 - index * .035)
+        sprite.material.opacity = ms <= lag ? 0 : .72 * (1 - index / 8) * (1 - stage(ms, impact, impact + 110))
       })
     } else if (motion && isZha) {
       tiles.forEach((tile, index) => {
+        moveZhaTile(tile, sources[index] ?? targets[index], targets[index], index, ms, cinematicStart)
         const spark = flecks[index]
         spark.position.copy(tile.position)
         spark.position.y += .32
@@ -151,11 +147,12 @@ export function createYingzhouWinEffect(options: Resources, group: THREE.Group, 
         spark.material.opacity = impactGlow * .48
       })
       if (ring) {
-        ring.scale.setScalar(4.35 - 1.3 * stage(ms, land, impact))
-        ring.material.opacity = stage(ms, land, impact) * (1 - stage(ms, impact + 160, impact + 520))
+        ring.scale.setScalar(4.35 - 1.3 * stage(ms, cinematicStart, impact))
+        ring.material.opacity = stage(ms, cinematicStart, impact) * (1 - stage(ms, impact + 160, impact + 520))
       }
     } else if (motion && kind === 'bloom') {
       const t = stage(ms, impact, impact + 480)
+      tiles[0].position.y = anchor.y + .55 * Math.sin(stage(ms, 0, impact) * Math.PI)
       if (ring) {
         ring.scale.setScalar(.85 + 3.7 * t)
         ring.material.opacity = stage(ms, impact - 50, impact) * (1 - t)

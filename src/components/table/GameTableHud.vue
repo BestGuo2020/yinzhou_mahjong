@@ -2,7 +2,7 @@
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import YingzhouWinCinematic from './YingzhouWinCinematic.vue'
 import { warmWinArtwork } from './yingzhouCinematic'
-import { HAND_REVEAL_MS, type RobSourceAnchor } from '../../game/variants/yingzhou/winMotion'
+import { HAND_REVEAL_MS } from '../../game/variants/yingzhou/winMotion'
 import MahjongTile from '../MahjongTile.vue'
 import TableControlIcon from './TableControlIcon.vue'
 import YaotongSeatMarker from '../yaotong/YaotongSeatMarker.vue'
@@ -158,7 +158,6 @@ const compactBloodFlowEffects = computed(() => compactPiles.value || new URLSear
 const presentationDirector=new BloodFlowPresentationDirector(import.meta.env.DEV?Number(new URLSearchParams(window.location.search).get('motionScale'))||1:1)
 const effectPlayer=useEffectPlayer(),playedImpacts=new Set<string>()
 const tableHudElement=ref<HTMLElement|null>(null), ownDrawScreen=shallowRef<{sourceId:string;x:number;y:number}|null>(null)
-const robSource = shallowRef<RobSourceAnchor | null>(null)
 const handRevealDuration = HAND_REVEAL_MS + 'ms'
 function ownHandPoint(index: number) {
   const hud = tableHudElement.value
@@ -412,7 +411,7 @@ function toggleWaits() {
 const movingHandIndices = computed(() => {
   const win = props.winPresentation
   if (!win?.yingzhou || win.winnerIndex !== 0 || win.robbedKong || !props.winEffect || props.winEffect.reducedMotion) return []
-  return win.yingzhou.zhaIndices.length ? win.yingzhou.zhaIndices : [win.sourceIndex]
+  return win.yingzhou.zhaIndices
 })
 const displayedUserHand = computed(() => {
   const win = props.winPresentation
@@ -652,7 +651,7 @@ function onAvatarError(entry: GamePlayer) {
       :blood-flow-hidden-records="bloodFlowHidden"
       :blood-flow-source-event="bloodFlow?.sourceEvent"
       :blood-flow-own-draw="ownDrawScreen"
-      :own-hand-point="ownHandPoint" @rob-source="robSource = $event"
+      :own-hand-point="ownHandPoint"
       @ready="handleTableReady"
       @load-error="handleTableLoadError"
     />
@@ -754,7 +753,7 @@ function onAvatarError(entry: GamePlayer) {
       :source-index="yaotongView.multiWinIntro.sourceIndex" :theme-name="themeName"
       :compact="compactBloodFlowEffects" :reduced="prefersReducedMotion()" />
     <YingzhouWinCinematic v-if="cinematic && winEffect && winPatterns" :key="winEffect.id"
-      :source-name="players[winEffect.robbedKongPlayerIndex]?.name" :rob-source="robSource"
+      :source-name="players[winEffect.robbedKongPlayerIndex]?.name"
       :effect="winEffect" :kind="cinematic.kind" :label="winPatterns.winners[0].label" :winner="players[winEffect.winnerIndex].name" />
     <YaotongWinPatterns v-else-if="presentedWinPatterns" :key="`patterns-${presentedWinPatterns.id}`"
       :centered="rulesetId === 'yingzhou'"

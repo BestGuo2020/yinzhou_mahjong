@@ -3,18 +3,16 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { WinEffect } from '../../game/core/contracts/gamePort'
 import { tileName } from '../../game/core/rules/tiles'
 import type { WinKind } from '../../game/variants/yingzhou/rules'
-import { YINGZHOU_WIN_MOTION, type RobSourceAnchor } from '../../game/variants/yingzhou/winMotion'
+import { WIN_PLAYBACK_RATE, YINGZHOU_WIN_MOTION } from '../../game/variants/yingzhou/winMotion'
 import { assetUrl, clamp, paintWinFrame, ramp, winArtwork } from './yingzhouCinematic'
 
 const props = defineProps<{ effect: WinEffect; kind: WinKind; label: string; winner: string;
-  sourceName?: string; robSource?: RobSourceAnchor | null }>()
+  sourceName?: string }>()
 const layer = ref<HTMLElement | null>(null)
-const sourceTag = ref<HTMLElement | null>(null)
 const canvas = ref<HTMLCanvasElement | null>(null)
 const failed = ref(false)
 const titleSrc = computed(() => winArtwork[props.kind].label === props.label && !failed.value
   ? assetUrl('title-' + props.kind) : '')
-const sourceAnchor = computed(() => props.robSource?.id === props.effect.id ? props.robSource : null)
 let raf = 0
 let observer: ResizeObserver | undefined
 onMounted(() => {
@@ -29,12 +27,11 @@ onMounted(() => {
   observer = new ResizeObserver(resize)
   observer.observe(surface)
   const started = performance.now() - Math.max(0, Date.now() - props.effect.id)
-  const { rate, land: landedAt, takeoff, impact } = YINGZHOU_WIN_MOTION[props.kind]
-  const end = props.effect.duration * rate
+  const { cinematicStart, impact } = YINGZHOU_WIN_MOTION[props.kind]
+  const end = props.effect.duration * WIN_PLAYBACK_RATE
   function frame(time: number) {
-    const ms = Math.max(0, time - started) * rate
-    if (sourceTag.value) sourceTag.value.style.opacity = String(1 - ramp(ms, takeoff, takeoff + 160))
-    const alpha = ramp(ms, landedAt, landedAt + 115) * (1 - ramp(ms, end - 230, end))
+    const ms = Math.max(0, time - started) * WIN_PLAYBACK_RATE
+    const alpha = ramp(ms, cinematicStart, cinematicStart + (cinematicStart ? 115 : 95)) * (1 - ramp(ms, end - 230, end))
     const land = ramp(ms, impact - 110, impact + 55)
     const after = clamp((ms - impact) / 300)
     const recoil = Math.sin(after * Math.PI * 2) * (1 - after) * .064
@@ -43,13 +40,13 @@ onMounted(() => {
     root.style.setProperty('--title-alpha', String(ramp(ms, impact - 135, impact - 15)))
     root.style.setProperty('--title-scale', String(1 + (1 - land) * .67 + recoil))
     root.style.setProperty('--title-tilt', tilt * (1 - land) + 'deg')
-    root.style.setProperty('--title-y', (1 - land) * (props.kind === 'rob' ? -72 : -36) + 'px')
+    root.style.setProperty('--title-y', (1 - land) * (cinematicStart ? -36 : -22) + 'px')
     root.style.setProperty('--glint-x', (ramp(ms, impact + 40, impact + 650) * 190 - 45) + '%')
     root.style.setProperty('--meta-alpha', String(ramp(ms, impact + 40, impact + 260)))
-    if (ctx && ms >= landedAt) {
+    if (ctx && ms >= cinematicStart) {
       ctx.setTransform(surface.width / 1000, 0, 0, surface.height / 560, 0, 0)
       ctx.clearRect(0, 0, 1000, 560)
-      paintWinFrame(ctx, props.kind, ms - landedAt, impact - landedAt)
+      paintWinFrame(ctx, props.kind, ms - cinematicStart, impact - cinematicStart)
     }
     if (ms < end) raf = requestAnimationFrame(frame)
   }
@@ -59,11 +56,6 @@ onBeforeUnmount(() => { cancelAnimationFrame(raf); observer?.disconnect() })
 </script>
 
 <template>
-  <div v-if="kind === 'rob' && sourceName && sourceAnchor" ref="sourceTag"
-    class="rob-source-tag" :class="{ below: sourceAnchor.top < 23 }"
-    :style="{ left: 'clamp(4.7em,' + sourceAnchor.left + '%,calc(100% - 4.7em))', top: sourceAnchor.top + '%' }">
-    {{ sourceName }}补杠<span>·</span>{{ tileName(effect.tile) }}
-  </div>
   <div ref="layer" class="win-cinematic" :data-win-kind="kind" :style="{ '--word-width': (label.length * 10 + 4) + '%' }" role="status"
     :aria-label="[winner, label, sourceName, tileName(effect.tile)].filter(Boolean).join('，')">
     <div class="win-stage">
@@ -81,17 +73,6 @@ onBeforeUnmount(() => { cancelAnimationFrame(raf); observer?.disconnect() })
 </template>
 
 <style scoped>
-.rob-source-tag {
-  position: absolute; z-index: 43; transform: translate(-50%, -100%) translateY(clamp(-74px, -8vh, -35px));
-  padding: .32em .65em; border: 1px solid #f7ede199; border-radius: 5px; pointer-events: none;
-  background: #18231ff0; color: #fff8e9; font: 600 clamp(13px, 2.2vh, 19px)/1.25 sans-serif; white-space: nowrap;
-}
-.rob-source-tag::after {
-  content: ''; position: absolute; left: 50%; top: 100%; width: 1px; height: .6em; background: #f7ede1ce;
-}
-.rob-source-tag span { margin: 0 .35em; opacity: .7; }
-.rob-source-tag.below { transform: translate(-50%, 0) translateY(.95em); }
-.rob-source-tag.below::after { top: auto; bottom: 100%; }
 .win-cinematic {
   position: absolute; inset: 0; z-index: 42; pointer-events: none; overflow: hidden; opacity: 0;
   background: radial-gradient(ellipse 56% 48% at center, #100b08ed 0%, #130d0bd6 27%, #11100cb3 50%, #15100955 73%, transparent 100%);

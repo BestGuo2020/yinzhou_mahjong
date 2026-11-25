@@ -15,32 +15,19 @@ test('从大厅逐一重播四种胡法，实桌动作字和胡牌位都可见',
   await page.clock.install({ time: new Date(now) })
   await page.clock.pauseAt(new Date(now + 500))
   for (const [action, title, frame] of [
-    ['扎杠', '扎亮牌', 1890], ['抢杠', '抢补杠胡', 1800], ['杠开', '杠上开花', 1700], ['自摸', '自摸', 1170],
+    ['扎杠', '扎亮牌', 1890], ['抢杠', '抢补杠胡', 850], ['杠开', '杠上开花', 875], ['自摸', '自摸', 715],
   ] as const) {
     await controls.getByRole('button', { name: action }).click({ force: true })
     await page.clock.fastForward(350)
     await expect(hud.locator('.win-cinematic')).toBeAttached()
-    let elapsed = 0
-    if (action === '抢杠') {
-      await page.clock.fastForward(400)
-      await page.clock.runFor(32)
-      const source = hud.locator('.rob-source-tag')
-      await expect(source).toContainText('上家补杠')
-      await expect(source).toContainText('五筒')
-      await expect(source).toBeInViewport()
-      await expect(source).toHaveCSS('opacity', '1')
-      await expect(hud.locator('.win-cinematic')).toHaveCSS('opacity', '0')
-      await test.info().attach('第四张停在上家', { body: await page.screenshot(), contentType: 'image/png' })
-      await page.clock.fastForward(580)
-      await page.clock.runFor(32)
-      await expect(source).toHaveCSS('opacity', '0')
-      await expect(hud.locator('.win-cinematic')).toHaveCSS('opacity', '0')
-      await test.info().attach('五筒飞向本家', { body: await page.screenshot(), contentType: 'image/png' })
-      elapsed = 1044
-    } else {
-      await expect(hud.locator('.hand-tile-slot.in-flight')).toHaveCount(action === '扎杠' ? 3 : 1)
-    }
-    await page.clock.fastForward(frame - elapsed - 32)
+    await expect(hud.locator('.hand-tile-slot.in-flight')).toHaveCount(action === '扎杠' ? 3 : 0)
+    await page.clock.fastForward(180)
+    await page.clock.runFor(32)
+    const opacity = await hud.locator('.win-cinematic').evaluate(el => Number(getComputedStyle(el).opacity))
+    if (action === '扎杠') expect(opacity).toBe(0)
+    else expect(opacity).toBeGreaterThan(.9)
+    if (action === '抢杠') await expect(hud.locator('.rob-source-tag')).toHaveCount(0)
+    await page.clock.fastForward(frame - 212 - 32)
     await page.clock.runFor(32)
     const label = hud.getByRole('img', { name: title, exact: true })
     await expect(label).toBeInViewport()
@@ -54,9 +41,9 @@ test('从大厅逐一重播四种胡法，实桌动作字和胡牌位都可见',
     if (action === '抢杠') await expect(hud.locator('.win-byline')).toHaveText('你抢上家的五筒')
     await test.info().attach(title, { body: await page.screenshot(), contentType: 'image/png' })
     if (action === '自摸') {
-      await page.clock.fastForward(950)
+      await page.clock.fastForward(1200)
       await expect(hud.locator('.hand-rack')).toHaveClass(/yingzhou-tip/)
-      await expect(hud.locator('.hand-rack .hand-tile-slot').first()).toHaveCSS('animation-duration', '0.24s')
+      await expect(hud.locator('.hand-rack .hand-tile-slot').first()).toHaveCSS('animation-duration', '0.3s')
     }
   }
   expect(errors).toEqual([])

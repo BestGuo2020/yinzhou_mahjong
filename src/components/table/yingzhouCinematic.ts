@@ -91,7 +91,7 @@ export function paintWinFrame(ctx: CanvasRenderingContext2D, kind: WinKind, ms: 
     const x = -650 + cut * 1450
     ctx.moveTo(-650, -330); ctx.lineTo(x + 150, -330)
     ctx.lineTo(x - 160, 330); ctx.lineTo(-650, 330); ctx.closePath(); ctx.clip()
-    plate((1 - cut) * -85, 5 - (1 - cut) * 95, 890 + flash * 70, 455, .065 - cut * .08, 1)
+    plate((1 - cut) * -115, 5, 890 + flash * 70, 455, .065 - cut * .08, 1)
     ctx.restore()
     plate(50 + release * 65, -15 - release * 18, 840, 365, -.06, flash * .75)
   } else if (kind === 'bloom') {

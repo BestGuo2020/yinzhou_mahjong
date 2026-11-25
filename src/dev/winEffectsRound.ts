@@ -38,15 +38,12 @@ export function exampleRound(kind: Example): Round {
   r.headDrawn = 136 - r.wall.length
   r.window = { kind: 'turn' }
   if (kind === 'rob') stepRound(r, 3, { kind: 'kong', kong: 'added', tile: 'p5' })
-  if (kind === 'bloom') {
-    stepRound(r, 0, { kind: 'kong', kong: 'concealed', tile: 'east' })
-    stepRound(r, 0, { kind: 'advance' })
-  }
+  if (kind === 'bloom') stepRound(r, 0, { kind: 'kong', kong: 'concealed', tile: 'east' })
   return r
 }
 
 export function winExample(round: Round, kind: Example) {
-  if (kind === 'rob') stepRound(round, decisionSeat(round), { kind: 'advance' })
+  if (kind === 'bloom' || kind === 'rob') stepRound(round, decisionSeat(round), { kind: 'advance' })
   const action = legalActions(round).find(a => a.kind === 'win' && a.win.kind === kind)
   if (!action || !stepRound(round, decisionSeat(round), action)) throw new Error('无法播放' + examples[kind])
 }
