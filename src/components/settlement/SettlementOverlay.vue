@@ -307,6 +307,13 @@ const relativeSeat = computed<0 | 1 | 2 | 3>(() => {
   scrollbar-gutter: auto;
 }
 .settlement-card[data-ruleset="yingzhou"] > h2 { margin-inline: 16px; line-height: 1.2; }
+.settlement-card[data-ruleset="yingzhou"] .round-rankings article {
+  grid-template-columns: max-content max-content minmax(0, 1fr) minmax(6ch, max-content) minmax(6ch, max-content);
+  column-gap: clamp(6px, .9cqw, 10px);
+}
+.settlement-card[data-ruleset="yingzhou"] :is(.round-rankings article > em, .round-rankings article > b, .score-total em, .score-details > span) {
+  white-space: nowrap;
+}
 .settlement-card[data-ruleset="yingzhou"] .score-details { padding-inline: 15px; }
 .settlement-card[data-ruleset="yingzhou"] .score-total + .round-rankings { margin-top: clamp(12px, 2.5cqh, 20px); }
 .settlement-card[data-ruleset="yingzhou"] .settlement-footer {
@@ -316,6 +323,9 @@ const relativeSeat = computed<0 | 1 | 2 | 3>(() => {
 .settlement-card[data-ruleset="yingzhou"] .result-actions { margin: 0; }
 .settlement-card[data-ruleset="yingzhou"] .result-actions button { flex: 0 1 170px; min-width: 0; }
 .settlement-card[data-ruleset="yingzhou"] .result-disclaimer-note { margin: 10px 0 0; }
+@container game (max-width: 540px) {
+  .settlement-card[data-ruleset="yingzhou"] .round-rankings { grid-template-columns: 1fr; }
+}
 @container game (max-height: 460px) {
   .settlement-card[data-ruleset="yingzhou"] { padding-top: 10px; }
   .settlement-card[data-ruleset="yingzhou"] > h2 { margin-bottom: 5px; font-size: clamp(20px, 6cqh, 26px); }

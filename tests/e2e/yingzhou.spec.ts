@@ -420,6 +420,7 @@ for (const mobile of [false, true]) {
         await rules.getByRole('button', { name: /死九/ }).click()
         await expect(rules.getByRole('button', { name: '确定' })).toBeInViewport({ ratio: 1 })
         await rules.getByRole('button', { name: '确定' }).click()
+        if (mobile) await page.getByRole('button', { name: '三倍场', exact: true }).click()
         await clickWithSeed(page.getByRole('button', { name: /开始对局/ }), 9890)
         const hu = page.getByRole('button', { name: '扎亮牌 ×3' })
         await expect(hu).toBeVisible({ timeout: 35_000 })
@@ -468,9 +469,26 @@ for (const mobile of [false, true]) {
         await hu.click()
         const card = page.getByRole('dialog', { name: '东1局 · 扎亮牌', exact: true })
         await expect(card.locator('.score-total strong')).toHaveText('×3', { timeout: 15_000 })
-        await expect(card.locator('.score-total em')).toHaveText('+900万 金币')
+        await expect(card.locator('.score-total em')).toHaveText(mobile ? '+2700万 金币' : '+900万 金币')
         await expect(card.locator('[role="tablist"], .yaotong-payment-map, .overview-chicken, .mahjong-tile')).toHaveCount(0)
         await expect(card.locator('.result-actions button')).toHaveText(['查看牌桌', '继续'])
+        const amounts = card.locator('.round-rankings article > :is(em, b)')
+        await expect(amounts).toHaveCount(8)
+        const sizes = mobile ? [
+          { width: 480, height: 320 }, { width: 568, height: 320 },
+          { width: 964, height: 360 }, page.viewportSize()!,
+        ] : [page.viewportSize()!]
+        for (const size of sizes) {
+          await page.setViewportSize(size)
+          const broken = await amounts.evaluateAll(cells => cells.filter(cell => {
+            const range = document.createRange()
+            range.selectNodeContents(cell)
+            const fragments = [...range.getClientRects()]
+            const wraps = Math.max(...fragments.map(r => r.top)) >= Math.min(...fragments.map(r => r.bottom))
+            return wraps || cell.scrollWidth > cell.clientWidth + 1
+          }).map(cell => cell.textContent))
+          expect(broken, `金额须完整显示在同一行（${size.width} × ${size.height}）`).toEqual([])
+        }
         for (const row of await card.locator('.round-rankings article').all()) await expect(row).toBeInViewport({ ratio: 1 })
         for (const button of await card.locator('.result-actions button').all()) await expect(button).toBeInViewport({ ratio: 1 })
         await page.screenshot({ path: info.outputPath('settlement.png'), animations: 'disabled' })
