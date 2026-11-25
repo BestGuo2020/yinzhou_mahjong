@@ -13,6 +13,7 @@ const props = defineProps<{
   compact?: boolean
   main?: boolean
   tableFocus?: boolean
+  detail?: string
 }>()
 const titleStyle = computed(() => {
   const m = props.motion, seat = props.seatIndex
@@ -36,10 +37,12 @@ const titleStyle = computed(() => {
 <template>
   <div class="blood-flow-central" :data-theme="themeName" :style="titleStyle">
     <BloodFlowImpactTitle :text="text" :theme="themeName" />
+    <small v-if="detail" class="win-detail">{{ detail }}</small>
   </div>
 </template>
 
 <style scoped>
+.win-detail { display: block; text-align: center; color: #fff8e9; text-shadow: 0 1px 3px #161510; white-space: nowrap; }
 .blood-flow-central { position: absolute; isolation: isolate; transform-origin: 50% 65%; --win-color: var(--theme-accent,#e4c17a); }
 .blood-flow-central::before { content: ''; position: absolute; inset: -12% -25%; z-index: -1; background: radial-gradient(ellipse,color-mix(in srgb,var(--win-color) 22%,transparent),transparent 70%); }
 [data-theme="rosewood"]::before { inset: 18% -10%; border-block: 1px solid #d3976599; background: linear-gradient(90deg,transparent,#452016b8 25%,#452016b8 75%,transparent); transform: skewX(-8deg); }

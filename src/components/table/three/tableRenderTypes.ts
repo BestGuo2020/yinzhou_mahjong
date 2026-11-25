@@ -7,6 +7,8 @@ import type { BloodFlowCue } from '../../../game/variants/lotus/bloodFlow/presen
 import type { KongWeatherCue } from '../../../game/variants/yaotong/kongPresentation'
 
 export interface TableProps {
+  /** Screen center of a local HUD tile, in normalized coordinates of the 3D canvas. */
+  ownHandPoint?: (index: number) => { x: number; y: number } | null
   /** Live first chicken discards, indexed by local seat and river slot. */
   sidewaysDiscards?: readonly (readonly number[])[]
   neutralPengOrientation?: boolean

@@ -35,6 +35,8 @@ interface WinEffectAnimation {
 }
 
 export interface WinEffectPresenterOptions {
+  winHandOrigin?(seat: number, index: number): FlightPose | null
+  onWinTileAnchors?(id: number, target: FlightPose, source?: THREE.Vector3): void
   tileFlight?: { source:FlightPose; target:FlightPose; timing:WinningTileFlightTiming }
   visual?: {color:number;sparks:readonly number[];shape:string;particleCount:number;particleSpeed:number;beamHeight:number;beamRadius:number;intensity:number;starburstScale:number}
   winLayout?: (playerIndex: number) => { x: number; y: number; z: number; rotation: number }
@@ -333,12 +335,16 @@ function addWinEffect(startedAt = options.startedAt ?? performance.now()) {
   const display = props.winPresentation?.yingzhou
   if (display) {
     const origin = display.kind === 'rob' ? robbedKongSourceTransform(props.winEffect) : null
-    const source = origin ? { x: origin.position.x, y: origin.position.y, z: origin.position.z, rotation: origin.rotation } : null
+    const win = props.winPresentation!
+    const indices = display.zhaIndices.length ? display.zhaIndices : [win.sourceIndex]
+    const sources = origin ? [{ x: origin.position.x, y: origin.position.y, z: origin.position.z, rotation: origin.rotation }]
+      : indices.map(index => options.winHandOrigin?.(win.winnerIndex, index) ?? null)
     const target = yingzhouAnchor({ x: anchor.x, y: anchor.y, z: anchor.z,
       rotation: effectLayout(props.winEffect.winnerIndex).rotation }, display.zhaIndices.length === 3)
+    options.onWinTileAnchors?.(props.winEffect.id, target, origin?.position)
     // A scene rebuild may happen mid-flight. Keep title, audio and tiles on the original clock.
     const start = startedAt - Math.max(0, Date.now() - props.winEffect.id)
-    yingzhouFrame = createYingzhouWinEffect(options, group, display, target, source, start)
+    yingzhouFrame = createYingzhouWinEffect(options, group, display, target, sources, start)
     scene.add(group)
     dynamicGroups.push(group)
     return

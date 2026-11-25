@@ -1,14 +1,18 @@
 import type { HeldTile, Win } from './rules'
 
-// Times are relative to the start of the winning-tile animation.
+// The tile has settled at 'land'. Only then may the cinematic start;
+// 'impact' is the later beat when the lettering and its sound land.
 export const YINGZHOU_WIN_MOTION = {
-  self: { cue: 0, duration: 1500, impact: 430 },
-  rob: { cue: 0, duration: 1660, impact: 540 },
-  indicator: { cue: 0, duration: 2050, impact: 650 },
-  nine: { cue: 0, duration: 2050, impact: 650 },
-  bloom: { cue: 0, duration: 1850, impact: 560 },
+  self: { cue: 0, takeoff: 170, land: 840, impact: 1030, duration: 1780 },
+  rob: { cue: 0, takeoff: 660, land: 1460, impact: 1660, duration: 2480 },
+  indicator: { cue: 0, takeoff: 160, land: 1170, impact: 1370, duration: 2240 },
+  nine: { cue: 0, takeoff: 160, land: 1170, impact: 1370, duration: 2240 },
+  bloom: { cue: 0, takeoff: 240, land: 1020, impact: 1220, duration: 2070 },
 } as const
 export const HAND_REVEAL_MS = 240
+
+export interface TablePoint { left: number; top: number }
+export interface WinTileAnchors { id: number; source?: TablePoint; target: TablePoint }
 
 export interface YingzhouWinDisplay {
   kind: Win['kind']

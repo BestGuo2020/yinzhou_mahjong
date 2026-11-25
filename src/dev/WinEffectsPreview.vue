@@ -7,7 +7,8 @@ import { useTablePresentation, type TableAudio } from '../game/variants/yingzhou
 import { exampleRound, examples, winExample, type Example } from './winEffectsRound'
 
 const props = defineProps<{ themeName: TableThemeName; audio: TableAudio }>()
-const selected = ref<Example>('indicator')
+const initial = new URLSearchParams(window.location.search).get('effect')
+const selected = ref<Example>(initial && Object.hasOwn(examples, initial) ? initial as Example : 'indicator')
 const round = ref(exampleRound(selected.value))
 const ready = ref(false)
 const effects = useTablePresentation(props.audio, () => round.value)
