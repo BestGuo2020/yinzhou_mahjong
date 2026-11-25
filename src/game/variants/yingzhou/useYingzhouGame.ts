@@ -182,6 +182,6 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
   onScopeDispose(leave)
   return { settings, length, matchLength, round, ready, autoplay, selectedIndex, opening, openingStage, dealAnimation, phase,
     result: view.result, finished, actor, players, headDrawn, wall, controls, mayDiscard, waits, selectedWaits,
-    actionCue: view.tableActionEvent, winEffect: view.winEffect, winPresentation: view.winPresentation, revealHands: view.revealHands,
+    actionCue: view.tableActionEvent, winEffect: view.winEffect, winPatterns: effects.winPatterns, winPresentation: view.winPresentation, revealHands: view.revealHands,
     winningPlayerIndex: view.winningPlayerIndex, weather: effects.weather, start, next, leave, play }
 }

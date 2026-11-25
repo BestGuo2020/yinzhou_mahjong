@@ -7,7 +7,7 @@ import YaotongSettlementEffects from '../yaotong/YaotongSettlementEffects.vue'
 import YaotongChickenEffects from '../yaotong/YaotongChickenEffects.vue'
 import YaotongEmoteEffects from '../yaotong/YaotongEmoteEffects.vue'
 import YaotongWinPatterns from '../yaotong/YaotongWinPatterns.vue'
-import type { YaotongTableView } from '../../game/variants/yaotong/presentation'
+import type { YaotongTableView, YaotongWinPatternCue } from '../../game/variants/yaotong/presentation'
 import type { EmoteCue } from '../yaotong/useYaotongEmotes'
 import PlayerSeat from '../PlayerSeat.vue'
 import TableActionCue from './TableActionCue.vue'
@@ -56,6 +56,7 @@ interface Props {
   scoreFlowEvent: ScoreFlowEvent | null
   result: RoundResult | null
   winEffect: WinEffect | null
+  winPatterns?: YaotongWinPatternCue | null
   winPresentation: WinPresentation | null
   revealHands: boolean
   matchFinished: boolean
@@ -262,6 +263,7 @@ const additionalWinActions = computed(() => {
 })
 const presentedWinEffect = computed(() => props.winEffect && winWinnerIndices.value.length > 1
   ? { ...props.winEffect, winnerIndices: winWinnerIndices.value } : props.winEffect)
+const presentedWinPatterns = computed(() => props.winPatterns ?? props.yaotongView?.winPatterns)
 const presentedWinPresentation = computed(() => props.winPresentation && winWinnerIndices.value.length > 1
   ? { ...props.winPresentation, winnerIndices: winWinnerIndices.value } : props.winPresentation)
 const presentedLlmBubbles = computed(() => {
@@ -722,8 +724,8 @@ function onAvatarError(entry: GamePlayer) {
     <MultiWinIntro v-if="yaotongView?.multiWinIntro" :key="`multi-${yaotongView.multiWinIntro.id}`"
       :source-index="yaotongView.multiWinIntro.sourceIndex" :theme-name="themeName"
       :compact="compactBloodFlowEffects" :reduced="prefersReducedMotion()" />
-    <YaotongWinPatterns v-if="yaotongView?.winPatterns" :key="`patterns-${yaotongView.winPatterns.id}`"
-      :cue="yaotongView.winPatterns" :theme-name="themeName" :compact="compactBloodFlowEffects" />
+    <YaotongWinPatterns v-if="presentedWinPatterns" :key="`patterns-${presentedWinPatterns.id}`"
+      :cue="presentedWinPatterns" :theme-name="themeName" :compact="compactBloodFlowEffects" />
     <TransitionGroup name="table-action">
       <TableActionCue v-for="cue in yaotongView?.declarationCues ?? []" :key="`declaration-${cue.id}`"
         :event="cue" :player="players[cue.actorIndex]"
@@ -885,6 +887,8 @@ function onAvatarError(entry: GamePlayer) {
 
 <style scoped>
 .game-table-hud { display: contents; }
+/* Vue 的离场过渡会暂留动作字，牌型字出现时立即收起上一段。 */
+.game-table-hud:has(> .yaotong-win-patterns) > .action-win.table-action-leave-active { display: none; }
 /* 自摸窗口改张提示（血流）：一行小字，主按钮行之前。 */
 .blood-flow-reform-tip { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid color-mix(in srgb, #4cc9f0 55%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--theme-panel) 88%, transparent); color: var(--theme-text); font-size: 12px; line-height: 1.3; max-width: min(52vw, 460px); }
 .blood-flow-reform-tip b { color: #7adcff; }

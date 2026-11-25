@@ -25,6 +25,7 @@ export interface Win {
   kind: WinKind
   tile: TileType
   label: string
+  lastTileBloom?: true
   parts: { label: string; multiplier: number }[]
   multiplier: number
 }
@@ -62,6 +63,7 @@ export function drawWin(seat: Seat, settings: Settings, indicator: TileType,
   const label = kong?.last ? '海底捞月' : kong ? '杠上开花' : '自摸'
   const win = baseWin(kong ? 'bloom' : 'self', drawn.face, label, kong ? (kong.kind === 'concealed' ? 3 : 2) : 1)
   if (kong) {
+    if (kong.last) win.lastTileBloom = true
     win.parts[0].label = KONG_NAMES[kong.kind] + '开花'
     if (kong.oldMarks) win.parts.push({ label: `旧标记 ${kong.oldMarks} 张`, multiplier: 2 * kong.oldMarks })
   }

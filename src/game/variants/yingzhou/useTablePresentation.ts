@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { createLocalGameState } from '../../core/local/localGameState'
 import { createLocalTransientEventPresenter } from '../../core/local/localTransientEventPresenter'
 import { LOCAL_TABLE_PACE } from '../../core/local/localGameConfig'
@@ -11,6 +11,7 @@ import {
   ADDED_KONG_SOUND, CONCEALED_KONG_SOUND, DEFAULT_KONG_SOUND,
   KONG_WEATHER_DURATION, REDUCED_KONG_WEATHER_DURATION, type KongWeatherCue,
 } from '../yaotong/kongPresentation'
+import type { YaotongWinPatternCue } from '../yaotong/presentation'
 import type { Round } from './engine'
 import { tablePlayers, tableResult } from './presentation'
 
@@ -25,6 +26,13 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
   const transient = createLocalTransientEventPresenter({ state: view, later: scheduler.later })
   const weather = ref<KongWeatherCue[]>([])
   const scoresReleased = ref(false)
+  const winPatterns = computed<YaotongWinPatternCue | null>(() => {
+    const effect = view.winEffect.value
+    const win = current()?.result?.win
+    if (!effect || !win?.lastTileBloom) return null
+    // 杠开的基础分为 20 或 30，沿用幺筒牌型字效的 20 分档。
+    return { ...effect, startedAt: effect.id, winners: [{ seat: effect.winnerIndex, label: win.label, tier: 1 }] }
+  })
 
   function reset() {
     scheduler.clear()
@@ -75,7 +83,7 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
       state: { ...view, get players() { return visiblePlayers(round) } },
       clearTimers: scheduler.clear, later: scheduler.later, playSound: audio.play,
       getRoundLabel: () => windRoundLabel(round.dealerRound), finalizeWin: finalize, endDraw: finalize,
-      showTableAction: (...args) => transient.showTableAction(...args, win?.label),
+      showTableAction: (...args) => transient.showTableAction(...args, win?.lastTileBloom ? undefined : win?.label),
       getSourceIndex: ({ winnerIndex, winTile }) => {
         const seat = round.players[winnerIndex]
         if (win?.kind === 'indicator' || win?.kind === 'nine') {
@@ -131,5 +139,5 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
   }
   watch(view.revealHands, value => { if (value) audio.play('tuidao.wav', .55) }, { flush: 'sync' })
   watch(view.winEffect, value => { if (value) view.tableActionEvent.value = null }, { flush: 'sync' })
-  return { view, scheduler, transient, weather, reset, visiblePlayers, present }
+  return { view, scheduler, transient, weather, winPatterns, reset, visiblePlayers, present }
 }

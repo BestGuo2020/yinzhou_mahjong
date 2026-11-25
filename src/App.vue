@@ -89,7 +89,7 @@ const resultVisible = ref(true)
 const {
   round, ready, settings, length, matchLength, players, phase, result, finished, actor, selectedIndex, opening, openingStage,
   dealAnimation, headDrawn, wall, autoplay, controls, mayDiscard, actionCue, waits, selectedWaits,
-  winEffect, winPresentation, revealHands, winningPlayerIndex, weather, play, start, next, leave,
+  winEffect, winPatterns, winPresentation, revealHands, winningPlayerIndex, weather, play, start, next, leave,
 } = useYingzhouGame(replay, rulesOpen, { play: playEffect, playAndWait: playEffectAndWait })
 const tableActive = computed(() => !!round.value && ready.value && !opening.value && !round.value.result)
 const ownKongs = computed(() => controls.value.filter(option => option.kind === 'kong' && option.kong !== 'exposed'))
@@ -167,7 +167,7 @@ function quit() {
         :flip-tile="opening ? null : round.indicator" :tail-indicator="!opening && tailFaceUp(round) ? round.indicator : null"
         :joker-tiles="[]" :marked-indices="shownMarks" :is-user-turn="mayDiscard" :selected-index="selectedIndex"
         :table-action-event="actionCue" :action-prompt="claimPrompt" :can-pass="mayPass" :announcement="null" :score-flow-event="null"
-        :result="result" :win-effect="winEffect" :win-presentation="winPresentation" :reveal-hands="revealHands" :winning-player-index="winningPlayerIndex"
+        :result="result" :win-effect="winEffect" :win-patterns="winPatterns" :win-presentation="winPresentation" :reveal-hands="revealHands" :winning-player-index="winningPlayerIndex"
         :match-name="matchName" :round-label="label" :match-finished="finished" :turn-seconds="0"
         :user-current-waits="waits.current" :user-ting-options="waits.options" :user-discard-waits="selectedWaits"
         :user-kongs="kongTiles" :kong-action-label="ownKongs.length === 1 ? actionLabel(ownKongs[0]) : '选择杠牌'" :user-has-wind-kong="false"

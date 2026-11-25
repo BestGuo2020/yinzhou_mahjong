@@ -7,6 +7,7 @@ import { dealRound } from './engine'
 import { ordinary } from './rules'
 import { useYingzhouGame } from './useYingzhouGame'
 import { tileAudioFile } from '../../core/rules/tiles'
+import { resolveTableActionPresentation } from '../../../theme/themeEventPresentation'
 import { chooseAction } from './ai'
 import { handWaits } from './waits'
 
@@ -33,10 +34,61 @@ function setup(round = fixture(), voice = async (_name: string) => {}) {
   game.ready.value = true
   return { game, state: game.round.value!, play, paused, replay }
 }
+
+async function takeLiveKongSupplement(wall: TileType[]) {
+  const round = fixture()
+  round.settings.mode = 'live'
+  round.wall = wall
+  round.players[0].hand = held('m2','m3','m4','s3','s4','s5','p4','p5','p6','p6','east','east','east','east')
+  const { game } = setup(round)
+  await vi.advanceTimersByTimeAsync(openTime)
+  game.play({ kind: 'kong', kong: 'concealed', tile: 'east' })
+  await vi.advanceTimersByTimeAsync(1)
+  return game
+}
 beforeEach(() => { vi.useFakeTimers(); vi.stubGlobal('window', globalThis) })
 afterEach(() => { stops.splice(0).forEach(stop => stop()); vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('颍州实桌沿用幺筒节奏', () => {
+  it.each([false, true])('海底捞月先报自摸，再随胡牌光效显示牌型，减少动态效果=%s', async reduced => {
+    vi.stubGlobal('matchMedia', () => ({ matches: reduced }))
+    const game = await takeLiveKongSupplement(['p6'])
+    const hu = game.controls.value.find(action => action.kind === 'win')!
+    expect(hu).toMatchObject({ win: { label: '海底捞月' } })
+    game.play(hu)
+    const action = game.actionCue.value!
+    expect(action.type).toBe('self-draw')
+    expect(action.label ?? resolveTableActionPresentation(action.type).label).toBe('自摸')
+    expect(game.winPatterns.value).toBeNull()
+    await vi.advanceTimersByTimeAsync((reduced ? 450 : 2000) - 1)
+    expect(game.winPatterns.value).toBeNull()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(game.actionCue.value).toBeNull()
+    const duration = reduced ? 420 : 2600
+    expect(game.winPatterns.value).toMatchObject({
+      startedAt: game.winEffect.value!.id, duration, reducedMotion: reduced,
+      winners: [{ seat: 0, label: '海底捞月' }],
+    })
+    await vi.advanceTimersByTimeAsync(duration - 1)
+    expect(game.winPatterns.value).not.toBeNull()
+    expect(game.revealHands.value).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(game.winPatterns.value).toBeNull()
+    expect(game.revealHands.value).toBe(true)
+    expect(game.result.value).toBeNull()
+    await vi.advanceTimersByTimeAsync(reduced ? 360 : 1500)
+    expect(game.result.value).toMatchObject({ winLabel: '海底捞月', totalMultiplier: 3 })
+  })
+
+  it('墙尾还有牌时只报杠上开花', async () => {
+    const game = await takeLiveKongSupplement(['m2','p6'])
+    game.play(game.controls.value.find(action => action.kind === 'win')!)
+    expect(game.actionCue.value?.label).toBe('杠上开花')
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(game.winEffect.value).not.toBeNull()
+    expect(game.winPatterns.value).toBeNull()
+  })
+
   it('只在开始一场时读取大厅的玩法、禁胡开关和场次', () => {
     const { game } = setup()
     game.leave()

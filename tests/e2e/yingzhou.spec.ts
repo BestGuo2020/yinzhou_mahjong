@@ -322,6 +322,7 @@ test.describe('手机完整场次', () => {
       await expect(badge).toHaveText(hand === 1 ? '东风场 · 东1局' : `东风场 · 东1局 · ${hand - 1}本场`)
       if (hand === 2) await badge.screenshot({ path: info.outputPath('repeat-round-label.png') })
       await win.click()
+      await expect(page.locator('.table-action-cue.win')).toHaveText(hand === 1 ? '扎亮牌' : '扎九')
       const dialog = page.getByRole('dialog', { name: /^东1局 · 扎/ })
       await expect(dialog).toBeVisible({ timeout: 12_000 })
       if (hand < 4) await clickWithSeed(dialog.getByRole('button', { name: '继续', exact: true }), 861569)
