@@ -9,7 +9,6 @@ import { ordinary } from './rules'
 import { useYingzhouGame } from './useYingzhouGame'
 import { tileAudioFile } from '../../core/rules/tiles'
 import { splitWinningTile } from '../../core/presentation/winEffect'
-import { resolveTableActionPresentation } from '../../../theme/themeEventPresentation'
 import { chooseAction } from './ai'
 import { handWaits } from './waits'
 import { HAND_REVEAL_MS } from './winMotion'
@@ -53,34 +52,12 @@ beforeEach(() => { vi.useFakeTimers(); vi.stubGlobal('window', globalThis) })
 afterEach(() => { stops.splice(0).forEach(stop => stop()); vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('颍州实桌沿用幺筒节奏', () => {
-  it.each([false, true])('海底捞月先报自摸，再随胡牌光效显示牌型，减少动态效果=%s', async reduced => {
-    vi.stubGlobal('matchMedia', () => ({ matches: reduced }))
+  it('只剩一张亮牌时，牌桌不提供能用亮牌杠开的暗杠', async () => {
     const game = await takeLiveKongSupplement(['p6'])
-    const hu = game.controls.value.find(action => action.kind === 'win')!
-    expect(hu).toMatchObject({ win: { label: '海底捞月' } })
-    game.play(hu)
-    const action = game.actionCue.value!
-    expect(action.type).toBe('self-draw')
-    expect(action.label ?? resolveTableActionPresentation(action.type).label).toBe('自摸')
-    expect(game.winPatterns.value).toBeNull()
-    await vi.advanceTimersByTimeAsync((reduced ? 450 : 2000) - 1)
-    expect(game.winPatterns.value).toBeNull()
-    await vi.advanceTimersByTimeAsync(1)
-    expect(game.actionCue.value).toBeNull()
-    const duration = reduced ? 420 : 2600
-    expect(game.winPatterns.value).toMatchObject({
-      startedAt: game.winEffect.value!.id, duration, reducedMotion: reduced,
-      winners: [{ seat: 0, label: '海底捞月' }],
-    })
-    await vi.advanceTimersByTimeAsync(duration - 1)
-    expect(game.winPatterns.value).not.toBeNull()
-    expect(game.revealHands.value).toBe(false)
-    await vi.advanceTimersByTimeAsync(1)
-    expect(game.winPatterns.value).toBeNull()
-    expect(game.revealHands.value).toBe(true)
-    expect(game.result.value).toBeNull()
-    await vi.advanceTimersByTimeAsync(reduced ? 360 : 1500)
-    expect(game.result.value).toMatchObject({ winLabel: '海底捞月', totalMultiplier: 3 })
+    expect(game.controls.value.some(a => a.kind === 'kong')).toBe(false)
+    expect(game.round.value!.players[0].melds).toHaveLength(0)
+    expect(game.wall.value).toEqual(['p6'])
+    expect(game.mayDiscard.value).toBe(true)
   })
 
   it.each(['p6', 'p9'] as const)('直接报扎只展示三张普通 %s，同面标记牌留在手中', async face => {
@@ -237,7 +214,7 @@ describe('颍州实桌沿用幺筒节奏', () => {
   it.each([[4, '东4局'], [8, '南4局'], [16, '北4局']] as const)('%i 庄次的末局流局、庄家胡牌都留庄，闲家胡牌才结束', async (length, label) => {
     const last = fixture()
     last.dealerRound = length
-    last.wall = []
+    last.wall = [last.indicator]
     const { game, replay } = setup(last)
     game.matchLength.value = length
     await vi.advanceTimersByTimeAsync(openTime)
@@ -291,10 +268,10 @@ describe('颍州实桌沿用幺筒节奏', () => {
     let finishVoice!: () => void
     const voice = vi.fn((name: string) => name === '5z.mp3' ? new Promise<void>(r => { finishVoice = r }) : Promise.resolve())
     const f = fixture()
-    f.wall = ['s8']; f.indicator = 's8'; f.window = { kind: 'draw' }
+    f.wall = ['s8', f.indicator]; f.window = { kind: 'draw' }
     const { game, state, replay } = setup(f, voice)
     await vi.advanceTimersByTimeAsync(openTime + 2000)
-    expect(state.wall).toHaveLength(0)
+    expect(state.wall).toEqual([f.indicator])
     expect(state.players[0].hand.at(-1)?.face).toBe('s8')
     expect(game.mayDiscard.value).toBe(true)
     expect(game.result.value).toBeNull()
@@ -314,7 +291,7 @@ describe('颍州实桌沿用幺筒节奏', () => {
 
   it('AI 摸末张照常思考、出牌，短音或静音时也留足一秒看弃牌', async () => {
     const f = fixture()
-    f.turn = 1; f.wall = ['s8']; f.indicator = 's8'; f.window = { kind: 'draw' }
+    f.turn = 1; f.wall = ['s8', f.indicator]; f.window = { kind: 'draw' }
     const voice = vi.fn(async (_name: string) => {})
     const { game, state } = setup(f, voice)
     await vi.advanceTimersByTimeAsync(openTime + 1)
@@ -334,7 +311,7 @@ describe('颍州实桌沿用幺筒节奏', () => {
   it('末张报牌期间离桌，旧语音结束也不会弹出上一局结算', async () => {
     let ended!: () => void
     const f = fixture()
-    f.wall = ['s8']; f.indicator = 's8'; f.window = { kind: 'draw' }
+    f.wall = ['s8', f.indicator]; f.window = { kind: 'draw' }
     const { game, state } = setup(f, name => name === '8s.mp3' ? new Promise<void>(r => { ended = r }) : Promise.resolve())
     await vi.advanceTimersByTimeAsync(openTime + 1)
     game.play({ kind: 'discard', index: state.players[0].drawnIndex })

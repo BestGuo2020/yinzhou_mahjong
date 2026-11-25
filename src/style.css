@@ -4234,6 +4234,29 @@ button { font: inherit; }
     left: 50%;
     transform: translateX(-50%);
   }
+  /* 颍州对家与顶栏同排，给桌面上的副露、牌河留出完整视野。 */
+  .game-app:has([data-ruleset="yingzhou"]) .top-bar nav { anchor-name: --yingzhou-toolbar; }
+  .game-app [data-ruleset="yingzhou"].yaotong-table .player-seat.seat-top {
+    top: calc(var(--safe-top) + 8px);
+    left: auto;
+    right: max(26%, calc(var(--safe-right) + 5 * (var(--control-hit-target) + 2px) + 14px));
+    right: max(26%, calc(anchor(--yingzhou-toolbar left, 26%) + 8px));
+    transform: none;
+    z-index: 21;
+  }
+  @container game (max-width: 720px) {
+    .game-app:has([data-ruleset="yingzhou"][data-reveal-hands="0"]) .table-meta {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .game-app:has([data-ruleset="yingzhou"][data-reveal-hands="0"]) .table-meta .round-info {
+      position: static;
+      order: 1;
+      max-width: 26cqw;
+      transform: none;
+    }
+  }
   /* A shallow identity strip fits between the far hand and its discard river. */
   .game-app .yaotong-table .player-seat.seat-top .avatar-wrap {
     grid-template-columns: auto minmax(0, auto) auto;

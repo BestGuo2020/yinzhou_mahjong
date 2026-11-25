@@ -11,7 +11,7 @@ async function clickWithSeed(button: Locator, seed: number) {
   await button.click()
 }
 
-test('实桌逆时针发牌，打到最后一张仍可手选弃牌并报完牌名再流局', async ({ page }, info) => {
+test('实桌逆时针发牌，摸到亮牌前一张仍可手选弃牌并报完牌名再流局', async ({ page }, info) => {
   test.setTimeout(300_000)
   await page.goto('/?theme=jade&quality=low')
   const start = page.getByRole('button', { name: /开始对局/ })
@@ -26,13 +26,13 @@ test('实桌逆时针发牌，打到最后一张仍可手选弃牌并报完牌�
     observer.observe(document.getElementById('app')!, { subtree: true, attributes: true, attributeFilter: ['data-deal-serial'] })
     return () => { observer.disconnect(); return [...batches.values()] }
   })
-  await clickWithSeed(start, 35982)
+  await clickWithSeed(start, 1987)
   const hud = page.locator('.game-table-hud')
   const tiles = hud.locator('.hand-rack.playable .mahjong-tile')
   const pass = hud.getByRole('button', { name: '过', exact: true })
   await expect(tiles).toHaveCount(14, { timeout: 35_000 })
-  await expect(hud).toHaveAttribute('data-dice-values', '6,6')
-  await expect(hud).toHaveAttribute('data-wall-break-index', '44')
+  await expect(hud).toHaveAttribute('data-dice-values', '4,3')
+  await expect(hud).toHaveAttribute('data-wall-break-index', '72')
   expect(await opening.evaluate(read => read())).toEqual([
     '4,0,0,0','4,4,0,0','4,4,4,0','4,4,4,4',
     '8,4,4,4','8,8,4,4','8,8,8,4','8,8,8,8',
@@ -43,12 +43,12 @@ test('实桌逆时针发牌，打到最后一张仍可手选弃牌并报完牌�
   // 同一副真实牌墙，本家一路摸切、应牌选过。三家 AI 按实桌的时序自行决定。
   for (;;) {
     await tiles.last().or(pass).first().waitFor({ state: 'visible', timeout: 25_000 })
-    if (await hud.getAttribute('data-wall-count') === '0') break
+    if (await hud.getAttribute('data-wall-count') === '1') break
     if (await tiles.count()) await tiles.last().click()
     else await pass.click()
   }
   await expect(tiles).toHaveCount(14)
-  await expect(tiles.last()).toHaveAttribute('aria-label', '四万')
+  await expect(tiles.last()).toHaveAttribute('aria-label', '一万')
   const monitor = await page.evaluateHandle(() => {
     const board = document.querySelector<HTMLElement>('.game-table-hud')!
     const previousDiscards = board.dataset.discardCounts
@@ -69,9 +69,9 @@ test('实桌逆时针发牌，打到最后一张仍可手选弃牌并报完牌�
     observer.observe(document.getElementById('app')!, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-discard-counts'] })
     return { times, finish() { observer.disconnect(); HTMLMediaElement.prototype.play = original; return times } }
   })
-  // 摸到四万，实际打南风。验证真实音频 ended 和最后一张入河的先后。
+  // 摸到一万，实际打南风。验证真实音频 ended 和最后一张入河的先后。
   await hud.locator('.hand-rack.playable').getByRole('button', { name: '南风', exact: true }).first().click()
-  await expect(hud).toHaveAttribute('data-discard-counts', '20,20,21,21')
+  await expect(hud).toHaveAttribute('data-discard-counts', '21,19,19,23')
   await expect(hud).toHaveAttribute('data-reveal-hands', '0')
   await page.waitForFunction(({ times }) => times.spoken > 0 && performance.now() - times.river >= 400, monitor)
   await page.screenshot({ path: info.outputPath('last-discard-in-play.png') })
@@ -308,6 +308,10 @@ test('普通弃牌应牌的碰和杠使用原版高亮，隐藏工具不占横�
   await peng.click()
   await expect(page.locator('.hand-rack.playable')).toBeVisible()
   await expect(hud).toHaveAttribute('data-meld-tile-counts', /^3,/)
+  const added = hud.getByRole('button', { name: /^补杠 / })
+  await expect(added).toBeInViewport()
+  await added.click()
+  await expect(hud).toHaveAttribute('data-meld-tile-counts', /^4,/)
 })
 
 test.describe('手机完整场次', () => {
@@ -427,6 +431,18 @@ for (const mobile of [false, true]) {
         await expect(page.locator('.hand-rack .mahjong-tile')).toHaveCount(14)
         await expect(page.locator('.hand-rack .mahjong-tile').last()).toBeInViewport({ ratio: .98 })
         if (mobile) {
+          for (const size of [{ width: 568, height: 320 }, { width: 740, height: 360 }]) {
+            await page.setViewportSize(size)
+            const opposite = (await hud.locator('.seat-top .avatar-wrap').boundingBox())!
+            const roundInfo = (await page.locator('.round-info').boundingBox())!
+            const nav = (await page.locator('.top-bar nav').boundingBox())!
+            expect(opposite.x).toBeGreaterThan(roundInfo.x + roundInfo.width)
+            expect(opposite.x + opposite.width).toBeLessThan(nav.x)
+            expect(opposite.y + opposite.height).toBeLessThanOrEqual(nav.y + nav.height)
+          }
+          await hud.getByRole('button', { name: '查看对家的昵称' }).click()
+          await expect(hud.locator('.seat-top .nickname-popover')).toHaveText('对家')
+          await hud.getByRole('button', { name: '查看对家的昵称' }).click()
           const avatars = page.locator('.game-table-hud .avatar')
           for (const avatar of await avatars.all()) expect((await avatar.boundingBox())!.width).toBeLessThanOrEqual(30)
         }

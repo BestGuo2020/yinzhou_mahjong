@@ -158,8 +158,11 @@ function drawnGame(round: Round) {
   round.window = { kind: 'settled' }
 }
 
+// 牌墙数组包含亮牌。只剩亮牌时，本巡可以胡或出牌，不能再摸、碰、杠。
+const hasPlayableTile = (round: Round) => round.wall.length > 1
+
 function nextDraw(round: Round) {
-  if (!round.wall.length) return drawnGame(round)
+  if (!hasPlayableTile(round)) return drawnGame(round)
   round.turn = (round.turn + 1) % 4
   round.window = { kind: 'draw' }
 }
@@ -183,7 +186,6 @@ function afterBloomWindow(round: Round) {
     round.window = { kind: 'turn' }
     return
   }
-  if (!round.wall.length) return drawnGame(round)
   round.indicator = round.wall[round.wall.length - 1]
   offerReveal(round, following(round.turn))
 }
@@ -224,7 +226,7 @@ function takeSupplement(round: Round, kind: Kong) {
   addDraw(seat, supplement, marked)
   round.event = { t: 'draw', seat: round.turn, tile: supplement, fromTail: true,
     text: '杠补' + (marked ? '标记' : '') + tileName(supplement) }
-  const win = drawWin(seat, round.settings, round.indicator, { kind, oldMarks, last: !marked && !round.wall.length })
+  const win = drawWin(seat, round.settings, round.indicator, { kind, oldMarks })
   if (win) round.window = { kind: 'bloom', win }
   else afterBloomWindow(round)
 }
@@ -232,11 +234,12 @@ function takeSupplement(round: Round, kind: Kong) {
 export function legalActions(round: Round): Action[] {
   const window = round.window
   if (window.kind === 'settled') return []
-  if (window.kind === 'draw') return [{ kind: 'draw' }]
+  if (window.kind === 'draw') return hasPlayableTile(round) ? [{ kind: 'draw' }] : []
   if (window.kind === 'check-rob' || window.kind === 'supplement') return [{ kind: 'advance' }]
   const seat = round.players[decisionSeat(round)]
   if (window.kind === 'bloom') return [{ kind: 'win', win: window.win }, { kind: 'pass' }]
   if (window.kind === 'claim') {
+    if (!hasPlayableTile(round)) return [{ kind: 'pass' }]
     const actions: Action[] = [{ kind: 'peng' }]
     if (ordinaryCount(seat.hand, window.tile) >= 3) actions.push({ kind: 'kong', kong: 'exposed', tile: window.tile })
     return [...actions, { kind: 'pass' }]
@@ -252,9 +255,9 @@ export function legalActions(round: Round): Action[] {
   if (zha) actions.push({ kind: 'win', win: zha })
   const self = round.origin === 'draw' && drawWin(seat, round.settings, round.indicator)
   if (self) actions.push({ kind: 'win', win: self })
-  if (round.origin !== 'peng' && round.wall.length) {
+  if (hasPlayableTile(round)) {
     for (const tile of new Set(seat.hand.filter(item => !item.marked).map(item => item.face))) {
-      if (ordinaryCount(seat.hand, tile) === 4) actions.push({ kind: 'kong', kong: 'concealed', tile })
+      if (round.origin !== 'peng' && ordinaryCount(seat.hand, tile) === 4) actions.push({ kind: 'kong', kong: 'concealed', tile })
       if (seat.melds.some(meld => meld.type === 'peng' && meld.tile === tile)) actions.push({ kind: 'kong', kong: 'added', tile })
     }
   }
@@ -290,7 +293,7 @@ function discard(round: Round, index: number) {
   round.lastDiscard = { from: round.turn, tile: tile.face, id: round.serial }
   round.event = { t: 'discard', seat: round.turn, tile: tile.face, lastDiscardId: round.serial,
     text: '打出' + (tile.marked ? '标记' : '') + tileName(tile.face) }
-  if (!round.wall.length || tile.marked) return nextDraw(round)
+  if (!hasPlayableTile(round) || tile.marked) return nextDraw(round)
   const seats = following(round.turn).filter(index => ordinaryCount(round.players[index].hand, tile.face) >= 2)
   if (seats.length) round.window = { kind: 'claim', tile: tile.face, seats }
   else nextDraw(round)

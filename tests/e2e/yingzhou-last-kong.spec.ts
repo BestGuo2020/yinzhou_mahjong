@@ -35,7 +35,7 @@ async function startWithWall(start: Locator) {
 
 test.use({ isMobile: true, hasTouch: true, reducedMotion: 'reduce', viewport: { width: 844, height: 390 } })
 
-test('海底捞月先显示自摸，两段字在手机减少动态效果下也逐帧互斥', async ({ page }) => {
+test('摸进第四张东风时只剩亮六筒，不能开杠，末张弃牌后流局', async ({ page }) => {
   test.setTimeout(120_000)
   await page.clock.install()
   await page.goto('/?theme=rosewood&quality=low')
@@ -55,28 +55,10 @@ test('海底捞月先显示自摸，两段字在手机减少动态效果下也�
     else await discard.or(pass).first().waitFor()
   }
   await expect(hud.getByRole('status', { name: '本局亮牌' })).toContainText('六筒')
-  await hud.getByRole('button', { name: '暗杠 东风' }).click()
-  const hu = hud.getByRole('button', { name: '海底捞月 ×3' })
-  await expect(hu).toBeVisible()
-
-  const recording = await hud.evaluateHandle(root => {
-    const phases: string[] = []
-    let frame = 0
-    function visible(el: Element | null) {
-      return el && el.getBoundingClientRect().width > 0 && Number(getComputedStyle(el).opacity) > 0.5
-    }
-    function sample() {
-      const action = root.querySelector('.table-action-cue.win')
-      const title = root.querySelector('.yaotong-win-patterns [data-title-seat="0"]')
-      const text = [visible(action) && action?.textContent?.trim(), visible(title) && title?.querySelector('svg')?.getAttribute('aria-label')]
-        .filter(Boolean).join(' + ')
-      if (text && phases.at(-1) !== text) phases.push(text)
-      frame = requestAnimationFrame(sample)
-    }
-    sample()
-    return () => { cancelAnimationFrame(frame); return phases }
-  })
-  await hu.click()
-  await expect(page.getByRole('dialog', { name: '东1局 · 海底捞月' })).toBeVisible({ timeout: 10_000 })
-  expect(await recording.evaluate(stop => stop())).toEqual(['自摸', '海底捞月'])
+  await expect(discard).toHaveAttribute('aria-label', '东风')
+  await expect(hud.getByRole('button', { name: '暗杠 东风' })).toHaveCount(0)
+  await discard.tap()
+  if (await discard.isVisible()) await discard.tap()
+  await expect(page.getByRole('dialog', { name: '东1局 · 流局留庄' })).toBeVisible({ timeout: 10_000 })
+  await expect(hud).toHaveAttribute('data-wall-count', '1')
 })

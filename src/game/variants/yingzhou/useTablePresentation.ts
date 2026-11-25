@@ -40,8 +40,7 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
     const effect = view.winEffect.value
     const win = current()?.result?.win
     if (!effect || !win) return null
-    const impactMs = win.lastTileBloom ? 130 : winPlaybackTiming(win.kind).impact
-    return { ...effect, startedAt: effect.id, impactMs, tableFocus: !win.lastTileBloom,
+    return { ...effect, startedAt: effect.id, impactMs: winPlaybackTiming(win.kind).impact, tableFocus: true,
       winners: [{ seat: effect.winnerIndex, label: win.label, tier: 1 }] }
   })
 
@@ -93,11 +92,11 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
     }
     const timeline = createSettlementTimeline({
       getWinSound: win?.kind === 'indicator' || win?.kind === 'nine' ? () => 'zhagang.ogg' : undefined,
-      winTiming: win && !win.lastTileBloom ? winPlaybackTiming(win.kind) : undefined,
+      winTiming: win ? winPlaybackTiming(win.kind) : undefined,
       state: { ...view, get players() { return visiblePlayers(round) } },
       clearTimers: scheduler.clear, later: scheduler.later, playSound: audio.play,
       getRoundLabel: () => windRoundLabel(round.dealerRound), finalizeWin: finalize, endDraw: finalize,
-      showTableAction: (...args) => transient.showTableAction(...args, win?.lastTileBloom ? undefined : win?.label),
+      showTableAction: (...args) => transient.showTableAction(...args, win?.label),
       getSourceIndex: ({ winnerIndex, winTile }) => {
         const seat = round.players[winnerIndex]
         if (win?.kind === 'indicator' || win?.kind === 'nine') {

@@ -26,7 +26,6 @@ export interface Win {
   kind: WinKind
   tile: TileType
   label: string
-  lastTileBloom?: true
   parts: { label: string; multiplier: number }[]
   multiplier: number
 }
@@ -57,14 +56,13 @@ export function zhaWin(hand: HeldTile[], indicator: TileType, mode: Mode): Win |
 }
 
 export function drawWin(seat: Seat, settings: Settings, indicator: TileType,
-  kong?: { kind: Kong; oldMarks: number; last: boolean }): Win | null {
+  kong?: { kind: Kong; oldMarks: number }): Win | null {
   const drawn = seat.hand[seat.drawnIndex]
   if (!drawn || !standardWin(seat.hand, seat.melds.length)) return null
   if (!kong && !ordinaryWinAllowed(seat, drawn.face, settings)) return null
-  const label = kong?.last ? '海底捞月' : kong ? '杠上开花' : '自摸'
+  const label = kong ? '杠上开花' : '自摸'
   const win = baseWin(kong ? 'bloom' : 'self', drawn.face, label, kong ? (kong.kind === 'concealed' ? 3 : 2) : 1)
   if (kong) {
-    if (kong.last) win.lastTileBloom = true
     win.parts[0].label = KONG_NAMES[kong.kind] + '开花'
     if (kong.oldMarks) win.parts.push({ label: `旧标记 ${kong.oldMarks} 张`, multiplier: 2 * kong.oldMarks })
   }
