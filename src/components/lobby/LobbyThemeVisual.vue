@@ -38,7 +38,7 @@ function markImageFailed() {
     <div class="lobby-brand">
       <p class="eyebrow">YINGZHOU MAHJONG</p>
       <h1>颍州<span>扎杠麻将</span></h1>
-      <p class="subtitle">136 张牌 · 一位玩家与三位 AI 同桌</p>
+      <p class="subtitle">墙尾若亮六筒，摸齐三张六筒就能报扎。</p>
     </div>
 
     <div
