@@ -2,13 +2,17 @@ import type { GamePlayer } from '../../core/contracts/types'
 import type { RoundResult } from '../../core/contracts/gamePort'
 import { defaultAvatarForSeat } from '../../core/presentation/avatar'
 import { tileName } from '../../core/rules/tiles'
-import { MATCH_FORMATS, type MatchLength } from '../../core/rules/matchFormats'
+import { MATCH_FORMATS, windRoundLabel, type MatchLength } from '../../core/rules/matchFormats'
 import type { ReplayFrameSource } from '../../replay/types'
 import { decisionSeat, type Action, type Round } from './engine'
 import { BASE_POINTS, KONG_NAMES, MODES } from './rules'
 
 export const NAMES = ['你', '下家', '对家', '上家']
-export const roundLabel = (round: Round) => `第 ${round.handNumber} 局 · ${MODES[round.settings.mode].name}`
+export function roundLabel(round: Round) {
+  const repeat = round.honba ? ` · ${round.honba}本场` : ''
+  return `${windRoundLabel(round.dealerRound)}${repeat} · ${MODES[round.settings.mode].name}`
+}
+
 export const markedIndices = (round: Round) =>
   round.players.map(seat => seat.hand.flatMap((tile, index) => tile.marked ? [index] : []))
 
@@ -33,7 +37,8 @@ export function tableResult(round: Round): RoundResult | null {
   const ranked = [...seats].sort((a, b) => b.score - a.score || a.seat - b.seat)
   return {
     draw: !win, winnerIndex: winner ?? undefined, winner: winner === null ? undefined : NAMES[winner],
-    roundLabel: roundLabel(round), winTile: win?.tile, winType: win ? (payer === null ? 'self-draw' : 'robbed-kong') : undefined,
+    roundLabel: windRoundLabel(round.dealerRound), honba: round.honba,
+    winTile: win?.tile, winType: win ? (payer === null ? 'self-draw' : 'robbed-kong') : undefined,
     winLabel: win?.label, kongBloom: win?.kind === 'bloom', robbedKong: payer !== null,
     robbedKongPlayerIndex: payer ?? undefined, details: win?.parts, totalMultiplier: win?.multiplier,
     points: win ? win.multiplier * BASE_POINTS : 0, totalWon: winner === null ? 0 : deltas[winner],
@@ -45,9 +50,9 @@ export function tableResult(round: Round): RoundResult | null {
 export function replayFrame(round: Round, length: MatchLength): ReplayFrameSource {
   return {
     players: tablePlayers(round), wallTotal: 136, wallLeft: round.wall.length, headDrawn: round.headDrawn,
-    currentPlayer: decisionSeat(round), round: round.handNumber,
+    currentPlayer: decisionSeat(round), round: round.dealerRound,
     roundLabel: roundLabel(round) + (round.settings.smallBan ? ' · 小牌禁胡' : ''), dealer: round.dealer,
-    honba: 0, matchType: length === 4 ? 'east' : 'hanchan', matchName: MATCH_FORMATS[length].name,
+    honba: round.honba, matchType: length === 4 ? 'east' : 'hanchan', matchName: MATCH_FORMATS[length].name,
     diceValues: round.dice, diceThrowerIndex: round.dealer, wallBreakIndex: round.breakIndex, jokerTiles: [],
     yingzhou: { indicator: round.indicator, tailFaceUp: tailFaceUp(round), markedIndices: markedIndices(round) },
   }

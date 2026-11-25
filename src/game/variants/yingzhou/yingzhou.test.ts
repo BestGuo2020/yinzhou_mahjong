@@ -4,6 +4,7 @@ import { createWall, TILE_TYPES } from '../../core/rules/tiles'
 import { chooseAction } from './ai'
 import { act, dealRound, decisionSeat, followingRound, legalActions, type Action, type Round } from './engine'
 import { drawWin, ordinary, standardWin, zhaWin, type HeldTile, type Mode } from './rules'
+import { replayFrame, tableResult } from './presentation'
 
 const held = (...faces: TileType[]) => faces.map(ordinary)
 const mark = (face: TileType): HeldTile => ({ face, marked: true })
@@ -290,11 +291,12 @@ describe('杠补顺序与结算', () => {
     win(copy, 'bloom')
     expect(copy.result?.win?.label).toBe('海底捞月')
     expect(copy.result?.deltas).toEqual([90,-30,-30,-30])
+    expect(followingRound(copy)).toMatchObject({ dealer: 0, dealerRound: 1, honba: 1, validBefore: 1 })
     run(r, { kind: 'pass' })
     expect(r.result?.winner).toBeNull()
     const next = followingRound(r)
     expect(next.settings).toEqual(r.settings)
-    expect([next.dealer, next.handNumber, next.validBefore]).toEqual([0,2,0])
+    expect(next).toMatchObject({ dealer: 0, handNumber: 2, dealerRound: 1, honba: 1, validBefore: 0 })
     expect(next.players.every(s => !s.discards.length && s.hand.every(t => !t.marked))).toBe(true)
   })
 })
@@ -324,7 +326,7 @@ describe('抢杠和小牌限制', () => {
     expect(r.result?.deltas).toEqual([-60,0,0,60])
     const next = followingRound(r)
     expect(next.settings).toEqual(r.settings)
-    expect([next.dealer,next.validBefore]).toEqual([3,1])
+    expect(next).toMatchObject({ dealer: 3, dealerRound: 2, honba: 0, validBefore: 1 })
     expect(next.players.map(p => p.score)).toEqual([-60,0,0,60])
   })
   it.each(['p1','s2','m3','red'] as const)('小牌禁胡限制 %s 的自摸和抢杠，杠开可胡', face => {
@@ -367,6 +369,24 @@ describe('抢杠和小牌限制', () => {
 })
 
 describe('完整对局', () => {
+  it.each([
+    [4, '东4局', '南1局'], [8, '南4局', '西1局'], [12, '西4局', '北1局'],
+  ] as const)('第 %i 个庄次换庄后换风，本场归零', (dealerRound, before, after) => {
+    const r = fixture()
+    r.dealerRound = dealerRound
+    r.honba = 2
+    r.handNumber = dealerRound + 2
+    r.validBefore = dealerRound - 1
+    r.players[3].hand = held(r.indicator, r.indicator, r.indicator)
+    r.window = { kind: 'reveal', tile: r.indicator, seats: [3] }
+    win(r, 'indicator')
+    expect(tableResult(r)).toMatchObject({ roundLabel: before, honba: 2 })
+    expect(replayFrame(r, 16)).toMatchObject({ round: dealerRound, roundLabel: `${before} · 2本场 · 活杠`, honba: 2 })
+
+    const next = followingRound(r)
+    expect(next).toMatchObject({ dealer: 3, handNumber: r.handNumber + 1, validBefore: dealerRound })
+    expect(replayFrame(next, 16)).toMatchObject({ round: dealerRound + 1, roundLabel: `${after} · 活杠`, honba: 0 })
+  })
   it.each(['live','fixed','nine'] as const)('%s 四个座位连续合法决策直至结束', mode => {
     let seed = 264
     const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32)

@@ -13,7 +13,7 @@ import { resolveInitialTableTheme } from './components/table/three/tableThemePre
 import { playableTheme, type TableThemeName } from './theme/themeIdentity'
 import { themePresentationByName, themePresentationCssVariables } from './theme/themePresentation'
 import { useAudio } from './game/core/presentation/useAudio'
-import { MATCH_FORMATS } from './game/core/rules/matchFormats'
+import { MATCH_FORMATS, windRoundLabel } from './game/core/rules/matchFormats'
 import { useReplayRecorder } from './game/replay/useReplayRecorder'
 import type { ReplayMatch, ReplayRound } from './game/replay/types'
 import { BASE_POINTS } from './game/variants/yingzhou/rules'
@@ -87,7 +87,7 @@ async function openReplay(id: string) {
 const rulesOpen = ref(false)
 const resultVisible = ref(true)
 const {
-  round, ready, settings, length, matchLength, matchNumber, players, phase, result, finished, actor, selectedIndex, opening, openingStage,
+  round, ready, settings, length, matchLength, players, phase, result, finished, actor, selectedIndex, opening, openingStage,
   dealAnimation, headDrawn, wall, autoplay, controls, mayDiscard, actionCue, waits, selectedWaits,
   winEffect, winPresentation, revealHands, winningPlayerIndex, weather, play, start, next, leave,
 } = useYingzhouGame(replay, rulesOpen, { play: playEffect, playAndWait: playEffectAndWait })
@@ -136,7 +136,7 @@ const shownMarks = computed(() => {
   return hand.flatMap((tile, i) => tile.marked ? [i] : [])
 })
 const matchName = computed(() => MATCH_FORMATS[matchLength.value].name)
-const handLabel = computed(() => round.value ? `第 ${round.value.handNumber} 局` : '')
+const handLabel = computed(() => round.value ? windRoundLabel(round.value.dealerRound) : '')
 const label = computed(() => round.value ? roundLabel(round.value) : '')
 const standings = computed(() => [...players.value].sort((a, b) => b.score - a.score || a.seat - b.seat)
   .map((p, i) => ({ ...p, playerIndex: p.seat, rank: i + 1 })))
@@ -154,8 +154,8 @@ function quit() {
     :data-theme-particle="presentation.shell.particle" :data-theme-loading="presentation.presentation.loading"
     :style="themePresentationCssVariables(presentation)">
     <div v-if="!replayView" :class="{ 'has-three-scene': round }">
-      <GameShellHeader game-mode="local" :phase="phase" :has-players="!!round" :match-name="`第 ${matchNumber} 场`"
-        :round-label="handLabel" :honba="0" :base-score="BASE_POINTS" room-id="" :signal-quality="3" :theme-name="theme"
+      <GameShellHeader game-mode="local" :phase="phase" :has-players="!!round" :match-name="matchName"
+        :round-label="handLabel" :honba="round?.honba ?? 0" :base-score="BASE_POINTS" room-id="" :signal-quality="3" :theme-name="theme"
         @quit="quit" @open-rules="rulesOpen = true" @change-theme="changeTheme" />
       <LobbyView v-if="!round" v-model:settings="settings" v-model:length="length" :theme-name="theme"
         @start="startBgm(); start()" @open-rules="rulesOpen = true" @open-stats="statsOpen = true" @open-replay="replayNotice = ''; replayOpen = true" />

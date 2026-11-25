@@ -2,6 +2,7 @@ import { ref, watch } from 'vue'
 import { createLocalGameState } from '../../core/local/localGameState'
 import { createLocalTransientEventPresenter } from '../../core/local/localTransientEventPresenter'
 import { LOCAL_TABLE_PACE } from '../../core/local/localGameConfig'
+import { windRoundLabel } from '../../core/rules/matchFormats'
 import { prefersReducedMotion } from '../../core/presentation/winEffect'
 import { createPresentationScheduler } from '../../shared/runtime/presentationScheduler'
 import { playDiscardName } from '../../shared/runtime/discardAudio'
@@ -11,7 +12,7 @@ import {
   KONG_WEATHER_DURATION, REDUCED_KONG_WEATHER_DURATION, type KongWeatherCue,
 } from '../yaotong/kongPresentation'
 import type { Round } from './engine'
-import { roundLabel, tablePlayers, tableResult } from './presentation'
+import { tablePlayers, tableResult } from './presentation'
 
 export interface TableAudio {
   play(name: string, volume?: number): unknown
@@ -65,6 +66,7 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
 
   function settle(round: Round) {
     const { winner, win, payer } = round.result!
+    view.honba.value = round.honba
     const finalize = () => {
       scoresReleased.value = true
       return tableResult(round)!
@@ -72,7 +74,7 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
     const timeline = createSettlementTimeline({
       state: { ...view, get players() { return visiblePlayers(round) } },
       clearTimers: scheduler.clear, later: scheduler.later, playSound: audio.play,
-      getRoundLabel: () => roundLabel(round), finalizeWin: finalize, endDraw: finalize,
+      getRoundLabel: () => windRoundLabel(round.dealerRound), finalizeWin: finalize, endDraw: finalize,
       showTableAction: (...args) => transient.showTableAction(...args, win?.label),
       getSourceIndex: ({ winnerIndex, winTile }) => {
         const seat = round.players[winnerIndex]

@@ -18,7 +18,6 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
   const settings = ref<Settings>({ mode: 'live', smallBan: false })
   const length = ref<MatchLength>(4)
   const matchLength = ref(length.value)
-  const matchNumber = ref(0)
   const round = ref<Round | null>(null)
   const ready = ref(false)
   const autoplay = ref(false)
@@ -92,7 +91,6 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
       autoplay.value = false
       matchLength.value = length.value
       open(dealRound(settings.value))
-      matchNumber.value++
     }
   }
   function next() {
@@ -182,7 +180,7 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
     later(delay, () => execute(chooseAction(state)))
   })
   onScopeDispose(leave)
-  return { settings, length, matchLength, matchNumber, round, ready, autoplay, selectedIndex, opening, openingStage, dealAnimation, phase,
+  return { settings, length, matchLength, round, ready, autoplay, selectedIndex, opening, openingStage, dealAnimation, phase,
     result: view.result, finished, actor, players, headDrawn, wall, controls, mayDiscard, waits, selectedWaits,
     actionCue: view.tableActionEvent, winEffect: view.winEffect, winPresentation: view.winPresentation, revealHands: view.revealHands,
     winningPlayerIndex: view.winningPlayerIndex, weather: effects.weather, start, next, leave, play }

@@ -4,10 +4,7 @@ import type { TileType } from '../../core/contracts/types'
 import type { ChickenPerformance } from './chickenPresentation'
 import type { KongWeatherCue } from './kongPresentation'
 
-/** One wind per four dealer rounds; repeat hands keep the same label. */
-export function yaotongRoundLabel(dealerRound: number): string {
-  return `${['东', '南', '西', '北'][Math.floor((dealerRound - 1) / 4)]}${((dealerRound - 1) % 4) + 1}局`
-}
+export { windRoundLabel as yaotongRoundLabel } from '../../core/rules/matchFormats'
 
 /** 兼容旧牌型名及用「＋」拼接的计分依据。 */
 export function formatYaotongPatternLabel(label: string): string {
