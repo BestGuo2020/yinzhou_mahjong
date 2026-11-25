@@ -29,6 +29,11 @@ export function warmWinArtwork() {
   }
 }
 
+export function warmCoinPayout() {
+  artwork('gold-coin-turn')
+  void document.fonts?.load('italic 900 24px Archivo', '+−0123456789').catch(() => {})
+}
+
 // Each fragment has a stable path and a rotating bright/dark face. Sampling by
 // time keeps the launch and impact together even when a mobile frame is dropped.
 const fragments = Array.from({ length: 68 }, (_, i) => ({

@@ -28,6 +28,7 @@ export const EFFECT_AUDIO_ASSETS = [
     'mingang_windy',
     'bugang',
     'coin_collect',
+    'coin_flight',
     'claim_prompt',
     'zhuanwangang',
   ].map((name) => `sounds/${name}.ogg`),

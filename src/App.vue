@@ -6,7 +6,7 @@ import LobbyView from './components/lobby/LobbyView.vue'
 import GameTableHud from './components/table/GameTableHud.vue'
 import TableGuidance from './components/table/TableGuidance.vue'
 import YingzhouCoinPayout from './components/table/YingzhouCoinPayout.vue'
-import { artwork } from './components/table/yingzhouCinematic'
+import { warmCoinPayout } from './components/table/yingzhouCinematic'
 import { coinsForPoints, displayPoints } from './game/variants/yingzhou/coins'
 import { useCoinBalance } from './game/variants/yingzhou/useCoinBalance'
 import RulesPanel from './components/RulesPanel.vue'
@@ -100,7 +100,7 @@ const {
 } = useYingzhouGame(replay, rulesOpen, { play: playEffect, playAndWait: playEffectAndWait })
 const { balance, saveFailed, record } = useCoinBalance()
 const coinRate = computed(() => round.value?.settings.coinMultiplier ?? 1)
-watch(coinRate, rate => { if (rate === 3) artwork('gold-coin-turn') })
+watch(coinRate, rate => { if (rate === 3) warmCoinPayout() })
 const seatGold = (score: number) => displayPoints(score, coinRate.value)
 watch(() => round.value?.result, outcome => {
   if (outcome?.win && round.value) record(replay.ensureMatchId(), coinsForPoints(round.value.players[0].score, coinRate.value))
@@ -198,7 +198,7 @@ function quit() {
         </template>
       </GameTableHud>
       <YingzhouCoinPayout v-if="round && result && payingCoins" :result="result"
-        @collect="playEffect('coin_collect.ogg', .65)" @finished="payingCoins = false" />
+        @sound="playEffect($event, .65)" @finished="payingCoins = false" />
       <SettlementOverlay v-if="round && result && !payingCoins" v-model:result-visible="resultVisible" :result="result" ruleset-id="yingzhou"
         :round-label="handLabel" :result-title="result.draw ? '流局留庄' : result.winLabel"
         :match-finished="finished" :dealer="round.dealer" :waiting-next-round="false" game-mode="local" :continue-countdown="0"

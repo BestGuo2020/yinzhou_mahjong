@@ -7,7 +7,7 @@ import { coinsForPoints } from '../../game/variants/yingzhou/coins'
 import { artwork } from './yingzhouCinematic'
 
 const props = defineProps<{ result: RoundResult }>()
-const emit = defineEmits<{ finished: []; collect: [] }>()
+const emit = defineEmits<{ finished: []; sound: [file: 'coin_flight.ogg' | 'coin_collect.ogg'] }>()
 const layer = ref<HTMLDivElement>()
 const canvas = ref<HTMLCanvasElement>()
 const reduced = prefersReducedMotion()
@@ -56,10 +56,11 @@ onMounted(() => {
   observer = new ResizeObserver(measure)
   observer.observe(root)
   finishTimer = window.setTimeout(() => emit('finished'), duration)
-  soundTimer = window.setTimeout(() => emit('collect'), reduced ? 150 : 1320)
+  if (reduced) soundTimer = window.setTimeout(() => emit('sound', 'coin_collect.ogg'), 150)
   if (!ctx) return
   const sprite = artwork('gold-coin-turn')
   const start = performance.now()
+  let flightSoundPlayed = false
   const winner = props.result.winnerIndex!
   const particles = transfers.value.filter(item => item.coins < 0).flatMap(({ seat }) =>
     Array.from({ length: 19 }, (_, i) => ({
@@ -90,6 +91,10 @@ onMounted(() => {
       ctx!.globalAlpha = Math.min(1, progress * 12, (1 - progress) * 16)
       ctx!.drawImage(sprite, phase % 8 * 72, Math.floor(phase / 8) * 72, 72, 72, -size/2, -size/2, size, size)
       ctx!.restore()
+      if (!flightSoundPlayed) {
+        flightSoundPlayed = true
+        emit('sound', 'coin_flight.ogg')
+      }
     }
     if (elapsed < duration) frame = requestAnimationFrame(paint)
   }
@@ -109,13 +114,20 @@ onBeforeUnmount(() => {
     <template v-if="seats.length">
       <div v-for="item in transfers" :key="item.seat" class="coin-amount" :style="numberPosition(item.seat)"
         :data-seat="item.seat" :aria-label="item.name + ' ' + item.coins + ' 金币'">
-        <div class="coin-slide"><EffectNumber :value="item.coins" :height="fontHeight" /></div>
+        <div class="coin-slide"><EffectNumber :value="item.coins" :height="fontHeight" font-family="Archivo, Arial, sans-serif" /></div>
       </div>
     </template>
   </div>
 </template>
 
 <style scoped>
+@font-face {
+  font-family: Archivo;
+  src: url('/fonts/archivo-900-italic-digits.woff2') format('woff2');
+  font-weight: 900;
+  font-style: italic;
+  font-display: swap;
+}
 .coin-payout, canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .coin-payout { z-index: 43; overflow: hidden; }
 .coin-amount { position: absolute; transform: translate(-50%, -50%); text-align: center; }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onScopeDispose, ref, watch } from 'vue'
 import YingzhouCoinPayout from '../components/table/YingzhouCoinPayout.vue'
-import { artwork } from '../components/table/yingzhouCinematic'
+import { warmCoinPayout } from '../components/table/yingzhouCinematic'
 import { displayPoints } from '../game/variants/yingzhou/coins'
 import GameTableHud from '../components/table/GameTableHud.vue'
 import type { TableThemeName } from '../theme/themeIdentity'
@@ -29,7 +29,7 @@ function play(kind: Example) {
   selected.value = kind
   round.value = exampleRound(kind)
   round.value.settings.coinMultiplier = triple.value ? 3 : 1
-  if (triple.value) artwork('gold-coin-turn')
+  if (triple.value) warmCoinPayout()
   const state = round.value
   phase.value = 'checking'
   effects.scheduler.later(() => {
@@ -58,7 +58,7 @@ onScopeDispose(effects.reset)
       :is-user-turn="false" :user-can-hu="false" match-name="特效预览" round-label="东1局" :deal-animation="deal"
       :opening-stage="null" :dice-values="round.dice" :dice-thrower-index="0" :user-current-waits="null"
       :user-ting-options="[]" :user-discard-waits="null" :user-kongs="[]" :user-has-wind-kong="false" @ready="tableReady" />
-    <YingzhouCoinPayout v-if="paying && result" :result="result" @collect="audio.play('coin_collect.ogg', .65)" @finished="paying = false" />
+    <YingzhouCoinPayout v-if="paying && result" :result="result" @sound="audio.play($event, .65)" @finished="paying = false" />
     <nav class="preview-controls" aria-label="特效预览">
       <a :href="'?theme=' + themeName">‹ 大厅</a>
       <button v-for="(label, kind) in examples" :key="kind" type="button" :disabled="!ready"

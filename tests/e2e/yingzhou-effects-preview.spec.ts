@@ -3,12 +3,23 @@ import { expect, test } from '@playwright/test'
 test('三倍场抢补杠由被抢者独付，输赢数字从左滑入后金币飞向本家', async ({ page }, info) => {
   await page.setViewportSize({ width: 844, height: 390 })
   await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.addInitScript(() => {
+    const play = HTMLMediaElement.prototype.play
+    HTMLMediaElement.prototype.play = function () {
+      if (this.dataset.effectName?.startsWith('coin_')) performance.mark(this.dataset.effectName)
+      return play.call(this)
+    }
+  })
   await page.goto('/?preview=win-effects&effect=rob&coins=3&quality=low&theme=jade')
   const layer = page.getByRole('status', { name: '三倍场金币收付' })
   await expect(layer).toBeVisible({ timeout: 35_000 })
   await expect(layer.locator('.effect-number')).toHaveCount(2)
   await expect(layer.getByRole('img', { name: '+18000000' })).toBeVisible()
   await expect(layer.getByRole('img', { name: '−18000000' })).toBeVisible()
+  expect(await layer.locator('text').first().evaluate(el => ({
+    family: getComputedStyle(el).fontFamily.split(',')[0],
+    loaded: [...document.fonts].some(face => face.family === 'Archivo' && face.status === 'loaded'),
+  }))).toEqual({ family: 'Archivo', loaded: true })
   const frames = await layer.locator('.coin-slide').first().evaluate(el =>
     (el.getAnimations()[0].effect as KeyframeEffect).getKeyframes())
   expect(frames[0]).toMatchObject({ opacity: '0', transform: 'translateX(-28%)' })
@@ -19,6 +30,8 @@ test('三倍场抢补杠由被抢者独付，输赢数字从左滑入后金币�
   })
   await page.screenshot({ path: info.outputPath('coin-flight.png') })
   await expect(layer).toHaveCount(0)
+  expect(await page.evaluate(() => performance.getEntriesByType('mark')
+    .map(entry => entry.name).filter(name => name.startsWith('coin_')))).toEqual(['coin_flight.ogg'])
 })
 
 test('从大厅逐一重播四种胡法，实桌动作字和胡牌位都可见', async ({ page }) => {
