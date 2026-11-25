@@ -30,6 +30,12 @@ export function splitWinningTile(hand: TileType[] = [], presentation: WinPresent
     return { hand: tiles, displayTile: presentation.tile, removedIndex: -1 }
   }
 
+  const zhaIndices = presentation.yingzhou?.zhaIndices
+  if (zhaIndices?.length === 3) {
+    return { hand: tiles.filter((_, index) => !zhaIndices.includes(index)),
+      displayTile: presentation.tile, removedIndex: presentation.sourceIndex }
+  }
+
   const preferredIndex = presentation.sourceIndex
   const removedIndex = Number.isInteger(preferredIndex)
     && preferredIndex >= 0

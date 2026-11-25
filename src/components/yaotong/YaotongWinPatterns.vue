@@ -17,7 +17,8 @@ onBeforeUnmount(() => cancelAnimationFrame(frame))
 const titles = computed(() => props.cue.winners.map(winner => ({ ...winner,
   motion: bloodFlowTitleMotion({
     startedAt: props.cue.startedAt, duration: props.cue.duration, tier: winner.tier, compact: Boolean(props.compact),
-    phaseMarks: { impact: 130, readable: 420, score: props.cue.duration },
+    phaseMarks: { impact: props.cue.reducedMotion ? 130 : props.cue.impactMs ?? 130,
+      readable: Math.min(props.cue.duration, (props.cue.impactMs ?? 130) + 290), score: props.cue.duration },
   }, now.value, props.themeName, props.cue.reducedMotion),
 })))
 </script>

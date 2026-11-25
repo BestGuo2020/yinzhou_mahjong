@@ -398,6 +398,13 @@ const displayedUserHand = computed(() => {
   if (props.winPresentation?.winnerIndex !== 0) return props.user.hand
   return splitWinningTile(props.user.hand, props.winPresentation).hand
 })
+const displayedMarkedIndices = computed(() => {
+  const win = props.winPresentation
+  if (!win?.yingzhou || win.winnerIndex !== 0 || win.robbedKong) return props.markedIndices
+  const removed = win.yingzhou.zhaIndices.length ? win.yingzhou.zhaIndices : [win.sourceIndex]
+  return props.markedIndices?.filter(index => !removed.includes(index))
+    .map(index => index - removed.filter(slot => slot >= 0 && slot < index).length)
+})
 const tableSeatCounts = computed(() => [...props.players]
   .sort((left, right) => left.seat - right.seat)
   .map((player) => ({
@@ -779,7 +786,7 @@ function onAvatarError(entry: GamePlayer) {
           :data-score-direction="scoreDirectionFor(0)"
         >{{ scoreDeltaFor(0) > 0 ? '+' : '' }}{{ scoreDeltaFor(0) }}</strong>
       </Transition>
-      <div class="hand-rack" :class="{ playable: isUserTurn, dealing: phase === 'dealing', 'has-melds': user.melds.length }">
+      <div class="hand-rack" :class="{ 'yingzhou-tip': winPresentation?.winnerIndex === 0 && winPresentation.yingzhou?.revealAt != null, playable: isUserTurn, dealing: phase === 'dealing', 'has-melds': user.melds.length }">
         <div
           v-for="(tile, index) in displayedUserHand" :key="`${tile}-${index}`" class="hand-tile-slot"
           :class="{ drawn: userDrawnIndex === index, 'ting-discard': isTingDiscard(index, tile), 'reform-discard': isReformDiscard(index, tile) }"
@@ -790,7 +797,7 @@ function onAvatarError(entry: GamePlayer) {
           <span v-if="isTingDiscard(index, tile) && !isReformDiscard(index, tile)" class="ting-arrow" aria-hidden="true"></span>
           <span v-if="isReformDiscard(index, tile)" class="ting-arrow reform-arrow" aria-hidden="true"></span>
           <span v-if="isReformDiscard(index, tile)" class="reform-badge" aria-hidden="true">改</span>
-          <MahjongTile :tile="tile" :kong-marked="markedIndices?.includes(index)" :joker-tiles="jokerTiles" :wildcard-tiles="wildcardTiles" :laizi-only="rulesetId === 'yaotong'" :theme-name="themeName" :selected="selectedIndex === index" :drawn="userDrawnIndex === index" :disabled="!isUserTurn || blockedDiscardIndices?.includes(index) || Boolean((lockedHand || bloodFlow?.seats[user.seat].locked) && index !== userDrawnIndex)" @choose="handleTileActivation(index, $event)" />
+          <MahjongTile :tile="tile" :kong-marked="displayedMarkedIndices?.includes(index)" :joker-tiles="jokerTiles" :wildcard-tiles="wildcardTiles" :laizi-only="rulesetId === 'yaotong'" :theme-name="themeName" :selected="selectedIndex === index" :drawn="userDrawnIndex === index" :disabled="!isUserTurn || blockedDiscardIndices?.includes(index) || Boolean((lockedHand || bloodFlow?.seats[user.seat].locked) && index !== userDrawnIndex)" @choose="handleTileActivation(index, $event)" />
         </div>
       </div>
     </section>
@@ -886,6 +893,14 @@ function onAvatarError(entry: GamePlayer) {
 </template>
 
 <style scoped>
+@media (prefers-reduced-motion: no-preference) {
+  .hand-rack.yingzhou-tip .hand-tile-slot { transform-origin: center bottom; animation: yingzhou-tip 240ms ease-in both; }
+  @keyframes yingzhou-tip {
+    from { transform: perspective(350px) rotateX(-28deg) translateY(-5%); }
+    to { transform: perspective(350px) rotateX(0); }
+  }
+}
+
 .game-table-hud { display: contents; }
 /* Vue 的离场过渡会暂留动作字，牌型字出现时立即收起上一段。 */
 .game-table-hud:has(> .yaotong-win-patterns) > .action-win.table-action-leave-active { display: none; }

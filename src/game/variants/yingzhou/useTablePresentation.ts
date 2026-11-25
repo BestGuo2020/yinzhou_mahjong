@@ -12,6 +12,7 @@ import {
   KONG_WEATHER_DURATION, REDUCED_KONG_WEATHER_DURATION, type KongWeatherCue,
 } from '../yaotong/kongPresentation'
 import type { YaotongWinPatternCue } from '../yaotong/presentation'
+import { HAND_REVEAL_MS, YINGZHOU_WIN_MOTION, zhaTileIndices } from './winMotion'
 import type { Round } from './engine'
 import { tablePlayers, tableResult } from './presentation'
 
@@ -26,18 +27,28 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
   const transient = createLocalTransientEventPresenter({ state: view, later: scheduler.later })
   const weather = ref<KongWeatherCue[]>([])
   const scoresReleased = ref(false)
+  const revealAt = ref<number | null>(null)
+  const winPresentation = computed(() => {
+    const base = view.winPresentation.value
+    const round = current()
+    const win = round?.result?.win
+    if (!base || !round || !win) return base
+    return { ...base, yingzhou: { kind: win.kind, revealAt: revealAt.value,
+      zhaIndices: zhaTileIndices(win, round.players[base.winnerIndex].hand) } }
+  })
   const winPatterns = computed<YaotongWinPatternCue | null>(() => {
     const effect = view.winEffect.value
     const win = current()?.result?.win
-    if (!effect || !win?.lastTileBloom) return null
-    // 杠开的基础分为 20 或 30，沿用幺筒牌型字效的 20 分档。
-    return { ...effect, startedAt: effect.id, winners: [{ seat: effect.winnerIndex, label: win.label, tier: 1 }] }
+    if (!effect || !win || win.kind === 'self') return null
+    const impactMs = win.lastTileBloom ? 130 : YINGZHOU_WIN_MOTION[win.kind].impact
+    return { ...effect, startedAt: effect.id, impactMs, winners: [{ seat: effect.winnerIndex, label: win.label, tier: 1 }] }
   })
 
   function reset() {
     scheduler.clear()
     weather.value = []
     scoresReleased.value = false
+    revealAt.value = null
     view.result.value = null
     view.phase.value = 'lobby'
     view.tableActionEvent.value = null
@@ -80,6 +91,9 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
       return tableResult(round)!
     }
     const timeline = createSettlementTimeline({
+      // A direct declaration can happen on someone else's turn; a self-draw voice would announce the wrong win.
+      shouldPlayWinVoice: () => win?.kind !== 'indicator' && win?.kind !== 'nine',
+      winTiming: win && !win.lastTileBloom ? YINGZHOU_WIN_MOTION[win.kind] : undefined,
       state: { ...view, get players() { return visiblePlayers(round) } },
       clearTimers: scheduler.clear, later: scheduler.later, playSound: audio.play,
       getRoundLabel: () => windRoundLabel(round.dealerRound), finalizeWin: finalize, endDraw: finalize,
@@ -137,7 +151,13 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
       } else settle(round)
     }
   }
-  watch(view.revealHands, value => { if (value) audio.play('tuidao.wav', .55) }, { flush: 'sync' })
+  watch(view.revealHands, value => {
+    if (!value) return
+    if (current()?.result?.win?.kind === 'self' && !prefersReducedMotion()) {
+      revealAt.value = performance.now()
+      scheduler.later(() => audio.play('tuidao.wav', .55), HAND_REVEAL_MS)
+    } else audio.play('tuidao.wav', .55)
+  }, { flush: 'sync' })
   watch(view.winEffect, value => { if (value) view.tableActionEvent.value = null }, { flush: 'sync' })
-  return { view, scheduler, transient, weather, winPatterns, reset, visiblePlayers, present }
+  return { view, scheduler, transient, weather, winPatterns, winPresentation, reset, visiblePlayers, present }
 }

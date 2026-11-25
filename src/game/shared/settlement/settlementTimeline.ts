@@ -92,6 +92,7 @@ export interface SettlementTimelineOptions<E extends SettlementEndOptions, S ext
   takeRobbedKongTile?(playerIndex: number | undefined, tile: TileType, winnerIndex: number): number
   getSourceIndex?(context: SettlementWinContext<E>): number
   getTableAction?(context: SettlementWinContext<E>): { type: TableActionType; sourceIndex: number | null }
+  winTiming?: { cue: number; duration: number; impact: number | null }
   getWinSound?(context: SettlementWinContext<E>): string
   shouldPlayWinVoice?(context: SettlementWinContext<E>): boolean
   /** 清理旧回合控制器后立即启动赢家优先的 AI 感言队列；结算阶段可等待同一 Promise。 */
@@ -174,7 +175,10 @@ export function createSettlementTimeline<E extends SettlementEndOptions, S exten
       sourceIndex: endOptions.robbedKong ? (endOptions.robbedKongPlayerIndex ?? null) : null,
     }
     const reducedMotion = prefersReducedMotion()
-    const effectDuration = reducedMotion ? REDUCED_WIN_EFFECT_DURATION : WIN_EFFECT_DURATION
+    const timing = options.winTiming
+    const normalDuration = timing?.duration ?? WIN_EFFECT_DURATION
+    const effectDuration = reducedMotion ? Math.min(REDUCED_WIN_EFFECT_DURATION, normalDuration) : normalDuration
+    const impactDelay = timing ? timing.impact : WIN_EFFECT_SOUND_DELAY
     const revealDuration = reducedMotion ? REDUCED_WIN_REVEAL_DURATION : WIN_REVEAL_DURATION
     const cueLeadDuration = reducedMotion ? REDUCED_WIN_CUE_LEAD_DURATION : WIN_CUE_LEAD_DURATION
     const cueExitDuration = reducedMotion ? REDUCED_WIN_CUE_EXIT_DURATION : WIN_CUE_EXIT_DURATION
@@ -212,10 +216,10 @@ export function createSettlementTimeline<E extends SettlementEndOptions, S exten
         reducedMotion,
         id: Date.now(),
       }
-      if (!reducedMotion) {
+      if (!reducedMotion && impactDelay !== null) {
         options.later(() => {
           if (serial === currentSerial) options.playSound('hu_effect_sound.mp3', 0.72)
-        }, WIN_EFFECT_SOUND_DELAY)
+        }, impactDelay)
       }
       state.announcement.value = null
       options.later(() => {
@@ -242,12 +246,14 @@ export function createSettlementTimeline<E extends SettlementEndOptions, S exten
 
     const startWinCue = () => {
       if (serial !== currentSerial) return
-      options.showTableAction(tableAction.type, winnerIndex, tableAction.sourceIndex, winTile, -1)
+      if (timing?.cue !== 0) options.showTableAction(tableAction.type, winnerIndex, tableAction.sourceIndex, winTile, -1)
       const winSound = isDiscardWin
         ? 'hu.mp3'
         : (options.getWinSound?.(context) ?? (endOptions.selfDraw ? 'zimo.mp3' : 'hu.mp3'))
       if (options.shouldPlayWinVoice?.(context) !== false) options.playSound(winSound)
-      options.later(activateWinEffect, cueLeadDuration + cueExitDuration)
+      const cueDuration = Math.min(timing?.cue ?? Infinity, cueLeadDuration + cueExitDuration)
+      if (cueDuration === 0) activateWinEffect()
+      else options.later(activateWinEffect, cueDuration)
     }
 
     const startWinPresentation = () => {

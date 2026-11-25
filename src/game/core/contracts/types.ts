@@ -70,6 +70,7 @@ export interface ScoreFlowEvent {
 }
 
 export interface WinPresentation {
+  yingzhou?: import('../../variants/yingzhou/winMotion').YingzhouWinDisplay
   winnerIndex: number
   winnerIndices?: number[]
   tile: TileType

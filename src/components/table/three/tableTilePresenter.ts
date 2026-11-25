@@ -4,6 +4,7 @@ import { isHorseForSeat, sortTilesWithJokers } from '../../../game/core/rules/ti
 import { meldDisplayTiles, meldSourceTileIndex } from '../../../game/core/rules/rules'
 import { addedKongTileOffset, TABLE_LAYOUT, OPPOSITE_HAND_Z, meldTileCenter, discardTileLayout, meldTrackTransform, concealedMeldClear, concealedSideX, pointFromSeat } from '../../../game/core/presentation/tableLayout'
 import { wallBreakIndexForDealer, wallStackSlot, wallTilePlacement, WALL_TOTAL } from '../../../game/core/rules/wallLayout'
+import { HAND_REVEAL_MS } from '../../../game/variants/yingzhou/winMotion'
 import { splitWinningTile } from '../../../game/core/presentation/winEffect'
 import type { TableActionEvent, TileType } from '../../../game/core/contracts/types'
 import type { TileInstanceRenderer } from './tileInstanceRenderer'
@@ -92,6 +93,9 @@ export function createTableTilePresenter(options: TableTilePresenterOptions) {
   const beginTableInstances = tileInstances.begin
   const addTableTile = tileInstances.add
   const finishTableInstances = tileInstances.finish
+  const tippingTiles: { instance: ReturnType<TileInstanceRenderer['add']>; position: THREE.Vector3; rotation: number }[] = []
+  const tipRotation = new THREE.Quaternion()
+  const tipEuler = new THREE.Euler(0, 0, 0, 'YXZ')
   const handFaceInstances: { seat: number; instance: ReturnType<TileInstanceRenderer['add']> }[] = []
 
 function addConcealedHand(playerIndex) {
@@ -210,6 +214,9 @@ function addConcealedHand(playerIndex) {
       })
     } else {
       const instance = addTableTile(pos, quat, face)
+      if (props.revealHands && presentation?.yingzhou?.revealAt != null) {
+        tippingTiles.push({ instance, position: pos, rotation: rotationY })
+      }
       if (import.meta.env.DEV && props.revealHands) handFaceInstances.push({ seat: playerIndex, instance })
     }
   }
@@ -685,6 +692,7 @@ function rebuildTableTiles({ reuseInstances = false }: { reuseInstances?: boolea
   if(epoch!==sourceEpoch){sourceEpoch=epoch;sourceTransforms.clear();ownDrawScreens.clear()}
   drawnTransforms.clear();addedTransforms.clear();flights.length=0
   handFaceInstances.length = 0
+  tippingTiles.length = 0
   if (!reuse) clearDynamicScene()
   dealTweens.length = 0
   meldTweens.length = 0
@@ -738,6 +746,20 @@ function rebuildTableTiles({ reuseInstances = false }: { reuseInstances?: boolea
 }
 
   function animate(time: number, scratchVector: THREE.Vector3) {
+    const revealAt = props.winPresentation?.yingzhou?.revealAt
+    if (tippingTiles.length && revealAt != null) {
+      const t = THREE.MathUtils.clamp((time - revealAt) / HAND_REVEAL_MS, 0, 1)
+      const angle = -(1 - t * t) * Math.PI / 2
+      // Rotate around the lower long edge; the tile lands flat once at t=1.
+      const lift = .2 * (Math.cos(angle) - 1) - .45 * Math.sin(angle)
+      const shift = .2 * Math.sin(angle) + .45 * (Math.cos(angle) - 1)
+      for (const { instance, position, rotation } of tippingTiles) {
+        scratchVector.set(position.x + Math.sin(rotation) * shift, position.y + lift, position.z + Math.cos(rotation) * shift)
+        tipRotation.setFromEuler(tipEuler.set(angle, rotation, 0, 'YXZ'))
+        tileInstances.set(instance.baseIndex, instance.capMesh, instance.capIndex, scratchVector, tipRotation, 1)
+      }
+      if (t === 1) tippingTiles.length = 0
+    }
     let indicatorMoving = false
     if (indicatorMotion && indicatorInstance) {
       // Finish within the existing hand-reveal stage; no extra settlement delay.
@@ -787,7 +809,7 @@ function rebuildTableTiles({ reuseInstances = false }: { reuseInstances?: boolea
       return progress < 1
     })
     discardTweens.splice(0, discardTweens.length, ...keepDiscard)
-    return indicatorMoving || dealTweens.length + meldTweens.length + discardTweens.length + flights.length > 0
+    return indicatorMoving || tippingTiles.length > 0 || dealTweens.length + meldTweens.length + discardTweens.length + flights.length > 0
   }
 
   return { rebuild: rebuildTableTiles, animate, meldTransform, alignMeldBottom, sourceTileRotationOffset,

@@ -7,6 +7,8 @@ import type { TileType } from '../../../game/core/contracts/types'
 import type { ResolvedTableProps, TableTransform } from './tableRenderTypes'
 import { sampleWinningTileFlight, type FlightPose, type WinningTileFlightTiming } from './winningTileFlight'
 
+import { addYingzhouTiles, createYingzhouWinEffect } from './yingzhouWinEffect'
+
 interface DiamondParticle {
   mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
   direction: THREE.Vector3
@@ -56,6 +58,7 @@ export function createWinEffectPresenter(options: WinEffectPresenterOptions) {
   const { meldTransform, alignMeldBottom, sourceTileRotationOffset } = options
   const TILE_LAYER_Z = options.tileLayerZ
   const effectLayout = options.winLayout ?? (options.tileFlight ? () => options.tileFlight!.target : winDisplayLayout)
+  let yingzhouFrame: ReturnType<typeof createYingzhouWinEffect> | null = null
   let winEffectAnimation: WinEffectAnimation | null = null
 
 function winEffectAnchor(playerIndex) {
@@ -87,10 +90,14 @@ function addWinningDisplayTile() {
   const group = new THREE.Group()
   group.name = 'winning-display-tile'
   group.userData.winnerIndex = props.winPresentation.winnerIndex
-  const tile = makeFaceTile(props.winPresentation.tile)
-  tile.position.set(layout.x, layout.y, layout.z + TILE_LAYER_Z)
-  tile.rotation.y = layout.rotation
-  group.add(tile)
+  if (props.winPresentation.yingzhou) {
+    addYingzhouTiles(group, makeFaceTile, props.winPresentation.tile, { ...layout, z: layout.z + TILE_LAYER_Z }, props.winPresentation.yingzhou)
+  } else {
+    const tile = makeFaceTile(props.winPresentation.tile)
+    tile.position.set(layout.x, layout.y, layout.z + TILE_LAYER_Z)
+    tile.rotation.y = layout.rotation
+    group.add(tile)
+  }
   scene.add(group)
   dynamicGroups.push(group)
 }
@@ -314,6 +321,19 @@ function addWinEffect(startedAt = options.startedAt ?? performance.now()) {
   group.name = 'win-effect'
   group.userData.winnerIndex = props.winEffect.winnerIndex
 
+  const display = props.winPresentation?.yingzhou
+  if (display) {
+    const origin = display.kind === 'rob' ? robbedKongSourceTransform(props.winEffect) : null
+    const source = origin ? { x: origin.position.x, y: origin.position.y, z: origin.position.z, rotation: origin.rotation } : null
+    const target = { x: anchor.x, y: anchor.y, z: anchor.z, rotation: effectLayout(props.winEffect.winnerIndex).rotation }
+    // A scene rebuild may happen mid-flight. Keep title, audio and tiles on the original clock.
+    const start = startedAt - Math.max(0, Date.now() - props.winEffect.id)
+    yingzhouFrame = createYingzhouWinEffect(options, group, display, target, source, start)
+    scene.add(group)
+    dynamicGroups.push(group)
+    return
+  }
+
   // 信标式竖直光束：从胡牌牌垂直射向天空（垂直于牌面），带光晕
   const beamMaterial = ownDynamic(new THREE.MeshBasicMaterial({
     map: getBeamTexture(),
@@ -438,6 +458,7 @@ function addWinEffect(startedAt = options.startedAt ?? performance.now()) {
 }
 
   function animate(time: number) {
+    if (yingzhouFrame) return yingzhouFrame(time)
     if (!winEffectAnimation) return null
     const effect = winEffectAnimation
     const progress = Math.max(0, Math.min(1, (time - effect.startedAt) / effect.duration))
@@ -488,5 +509,5 @@ function addWinEffect(startedAt = options.startedAt ?? performance.now()) {
     }
   }
 
-  return { addWinEffect, addWinningDisplayTile, animate, reset: () => { winEffectAnimation = null } }
+  return { addWinEffect, addWinningDisplayTile, animate, reset: () => { winEffectAnimation = null; yingzhouFrame = null } }
 }
