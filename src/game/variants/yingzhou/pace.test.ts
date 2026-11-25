@@ -90,7 +90,9 @@ describe('颍州实桌沿用幺筒节奏', () => {
     const { game, play } = setup(round)
     await vi.advanceTimersByTimeAsync(openTime)
     expect(game.winPatterns.value).toBeNull()
+    expect(play).not.toHaveBeenCalledWith('zhagang.ogg')
     game.play(game.controls.value.find(action => action.kind === 'win')!)
+    expect(play).toHaveBeenCalledWith('zhagang.ogg')
     const presentation = game.winPresentation.value!
     expect(presentation.yingzhou?.zhaIndices).toEqual([0, 3, 4])
     expect(splitWinningTile(game.players.value[0].hand, presentation).hand).toEqual([face, 'm1'])
@@ -105,6 +107,7 @@ describe('颍州实桌沿用幺筒节奏', () => {
     await vi.advanceTimersByTimeAsync(1087)
     expect(game.revealHands.value).toBe(true)
     expect(game.players.value[0].hand).toHaveLength(5)
+    expect(play.mock.calls.filter(([name]) => name === 'zhagang.ogg')).toHaveLength(1)
   })
 
   it('抢补杠胡只展示被抢的第四张，离桌取消尚未到点的落牌声', async () => {
@@ -122,20 +125,25 @@ describe('颍州实桌沿用幺筒节奏', () => {
     expect(game.players.value[0].hand).toHaveLength(13)
     expect(game.players.value[1].melds[0].tiles).toHaveLength(3)
     expect(game.winPatterns.value?.winners[0].label).toBe('抢补杠胡')
+    expect(play).toHaveBeenCalledWith('hu.mp3')
+    expect(play).not.toHaveBeenCalledWith('zhagang.ogg')
     game.leave()
     await vi.advanceTimersByTimeAsync(3100)
     expect(play).not.toHaveBeenCalledWith('hu_effect_sound.mp3', .72)
   })
 
-  it('自摸推牌落定才响倒牌声', async () => {
+  it('留扎自摸报自摸，推牌落定才响倒牌声', async () => {
     const round = fixture()
     round.origin = 'draw'
-    round.players[0].hand = held('p3','p4','m4','m5','m6','s2','s3','s4','green','green','green','south','south','p5')
+    round.players[0].hand = held('p3','p4','m4','m5','m6','s2','s3','s4','p6','p6','p6','south','south','p5')
     round.players[0].drawnIndex = 13
     const { game, play } = setup(round)
     await vi.advanceTimersByTimeAsync(openTime)
-    game.play(game.controls.value.find(action => action.kind === 'win')!)
+    expect(game.controls.value.some(action => action.kind === 'win' && action.win.kind === 'indicator')).toBe(true)
+    game.play(game.controls.value.find(action => action.kind === 'win' && action.win.kind === 'self')!)
     expect(game.winPatterns.value?.winners[0].label).toBe('自摸')
+    expect(play).toHaveBeenCalledWith('zimo.mp3')
+    expect(play).not.toHaveBeenCalledWith('zhagang.ogg')
     await vi.advanceTimersByTimeAsync(1875)
     expect(game.revealHands.value).toBe(true)
     expect(game.winPresentation.value?.yingzhou?.revealAt).toEqual(expect.any(Number))
@@ -155,6 +163,7 @@ describe('颍州实桌沿用幺筒节奏', () => {
     const { game, play } = setup(round)
     await vi.advanceTimersByTimeAsync(openTime + LOCAL_TABLE_PACE.aiDiscard)
     expect(game.winPresentation.value).toMatchObject({ winnerIndex: 2, yingzhou: { kind: 'indicator' } })
+    expect(play.mock.calls.filter(([name]) => name === 'zhagang.ogg')).toHaveLength(1)
     await vi.advanceTimersByTimeAsync(game.winEffect.value!.duration)
     expect(game.revealHands.value).toBe(true)
     if (reduced) {

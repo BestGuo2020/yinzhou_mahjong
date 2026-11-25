@@ -92,8 +92,7 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
       return tableResult(round)!
     }
     const timeline = createSettlementTimeline({
-      // A direct declaration can happen on someone else's turn; a self-draw voice would announce the wrong win.
-      shouldPlayWinVoice: () => win?.kind !== 'indicator' && win?.kind !== 'nine',
+      getWinSound: win?.kind === 'indicator' || win?.kind === 'nine' ? () => 'zhagang.ogg' : undefined,
       winTiming: win && !win.lastTileBloom ? winPlaybackTiming(win.kind) : undefined,
       state: { ...view, get players() { return visiblePlayers(round) } },
       clearTimers: scheduler.clear, later: scheduler.later, playSound: audio.play,

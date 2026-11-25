@@ -13,6 +13,7 @@ export const EFFECT_AUDIO_ASSETS = [
     'peng',
     'gang',
     'angang',
+    'zhagang',
     'zimo',
     'chihu',
     'ting',
