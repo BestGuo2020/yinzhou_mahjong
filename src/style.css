@@ -3339,14 +3339,24 @@ button { font: inherit; }
 @media (hover: none) and (pointer: coarse) and (orientation: landscape),
        (orientation: landscape) and (max-width: 1024px) and (max-height: 460px) {
   .lobby,
-  .game-app.is-lobby .lobby { padding: calc(var(--safe-top) + var(--topbar-height) + 4px) max(7px, var(--safe-right)) max(6px, var(--safe-bottom)) max(7px, var(--safe-left)); }
+  .game-app.is-lobby .lobby {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    /* 上下平分留白，矮屏优先为工具栏和底部安全区留位。 */
+    grid-template-rows: minmax(calc(var(--safe-top) + var(--topbar-height) + 4px), 1fr)
+      max-content minmax(max(6px, var(--safe-bottom)), 1fr);
+    padding: 0 max(7px, var(--safe-right)) 0 max(7px, var(--safe-left));
+    overflow-y: auto;
+  }
   .lobby-layout {
+    grid-row: 2;
     grid-template-columns: minmax(155px, .62fr) minmax(320px, 1.38fr);
     align-content: center;
     align-items: center;
     gap: clamp(8px, 2cqw, 18px);
-    height: calc(100cqh - var(--safe-top) - var(--safe-bottom) - var(--topbar-height) - 10px);
+    height: auto;
     min-height: 0;
+    overflow: visible;
   }
   .lobby-actions { box-sizing: border-box; width: 100%; padding: 8px; border-radius: 10px; }
   .lobby-actions .mode-selector { margin-bottom: 6px; gap: 5px; }
@@ -4148,9 +4158,11 @@ button { font: inherit; }
 }
 
 /* 大厅和结算适配触屏布局。 */
+@media (hover: none) and (pointer: coarse) and (orientation: portrait) {
+  .lobby-layout { align-content: start; align-items: start; height: auto; min-height: 100%; }
+}
 @media (hover: none) and (pointer: coarse) {
   .lobby { overflow-y: auto; overscroll-behavior: contain; }
-  .lobby-layout { align-content: start; align-items: start; height: auto; min-height: 100%; }
   .lobby-actions .lobby-links { flex: 0 0 auto; flex-wrap: wrap; gap: 4px 12px; }
   .lobby-links > button { min-height: 44px; padding: 10px 12px; }
   .game-app .yaotong-table .player-info { flex-shrink: 0; }
