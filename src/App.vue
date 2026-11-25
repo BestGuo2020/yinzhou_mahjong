@@ -159,7 +159,7 @@ function quit() {
         @quit="quit" @open-rules="rulesOpen = true" @change-theme="changeTheme" />
       <LobbyView v-if="!round" v-model:settings="settings" v-model:length="length" :theme-name="theme"
         @start="startBgm(); start()" @open-rules="rulesOpen = true" @open-stats="statsOpen = true" @open-replay="replayNotice = ''; replayOpen = true" />
-      <GameTableHud v-else :key="round.handNumber" ruleset-id="yingzhou" :theme-name="theme"
+      <GameTableHud v-else ruleset-id="yingzhou" :theme-name="theme"
         :players="players" :user="players[0]" :phase="phase" :wall="wall" :wall-total="136" :wall-count="wall.length"
         :wall-head-drawn="headDrawn" :wall-break-index="round.breakIndex" :current-player="round.result ? -1 : actor"
         :dealer="round.dealer" :dice-thrower-index="round.dealer" :dice-values="round.dice"

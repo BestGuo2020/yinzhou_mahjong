@@ -189,6 +189,28 @@ describe('shared normal tile animations survive state refreshes', () => {
     expect(s.presenter.animate(100, new THREE.Vector3())).toBe(false)
   })
 
+  it('同一张牌桌进入下一局后，首张弃牌可复用上一局的事件编号', () => {
+    const s = setup()
+    const discard = { id: 1, from: 0, tile: 'm5' as const }
+    s.props.players[0].discards = ['m5']
+    s.props.lastDiscard = discard
+    s.presenter.rebuild()
+    expect(s.presenter.animate(0, new THREE.Vector3())).toBe(true)
+
+    s.setNow(1000)
+    s.props.openingStage = 'start'
+    s.props.players[0].discards = []
+    s.props.lastDiscard = null
+    s.presenter.rebuild()
+    expect(s.presenter.animate(1000, new THREE.Vector3())).toBe(false)
+
+    s.props.openingStage = null
+    s.props.players[0].discards = ['m5']
+    s.props.lastDiscard = { ...discard }
+    s.presenter.rebuild()
+    expect(s.presenter.animate(1000, new THREE.Vector3())).toBe(true)
+  })
+
   it('continues a deal tween without restarting it on every refresh', () => {
     const s = setup()
     s.props.players[1].hand = ['m3']

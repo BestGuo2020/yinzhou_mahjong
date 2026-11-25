@@ -673,6 +673,11 @@ function rebuildTableTiles({ reuseInstances = false }: { reuseInstances?: boolea
   // Rebind active motions to the newly built instances. Refreshing a snapshot
   // or a blood-flow overlay must not erase a normal discard/meld mid-flight.
   const now = performance.now()
+  // 局内事件编号可从头计数，复用牌桌时要允许新局的第一张弃牌和副露播放动画。
+  if (props.openingStage === 'start') {
+    animatedDiscardId = -1
+    animatedTableActionId = -1
+  }
   const retain = sourceEpoch === epoch && !props.revealHands
   const active = <T extends InstanceTween>(tweens: T[]) => new Map(
     (retain ? tweens.filter(t => now < t.startedAt + t.duration) : []).map(t => [t.motionKey, t]),

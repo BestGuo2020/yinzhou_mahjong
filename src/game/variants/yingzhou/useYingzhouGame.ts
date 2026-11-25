@@ -19,7 +19,7 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
   const length = ref<MatchLength>(4)
   const matchLength = ref(length.value)
   const round = ref<Round | null>(null)
-  const ready = ref(false)
+  const ready = ref(false) // 同一张 3D 牌桌只在首次加载或换主题后等待 ready。
   const autoplay = ref(false)
   const selectedIndex = ref(-1)
   const dealStep = ref(-1) // -1 开场，0 双骰，1..16 各家拿牌
@@ -80,7 +80,6 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
     reactionUntil = 0
     stepStarted = Date.now()
     openingCue = null
-    ready.value = false
     selectedIndex.value = -1
     dealStep.value = -1
     round.value = state

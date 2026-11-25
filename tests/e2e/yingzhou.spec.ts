@@ -315,6 +315,8 @@ test.describe('手机完整场次', () => {
     await page.getByRole('button', { name: /死九/ }).click()
     await page.getByRole('button', { name: '确定', exact: true }).click()
     await clickWithSeed(page.getByRole('button', { name: /开始对局/ }), 9890)
+    const table = page.locator('canvas.mahjong-scene')
+    const firstCanvas = await table.evaluateHandle(canvas => canvas)
     for (let hand = 1; hand <= 4; hand++) {
       const win = page.getByRole('button', { name: hand === 1 ? '扎亮牌 ×3' : '扎九 ×2' })
       await expect(win).toBeVisible({ timeout: 30_000 })
@@ -325,8 +327,12 @@ test.describe('手机完整场次', () => {
       await expect(page.locator('.table-action-cue.win')).toHaveText(hand === 1 ? '扎亮牌' : '扎九')
       const dialog = page.getByRole('dialog', { name: /^东1局 · 扎/ })
       await expect(dialog).toBeVisible({ timeout: 12_000 })
-      if (hand < 4) await clickWithSeed(dialog.getByRole('button', { name: '继续', exact: true }), 861569)
-      else await dialog.getByRole('button', { name: '查看最终排名' }).click()
+      if (hand < 4) {
+        await clickWithSeed(dialog.getByRole('button', { name: '继续', exact: true }), 861569)
+        await expect(dialog).toHaveCount(0)
+        expect(await table.evaluate((canvas, first) => canvas === first, firstCanvas)).toBe(true)
+        await expect(page.locator('.table-loading')).toHaveCount(0)
+      } else await dialog.getByRole('button', { name: '查看最终排名' }).click()
     }
     const final = page.getByRole('dialog', { name: '最终排名' })
     await expect(final.locator('> p')).toHaveText('东风场 · 对局结束')
