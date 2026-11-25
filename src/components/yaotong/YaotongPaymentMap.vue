@@ -20,6 +20,8 @@ const props = defineProps<{
   players: GamePlayer[]
   themeName?: TableThemeName
   handNumber: number
+  formatAmount?: (points: number) => string
+  amountUnit?: string
   burnedSeats?: number[]
 }>()
 const emit = defineEmits<{
@@ -89,7 +91,7 @@ function path(from: number, to: number) {
 const avatar = (player: GamePlayer) =>
   displayImageSrc(props.themeName === 'llmAnime' ? animeAvatarForPlayer(player) : player.avatar)
 const label = (from: number, to: number, amount: number) =>
-  `${props.players[from].name}向${props.players[to].name}${mode.value === 'responsibility' ? '支付幺筒责任款' : mode.value === 'kill' ? '额外支付杀报款' : mode.value === 'gift' ? '支付见面礼' : '净付'}${amount}分`
+  `${props.players[from].name}向${props.players[to].name}${mode.value === 'responsibility' ? '支付幺筒责任款' : mode.value === 'kill' ? '额外支付杀报款' : mode.value === 'gift' ? '支付见面礼' : '净付'}${props.formatAmount?.(amount) ?? amount}${props.amountUnit ?? '分'}`
 </script>
 <template>
   <section
@@ -167,7 +169,7 @@ const label = (from: number, to: number, amount: number) =>
       >
         <title>
           {{ label(edge.from, edge.to, edge.amount) }}；{{
-            edge.parts.map((p) => `${p.account}${p.amount > 0 ? '+' : ''}${p.amount}`).join('，')
+            edge.parts.map((p) => `${p.account}${p.amount > 0 ? '+' : ''}${formatAmount?.(p.amount) ?? p.amount}`).join('，')
           }}
         </title>
         <path class="payment-hit" :d="path(edge.from, edge.to)" />
@@ -185,7 +187,7 @@ const label = (from: number, to: number, amount: number) =>
         </circle>
         <g :transform="`translate(${(position(edge.from).x + position(edge.to).x) / 2},86)`">
           <rect x="-34" y="-12" width="68" height="24" rx="12" />
-          <text text-anchor="middle" y="5">{{ edge.to === selected ? '+' : '−' }}{{ edge.amount }}</text>
+          <text text-anchor="middle" y="5">{{ edge.to === selected ? '+' : '−' }}{{ formatAmount?.(edge.amount) ?? edge.amount }}</text>
         </g>
       </g>
       <g

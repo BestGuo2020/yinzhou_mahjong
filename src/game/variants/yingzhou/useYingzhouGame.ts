@@ -15,7 +15,7 @@ import { useTablePresentation, type TableAudio } from './useTablePresentation'
 import { handWaits } from './waits'
 
 export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, audio: TableAudio) {
-  const settings = ref<Settings>({ mode: 'live', smallBan: false })
+  const settings = ref<Settings>({ mode: 'live', smallBan: false, coinMultiplier: 1 })
   const length = ref<MatchLength>(4)
   const matchLength = ref(length.value)
   const round = ref<Round | null>(null)

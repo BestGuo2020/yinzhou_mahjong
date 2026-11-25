@@ -5,6 +5,10 @@ import OrientationGate from './components/shell/OrientationGate.vue'
 import LobbyView from './components/lobby/LobbyView.vue'
 import GameTableHud from './components/table/GameTableHud.vue'
 import TableGuidance from './components/table/TableGuidance.vue'
+import YingzhouCoinPayout from './components/table/YingzhouCoinPayout.vue'
+import { artwork } from './components/table/yingzhouCinematic'
+import { coinsForPoints, displayPoints } from './game/variants/yingzhou/coins'
+import { useCoinBalance } from './game/variants/yingzhou/useCoinBalance'
 import RulesPanel from './components/RulesPanel.vue'
 import SettlementOverlay from './components/settlement/SettlementOverlay.vue'
 import ReplayListView from './components/replay/ReplayListView.vue'
@@ -59,6 +63,7 @@ onMounted(prepare)
 
 const replay = useReplayRecorder({ meta: () => ({
   rulesetId: 'yingzhou', rulesetName: '颍州扎杠麻将', themeName: theme.value, humanSeat: 0,
+  coinMultiplier: round.value?.settings.coinMultiplier,
 }) })
 const replayOpen = ref(false)
 const statsOpen = ref(false)
@@ -93,6 +98,15 @@ const {
   dealAnimation, headDrawn, wall, controls, mayDiscard, actionCue, waits, selectedWaits,
   winEffect, winPatterns, winPresentation, revealHands, winningPlayerIndex, weather, play, start, next, leave,
 } = useYingzhouGame(replay, rulesOpen, { play: playEffect, playAndWait: playEffectAndWait })
+const { balance, saveFailed, record } = useCoinBalance()
+const coinRate = computed(() => round.value?.settings.coinMultiplier ?? 1)
+watch(coinRate, rate => { if (rate === 3) artwork('gold-coin-turn') })
+const seatGold = (score: number) => displayPoints(score, coinRate.value)
+watch(() => round.value?.result, outcome => {
+  if (outcome?.win && round.value) record(replay.ensureMatchId(), coinsForPoints(round.value.players[0].score, coinRate.value))
+}, { flush: 'sync' })
+const payingCoins = ref(false)
+watch(result, value => { payingCoins.value = Boolean(value && !value.draw && value.coinMultiplier === 3) })
 const ownKongs = computed(() => controls.value.filter(option => option.kind === 'kong' && option.kong !== 'exposed'))
 const kongTiles = computed(() => ownKongs.value.flatMap(option => option.kind === 'kong' ? [option.tile] : []))
 function chooseKong(tile?: TileType) {
@@ -104,6 +118,9 @@ const claimPrompt = computed(() => {
   if (state?.window.kind !== 'claim' || !controls.value.length) return null
   return { type: 'claim', from: state.turn, tile: state.window.tile,
     canPeng: controls.value.some(a => a.kind === 'peng'), canGang: controls.value.some(a => a.kind === 'kong') }
+})
+watch(() => round.value?.window.kind === 'claim' && actor.value === 0 ? round.value.lastDiscard?.id : null, id => {
+  if (id != null) playEffect('claim_prompt.ogg', .4)
 })
 function claim(kind: 'pass' | 'peng' | 'kong') {
   const action = controls.value.find(option => option.kind === kind)
@@ -151,11 +168,11 @@ function quit() {
     <EffectsPreview v-if="EffectsPreview" :theme-name="theme" :audio="{ play: playEffect, playAndWait: playEffectAndWait }" />
     <div v-else-if="!replayView" :class="{ 'has-three-scene': round }">
       <GameShellHeader game-mode="local" :phase="phase" :has-players="!!round" :match-name="matchName"
-        :round-label="handLabel" :honba="round?.honba ?? 0" :base-score="BASE_POINTS" room-id="" :signal-quality="3" :theme-name="theme"
+        :round-label="handLabel" :honba="round?.honba ?? 0" :stake-label="(coinRate === 3 ? '三倍场' : '普通场') + ' · 底金' + seatGold(BASE_POINTS)" room-id="" :signal-quality="3" :theme-name="theme"
         @quit="quit" @open-rules="rulesOpen = true" @change-theme="changeTheme" />
-      <LobbyView v-if="!round" v-model:settings="settings" v-model:length="length" :theme-name="theme"
+      <LobbyView v-if="!round" v-model:settings="settings" v-model:length="length" :theme-name="theme" :balance="balance" :save-failed="saveFailed"
         @start="startBgm(); start()" @open-rules="rulesOpen = true" @open-stats="statsOpen = true" @open-replay="replayNotice = ''; replayOpen = true" />
-      <GameTableHud v-else ruleset-id="yingzhou" :theme-name="theme"
+      <GameTableHud v-else ruleset-id="yingzhou" :theme-name="theme" :format-seat-score="seatGold"
         :players="players" :user="players[0]" :phase="phase" :wall="wall" :wall-total="136" :wall-count="wall.length"
         :wall-head-drawn="headDrawn" :wall-break-index="round.breakIndex" :current-player="round.result ? -1 : actor"
         :dealer="round.dealer" :dice-thrower-index="round.dealer" :dice-values="round.dice"
@@ -180,7 +197,9 @@ function quit() {
           <TableGuidance :hints="hints" />
         </template>
       </GameTableHud>
-      <SettlementOverlay v-if="round && result" v-model:result-visible="resultVisible" :result="result" ruleset-id="yingzhou"
+      <YingzhouCoinPayout v-if="round && result && payingCoins" :result="result"
+        @collect="playEffect('coin_collect.ogg', .65)" @finished="payingCoins = false" />
+      <SettlementOverlay v-if="round && result && !payingCoins" v-model:result-visible="resultVisible" :result="result" ruleset-id="yingzhou"
         :round-label="handLabel" :result-title="result.draw ? '流局留庄' : result.winLabel"
         :match-finished="finished" :dealer="round.dealer" :waiting-next-round="false" game-mode="local" :continue-countdown="0"
         :match-name="matchName" :standings="standings" player-id="" :human-seats="[0]" :joker-tiles="[]" :theme-name="theme"

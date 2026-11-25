@@ -6,6 +6,7 @@ import { formatTurn, rankTone } from '../../game/replay/format'
 import type { ReplayFrame } from '../../game/replay/projection'
 import type { ReplayMatch, ReplayRound } from '../../game/replay/types'
 import YaotongSeatMarker from '../yaotong/YaotongSeatMarker.vue'
+import { displayPoints } from '../../game/variants/yingzhou/coins'
 
 const props = defineProps<{
   match: ReplayMatch
@@ -33,7 +34,7 @@ const standings = computed(() => {
       :aria-expanded="expanded" :aria-controls="panelId" :title="expanded ? '收起分数' : '展开四家分数'"
       @click="expanded = !expanded"
     >
-      分数
+      {{ match.coinMultiplier ? '金币' : '分数' }}
       <span aria-hidden="true">{{ expanded ? '▴' : '▾' }}</span>
     </button>
 
@@ -53,7 +54,7 @@ const standings = computed(() => {
         >
           <b>{{ entry.rank }}</b>
           <span class="name">{{ entry.name }}</span>
-          <em>{{ entry.score }}</em>
+          <em>{{ displayPoints(entry.score, match.coinMultiplier) }}</em>
           <YaotongSeatMarker v-if="frame?.yaotongSeats?.[entry.seat]" :name="entry.name" :status="frame.yaotongSeats[entry.seat]!" />
         </li>
       </ul>

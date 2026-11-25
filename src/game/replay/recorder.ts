@@ -26,6 +26,7 @@ import {
 
 /** 场次级元信息：由 App 层在开局时提供（玩法 / 主题 / 本家座位）。 */
 export interface ReplayMatchMeta {
+  coinMultiplier?: ReplayMatch['coinMultiplier']
   yaotongMode?: ReplayMatch['yaotongMode']
   rulesetId: RuleVariant
   rulesetName: string
@@ -199,6 +200,7 @@ export function createReplayRecorder(options: ReplayRecorderOptions): ReplayReco
       matchType: frame.matchType,
       matchName: frame.matchName ?? (frame.matchType === 'hanchan' ? '半庄场' : '东风场'),
       ...(meta.yaotongMode ? { yaotongMode: meta.yaotongMode } : {}),
+        ...(meta.coinMultiplier ? { coinMultiplier: meta.coinMultiplier } : {}),
       gameMode: meta.gameMode ?? 'local',
       themeName: meta.themeName,
       players: matchPlayersOf(frame),

@@ -5,6 +5,7 @@ import { MATCH_FORMATS, MATCH_LENGTHS } from '../core/rules/matchFormats'
 import type { ReplayMatch, ReplayMeldKind, ReplayPlayer, ReplayRound, ReplayRoundFinal, ReplayStep } from './types'
 import { settlementTitle } from '../variants/yaotong/presentation'
 import { REPLAY_SCHEMA_VERSION } from './types'
+import { displayPoints } from '../variants/yingzhou/coins'
 
 const pad = (value: number) => String(value).padStart(2, '0')
 
@@ -151,9 +152,10 @@ export function replayMatchWithCurrentSummary(match: ReplayMatch, rounds: readon
 }
 
 /** 列表副标题：局数 · 位次 · 净胜分。 */
-export function matchSubtitle(match: Pick<ReplayMatch, 'roundCount' | 'myRank' | 'myScore' | 'status'>): string {
+export function matchSubtitle(match: Pick<ReplayMatch, 'roundCount' | 'myRank' | 'myScore' | 'status' | 'coinMultiplier'>): string {
   const rounds = `${match.roundCount}局`
   if (match.status === 'aborted') return `${rounds} · 未完成`
+  if (match.coinMultiplier) return `${rounds} · ${formatRank(match.myRank)} · ${displayPoints(match.myScore ?? 0, match.coinMultiplier, true)}金币`
   return `${rounds} · ${formatRank(match.myRank)} · ${formatDelta(match.myScore)}分`
 }
 

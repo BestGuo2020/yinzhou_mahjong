@@ -5,18 +5,26 @@ import type { RoundResult } from '../../game/core/contracts/gamePort'
 import type { GamePlayer } from '../../game/core/contracts/types'
 import type { Transfer } from '../../game/variants/yaotong/types'
 import { BASE_POINTS } from '../../game/variants/yingzhou/rules'
+import { displayPoints } from '../../game/variants/yingzhou/coins'
 import type { TableThemeName } from '../../theme/themeIdentity'
-import { formatDelta, replayWinText } from '../../game/replay/format'
+import { replayWinText } from '../../game/replay/format'
 
 const props = defineProps<{
   result: RoundResult; players: GamePlayer[]
   themeName: TableThemeName; handNumber: number
 }>()
 const winLabel = computed(() => replayWinText(props.result.winLabel ?? '胡牌'))
+const unit = computed(() => props.result.coinMultiplier ? '金币' : '分')
+const amount = (points: number, signed = false) => displayPoints(points, props.result.coinMultiplier, signed)
 const formula = computed(() => {
   const r = props.result
   if (r.draw) return '流局留庄，本局不计入有效局数。'
   const factors = r.details?.map(p => replayWinText(p.label) + ' ' + p.multiplier + ' 倍').join(' ＋ ')
+  if (r.coinMultiplier) {
+    const stake = amount(BASE_POINTS)
+    const payment = amount((r.robbedKong ? r.totalWon : r.points) ?? 0)
+    return `${factors || winLabel.value} · 底金 ${stake} · ${r.robbedKong ? '被抢者独付' : '每家付'} ${payment} 金币`
+  }
   const paid = r.robbedKong ? '被抢者独付 ' + r.totalWon : '每家付 ' + r.points
   return `${factors || winLabel.value} · 底分 ${BASE_POINTS} · ${paid} 分`
 })
@@ -38,16 +46,16 @@ function inspect(edge: { from: number; to: number }) { pair.value = edge; detail
   <section class="yaotong-ledger" aria-label="颍州分数明细">
     <p class="yaotong-hand-score"><b>{{ result.winner ?? '流局' }}</b> · {{ formula }}</p>
     <YaotongPaymentMap :players="players" :transfers="transfers" :theme-name="themeName" :hand-number="handNumber"
-      @select="selectSeat" @inspect="inspect" />
+      :format-amount="amount" :amount-unit="unit" @select="selectSeat" @inspect="inspect" />
     <details :open="detailsOpen" @toggle="detailsOpen = ($event.target as HTMLDetailsElement).open">
       <summary>分项账单 · {{ entries.length }} 笔</summary>
       <button v-if="pair" type="button" class="secondary" @click="pair = null">查看该玩家全部收付</button>
       <div class="yaotong-ledger-scroll">
-        <table v-if="entries.length"><thead><tr><th>付款 → 收款</th><th>胡法</th><th>分数</th></tr></thead>
+        <table v-if="entries.length"><thead><tr><th>付款 → 收款</th><th>胡法</th><th>{{ unit }}</th></tr></thead>
           <tbody><tr v-for="entry in entries" :key="entry.from"><td>{{ players[entry.from].name }} → {{ players[entry.to].name }}</td>
             <td>{{ entry.reason }}</td><td class="ledger-amount" :class="entry.to === selected ? 'income' : 'expense'">
-              {{ formatDelta(entry.to === selected ? entry.amount : -entry.amount) }}分</td></tr></tbody>
-        </table><p v-else>本局无分数收付</p>
+              {{ amount(entry.to === selected ? entry.amount : -entry.amount, true) }}{{ unit }}</td></tr></tbody>
+        </table><p v-else>本局无收付</p>
       </div>
     </details>
   </section>

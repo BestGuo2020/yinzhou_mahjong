@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { computed, onScopeDispose, ref } from 'vue'
+import { computed, onScopeDispose, ref, watch } from 'vue'
+import YingzhouCoinPayout from '../components/table/YingzhouCoinPayout.vue'
+import { artwork } from '../components/table/yingzhouCinematic'
+import { displayPoints } from '../game/variants/yingzhou/coins'
 import GameTableHud from '../components/table/GameTableHud.vue'
 import type { TableThemeName } from '../theme/themeIdentity'
 import { tailFaceUp } from '../game/variants/yingzhou/presentation'
@@ -10,10 +13,14 @@ const props = defineProps<{ themeName: TableThemeName; audio: TableAudio }>()
 const initial = new URLSearchParams(window.location.search).get('effect')
 const selected = ref<Example>(initial && Object.hasOwn(examples, initial) ? initial as Example : 'indicator')
 const round = ref(exampleRound(selected.value))
+const triple = ref(new URLSearchParams(window.location.search).get('coins') === '3')
+const paying = ref(false)
 const ready = ref(false)
 const effects = useTablePresentation(props.audio, () => round.value)
 const { winPresentation, winPatterns } = effects
 const { winEffect, revealHands, winningPlayerIndex, tableActionEvent, phase } = effects.view
+const { result } = effects.view
+watch(result, value => { paying.value = Boolean(value && triple.value) })
 const players = computed(() => effects.visiblePlayers(round.value))
 const deal = { playerIndex: -1, count: 0, serial: 0 }
 
@@ -21,6 +28,8 @@ function play(kind: Example) {
   effects.reset()
   selected.value = kind
   round.value = exampleRound(kind)
+  round.value.settings.coinMultiplier = triple.value ? 3 : 1
+  if (triple.value) artwork('gold-coin-turn')
   const state = round.value
   phase.value = 'checking'
   effects.scheduler.later(() => {
@@ -39,7 +48,7 @@ onScopeDispose(effects.reset)
 
 <template>
   <div class="has-three-scene">
-    <GameTableHud ruleset-id="yingzhou" :theme-name="themeName" :players="players" :user="players[0]"
+    <GameTableHud ruleset-id="yingzhou" :theme-name="themeName" :players="players" :user="players[0]" :format-seat-score="score => displayPoints(score, triple ? 3 : 1)"
       :phase="phase" :wall="round.wall" :wall-head-drawn="round.headDrawn" :wall-count="round.wall.length"
       :wall-break-index="round.breakIndex" :flip-tile="round.indicator" :tail-indicator="tailFaceUp(round) ? round.indicator : null"
       :current-player="round.result ? -1 : round.turn" :selected-index="-1" :turn-seconds="0" :last-discard="null"
@@ -49,10 +58,12 @@ onScopeDispose(effects.reset)
       :is-user-turn="false" :user-can-hu="false" match-name="特效预览" round-label="东1局" :deal-animation="deal"
       :opening-stage="null" :dice-values="round.dice" :dice-thrower-index="0" :user-current-waits="null"
       :user-ting-options="[]" :user-discard-waits="null" :user-kongs="[]" :user-has-wind-kong="false" @ready="tableReady" />
+    <YingzhouCoinPayout v-if="paying && result" :result="result" @collect="audio.play('coin_collect.ogg', .65)" @finished="paying = false" />
     <nav class="preview-controls" aria-label="特效预览">
       <a :href="'?theme=' + themeName">‹ 大厅</a>
       <button v-for="(label, kind) in examples" :key="kind" type="button" :disabled="!ready"
         :aria-pressed="selected === kind" @click="play(kind)">{{ label }}</button>
+      <button type="button" :disabled="!ready" :aria-pressed="triple" @click="triple = !triple; play(selected)">三倍场</button>
     </nav>
   </div>
 </template>

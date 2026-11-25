@@ -1,5 +1,26 @@
 import { expect, test } from '@playwright/test'
 
+test('三倍场抢补杠由被抢者独付，输赢数字从左滑入后金币飞向本家', async ({ page }, info) => {
+  await page.setViewportSize({ width: 844, height: 390 })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/?preview=win-effects&effect=rob&coins=3&quality=low&theme=jade')
+  const layer = page.getByRole('status', { name: '三倍场金币收付' })
+  await expect(layer).toBeVisible({ timeout: 35_000 })
+  await expect(layer.locator('.effect-number')).toHaveCount(2)
+  await expect(layer.getByRole('img', { name: '+18000000' })).toBeVisible()
+  await expect(layer.getByRole('img', { name: '−18000000' })).toBeVisible()
+  const frames = await layer.locator('.coin-slide').first().evaluate(el =>
+    (el.getAnimations()[0].effect as KeyframeEffect).getKeyframes())
+  expect(frames[0]).toMatchObject({ opacity: '0', transform: 'translateX(-28%)' })
+  await page.waitForFunction(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>('.coin-payout canvas')
+    const ctx = canvas?.getContext('2d')
+    return !!canvas && !!ctx && ctx.getImageData(0, 0, canvas.width, canvas.height).data.some((v, i) => i % 4 === 3 && v > 128)
+  })
+  await page.screenshot({ path: info.outputPath('coin-flight.png') })
+  await expect(layer).toHaveCount(0)
+})
+
 test('从大厅逐一重播四种胡法，实桌动作字和胡牌位都可见', async ({ page }) => {
   test.setTimeout(90_000)
   const errors: string[] = []

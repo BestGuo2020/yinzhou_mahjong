@@ -19,6 +19,7 @@ interface Props {
   roundLabel: string
   honba: number
   baseScore?: number
+  stakeLabel?: string
   roomId: string
   signalQuality: number
   signalWarningThreshold?: number
@@ -113,7 +114,7 @@ onBeforeUnmount(() => {
       <div class="round-info">{{ matchName }} · {{ roundLabel }}<span v-if="honba" class="round-honba"> · {{ honba }}本场</span></div>
       <div class="base-score-badge">
         <span v-if="gameMode === 'remote' && roomId" class="badge-room"><span class="badge-room-label">房间 </span>{{ roomId }}</span>
-        <span>底分{{ baseScore }}</span>
+        <span>{{ stakeLabel ?? ('底分' + baseScore) }}</span>
         <span v-if="honba" class="badge-honba">{{ honba }}本场</span>
         <span v-if="gameMode === 'remote'" class="table-signal">
           <img

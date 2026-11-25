@@ -80,6 +80,8 @@ export interface RoundScoreChange {
 }
 
 export interface RoundResult {
+  /** 颍州金币场倍率。旧牌谱不含此字段，仍按原积分展示。 */
+  coinMultiplier?: 1 | 3
   /** 结算表现去重与早到 continue 绑定键；旧服务端可省略。 */
   presentationKey?: string
   draw?: boolean

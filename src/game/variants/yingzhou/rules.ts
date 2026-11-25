@@ -1,6 +1,7 @@
 import type { Meld, SuitedTile, TileType } from '../../core/contracts/types'
 import { tileOrder } from '../../core/rules/tiles'
 import { standardShanten } from '../../shared/ai/handProgress'
+import type { CoinMultiplier } from './coins'
 
 export const BASE_POINTS = 10
 export const MODES = {
@@ -9,7 +10,7 @@ export const MODES = {
   nine: { name: '死九', description: '开杠补同花色的标记九，也可以用三张普通九报扎。' },
 } as const
 export type Mode = keyof typeof MODES
-export interface Settings { mode: Mode; smallBan: boolean }
+export interface Settings { mode: Mode; smallBan: boolean; coinMultiplier?: CoinMultiplier }
 export interface HeldTile { face: TileType; marked: boolean }
 export interface Seat {
   hand: HeldTile[]

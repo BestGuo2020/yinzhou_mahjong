@@ -6,6 +6,7 @@ import MahjongTable3D from '../MahjongTable3D.vue'
 import MahjongTile from '../MahjongTile.vue'
 import YaotongLedger from '../yaotong/YaotongLedger.vue'
 import YingzhouReplayLedger from './YingzhouReplayLedger.vue'
+import { displayPoints } from '../../game/variants/yingzhou/coins'
 import YaotongSeatMarker from '../yaotong/YaotongSeatMarker.vue'
 import { settlementTitle } from '../../game/variants/yaotong/presentation'
 import { YAOTONG_MODES } from '../../game/variants/yaotong/mode'
@@ -96,7 +97,10 @@ const resultBanner = computed(() => {
   if (final.winSeat == null) return `${head}本局结束`
   const winner = props.match.players[final.winSeat]?.name ?? ''
   const kind = replayWinLabel(final.winType, final.result?.winLabel)
-  const points = final.points ? ` · ${formatDelta(final.points * 3)}分` : ''
+  const rate = final.result?.coinMultiplier
+  const points = rate && final.result?.totalWon != null
+    ? ' · ' + displayPoints(final.result.totalWon, rate, true) + '金币'
+    : final.points ? ` · ${formatDelta(final.points * 3)}分` : ''
   return `${head}${winner} ${kind}${points}`
 })
 
@@ -209,7 +213,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onKeydown); compac
         <div class="player-info">
           <small>本家手牌</small>
           <strong>{{ humanName }}</strong>
-          <span>{{ frame.scores[match.humanSeat] ?? 0 }}</span>
+          <span>{{ displayPoints(frame.scores[match.humanSeat] ?? 0, match.coinMultiplier) }}</span>
           <YaotongSeatMarker v-if="frame.yaotongSeats?.[match.humanSeat]" :name="humanName" :status="frame.yaotongSeats[match.humanSeat]!" />
         </div>
       </div>

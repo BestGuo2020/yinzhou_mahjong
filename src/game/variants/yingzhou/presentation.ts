@@ -37,6 +37,7 @@ export function tableResult(round: Round): RoundResult | null {
   const seats = tablePlayers(round)
   const ranked = [...seats].sort((a, b) => b.score - a.score || a.seat - b.seat)
   return {
+    coinMultiplier: round.settings.coinMultiplier,
     draw: !win, winnerIndex: winner ?? undefined, winner: winner === null ? undefined : NAMES[winner],
     roundLabel: windRoundLabel(round.dealerRound), honba: round.honba,
     winTile: win?.tile, winType: win ? (payer === null ? 'self-draw' : 'robbed-kong') : undefined,

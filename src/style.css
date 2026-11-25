@@ -3978,6 +3978,12 @@ button { font: inherit; }
   --table-control-icon-size: calc(var(--action-edge) * .7);
 }
 .game-app .yaotong-table .turn-action-row { flex-wrap: nowrap; }
+.game-app [data-ruleset="yingzhou"] .turn-action-row.yingzhou-claim-actions {
+  left: 50%; right: auto; width: max-content; bottom: var(--controls-bottom);
+  transform: translateX(-50%); justify-content: center;
+}
+.yingzhou-claim-actions .claim-tile { display: inline-flex; align-items: center; margin-right: 3px; pointer-events: none; }
+.yingzhou-claim-actions .claim-tile .mahjong-tile { --tile-width: calc(var(--action-edge) * .58); }
 .game-app .yaotong-table:has(.table-persistent-actions > .action) .turn-action-row {
   --action-row-right: max(10%, var(--persistent-action-reserve));
   right: var(--action-row-right);

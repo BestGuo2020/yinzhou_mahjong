@@ -4,6 +4,7 @@ import MahjongTile from '../MahjongTile.vue'
 import { isHorseForSeat } from '../../game/core/rules/tiles'
 import { defaultAvatarForSeat } from '../../game/core/presentation/avatar'
 import type { RoundResult } from '../../game/core/contracts/gamePort'
+import { displayPoints } from '../../game/variants/yingzhou/coins'
 import type { GamePlayer, TileType } from '../../game/core/contracts/types'
 import type { RuleVariant } from '../../game/core/rules/ruleVariants'
 import type { GameMode } from '../../game/core/contracts/activeGamePort'
@@ -40,6 +41,10 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+function amount(points: number, signed = false) {
+  return displayPoints(points, props.result?.coinMultiplier, signed)
+}
+const unit = computed(() => props.result?.coinMultiplier ? '金币' : '分')
 defineEmits<{
   'update:resultVisible': [value: boolean]
   nextRound: []
@@ -207,7 +212,7 @@ const relativeSeat = computed<0 | 1 | 2 | 3>(() => {
           <slot name="overview"><slot name="summary" /></slot>
           <div v-if="!$slots.summary && resultPresentation.kind !== 'draw'" class="score-total">
             <span>总倍数</span><strong>×{{ result.totalMultiplier ?? result.multiplier }}</strong>
-            <em :title="result.winner ? result.winner + '本局共得' : undefined">+{{ result.totalWon ?? result.points * 3 }} 分</em>
+            <em :title="result.winner ? result.winner + '本局共得' : undefined">{{ amount(result.totalWon ?? result.points * 3, true) }} {{ unit }}</em>
           </div>
           <div v-if="!$slots.summary && resultPresentation.kind !== 'draw' && (result.details?.length || paymentDetail)"
             class="score-details" role="group" aria-label="计分明细">
@@ -216,7 +221,7 @@ const relativeSeat = computed<0 | 1 | 2 | 3>(() => {
               <b v-else-if="rulesetId === 'yingzhou' && index > 0">+{{ detail.multiplier }} 倍</b>
               <b v-else>×{{ detail.multiplier }}</b>
             </span>
-            <span v-if="paymentDetail">{{ paymentDetail.label }} <b>{{ paymentDetail.points }} 分</b></span>
+            <span v-if="paymentDetail">{{ paymentDetail.label }} <b>{{ amount(paymentDetail.points) }} {{ unit }}</b></span>
           </div>
           <div v-if="resultPresentation.kind !== 'draw' && result.horses?.length" class="horse-area">
             <div>
@@ -233,8 +238,8 @@ const relativeSeat = computed<0 | 1 | 2 | 3>(() => {
                 <i v-if="entry.playerIndex === dealer" class="mark dealer">庄</i>
                 <i v-if="result.draw && result.tenpai?.includes(entry.playerIndex)" class="mark tenpai">听</i>
               </span>
-              <em title="本局得分" :class="{ positive: entry.delta > 0, negative: entry.delta < 0 }"><small v-if="$slots.overview" class="rank-score-label">本局</small>{{ entry.delta > 0 ? '+' : '' }}{{ entry.delta }}</em>
-              <b title="累计得分"><small v-if="$slots.overview" class="rank-score-label">累计</small>{{ entry.score }}</b>
+              <em :title="result.coinMultiplier ? '本局金币' : '本局得分'" :class="{ positive: entry.delta > 0, negative: entry.delta < 0 }"><small v-if="$slots.overview" class="rank-score-label">本局</small>{{ amount(entry.delta, true) }}</em>
+              <b :title="result.coinMultiplier ? '本场净金币' : '累计得分'"><small v-if="$slots.overview" class="rank-score-label">累计</small>{{ amount(entry.score) }}</b>
             </article>
           </div>
         </div>
@@ -272,7 +277,7 @@ const relativeSeat = computed<0 | 1 | 2 | 3>(() => {
                   class="report-link" @click="$emit('report', entry.name)"
                 >举报</button>
               </div>
-              <em title="本场累计积分" :aria-label="`累计${entry.score}分`">{{ entry.score }}</em>
+              <em :title="result?.coinMultiplier ? '本场净金币' : '本场累计积分'" :aria-label="`累计${amount(entry.score)}${unit}`">{{ amount(entry.score) }}</em>
             </article>
           </div>
         </div>

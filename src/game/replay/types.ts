@@ -145,6 +145,7 @@ export interface ReplayStanding {
 }
 
 export interface ReplayMatch {
+  coinMultiplier?: 1 | 3
   yaotongMode?: YaotongMode
   id: string
   schemaVersion: number

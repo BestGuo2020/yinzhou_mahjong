@@ -12,6 +12,7 @@ const props = withDefaults(defineProps<{
   active?: boolean
   actionActive?: boolean
   scoreDelta?: number
+  scoreLabel?: string
   scoreFlowId?: number
   position: string
   /** 手机上昵称不占位；点头像查看完整昵称。 */
@@ -68,7 +69,7 @@ const animeStyle = computed(() => props.themeName === 'llmAnime'
       <img v-else class="avatar" :src="avatarSrc" :alt="`${player.name}头像`" @error="onAvatarError" />
       <div class="player-info">
         <strong><span class="player-name">{{ player.name }}</span></strong>
-        <span>{{ player.score }}</span>
+        <span>{{ scoreLabel ?? player.score }}</span>
       </div>
       <Transition name="nickname-reveal">
         <div v-if="nicknameOpen && nicknameOnTap" class="nickname-popover" role="status" aria-live="polite">{{ player.name }}</div>

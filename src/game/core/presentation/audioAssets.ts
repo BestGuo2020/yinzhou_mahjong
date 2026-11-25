@@ -27,6 +27,8 @@ export const EFFECT_AUDIO_ASSETS = [
     'angang_rainy',
     'mingang_windy',
     'bugang',
+    'coin_collect',
+    'claim_prompt',
     'zhuanwangang',
   ].map((name) => `sounds/${name}.ogg`),
 ] as const

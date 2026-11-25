@@ -42,6 +42,7 @@ import {
 const MahjongTable3D = defineAsyncComponent(() => import('../MahjongTable3D.vue'))
 
 interface Props {
+  formatSeatScore?: (score: number) => string
   themeName: TableThemeName
   players: GamePlayer[]
   user: GamePlayer
@@ -717,7 +718,7 @@ function onAvatarError(entry: GamePlayer) {
     <!-- players 已按本家视角排序，但 player.seat 保留服务器绝对座位；气泡必须按本地索引读取。 -->
     <PlayerSeat
       v-for="(player, index) in players.slice(1)" :key="player.seat" :player="player"
-      :data-yaotong-seat="index + 1"
+      :data-yaotong-seat="index + 1" :score-label="formatSeatScore?.(player.score)"
       :emote-click="canOpenEmotes"
       :nickname-on-tap="usesYaotongLayout && !canOpenEmotes"
       :position="seatPosition[index + 1]" :active="currentPlayer === index + 1"
@@ -786,7 +787,7 @@ function onAvatarError(entry: GamePlayer) {
           <img class="avatar" :src="userAvatar" :alt="`${user.name}头像`" @error="onAvatarError(user)" />
         </button>
         <img v-else class="avatar" :src="userAvatar" :alt="`${user.name}头像`" @error="onAvatarError(user)" />
-        <div class="player-info"><strong><span class="player-name">{{ user.name }}</span></strong><span>{{ user.score }}</span><YaotongSeatMarker v-if="yaotongView" :name="user.name" :status="yaotongView.seats[0]" /></div>
+        <div class="player-info"><strong><span class="player-name">{{ user.name }}</span></strong><span>{{ formatSeatScore?.(user.score) ?? user.score }}</span><YaotongSeatMarker v-if="yaotongView" :name="user.name" :status="yaotongView.seats[0]" /></div>
         <Transition name="nickname-reveal">
           <div v-if="usesYaotongLayout && userNicknameOpen" class="nickname-popover user-nickname-popover" role="status" aria-live="polite">{{ user.name }}</div>
         </Transition>
@@ -829,13 +830,17 @@ function onAvatarError(entry: GamePlayer) {
       </div>
     </section>
 
-    <div v-if="showTurnRow" class="turn-action-row" :class="{ 'kong-picker-open': kongPickerOpen || chiPickerOpen }">
+    <div v-if="showTurnRow" class="turn-action-row" :class="{ 'kong-picker-open': kongPickerOpen || chiPickerOpen,
+      'yingzhou-claim-actions': rulesetId === 'yingzhou' && (actionPrompt?.type === 'claim' || userKongs.length) }">
       <div v-if="bloodFlow?.reformHint && userCanHu" class="blood-flow-reform-tip" data-reform-hint="1" :title="`改张收益估算 +${bloodFlow.reformHint.gain} 点`">
         <b>改张</b><span>打出</span><b class="reform-tile">{{ tileName(bloodFlow.reformHint.discard) }}</b>
         <span v-if="bloodFlow.reformHint.reason === 'any-wait'">→ 癞子单吊·任意听（此后每巡可胡）</span>
         <span v-else>→ 听口更宽、收益更高</span>
       </div>
       <div v-if="showActionBar" class="action-bar">
+        <span v-if="rulesetId === 'yingzhou' && actionPrompt?.type === 'claim'" class="claim-tile" role="img" :aria-label="'可应牌：' + tileName(actionPrompt.tile)">
+          <MahjongTile :tile="actionPrompt.tile" :theme-name="themeName" small disabled inert aria-hidden="true" />
+        </span>
         <slot name="actions" />
         <button v-if="userCurrentWaits || userTingOptions.length" class="action waiting-action" :class="{ active: waitsOpen }" data-action-role="secondary" aria-label="查看听牌提示" :title="userCurrentWaits ? '已听牌，查看听口' : '查看打哪张可听'" :aria-expanded="waitsOpen" @click="toggleWaits">
           <TableControlIcon v-if="usesYaotongLayout" name="waits" />
