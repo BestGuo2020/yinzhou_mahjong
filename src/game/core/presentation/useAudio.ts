@@ -10,7 +10,6 @@ import {
 import type { LlmSpeechPriority } from '../../llm/speechPolicy'
 import { DEFAULT_BGM_ASSET, EFFECT_AUDIO_ASSETS, resolveAudioAsset, resolveBgmAsset } from './audioAssets'
 
-const AUDIO_BASE = `${import.meta.env.BASE_URL}audio/`
 const EFFECT_AUDIO_FILES = EFFECT_AUDIO_ASSETS
 const EFFECT_WAIT_TIMEOUT_MS = 4_000
 const AUDIO_PRELOAD_TIMEOUT_MS = 15_000
@@ -27,6 +26,12 @@ const IMPORTANT_LLM_AUDIO_TTL_MS = 10_000
 const LLM_AUDIO_START_TIMEOUT_MS = 12_000
 const LLM_AUDIO_STALL_TIMEOUT_MS = 12_000
 export const AUDIO_PREFERENCES_STORAGE_KEY = 'lianhua-guangma:audio-preferences:v1'
+
+function audioAssetUrl(file: string) {
+  const url = `${import.meta.env.BASE_URL}audio/${file}`
+  // 字牌报牌沿用原文件名，单独更新这七段录音的浏览器缓存。
+  return /^sounds\/[1-7]z\.ogg$/.test(file) ? `${url}?v=2` : url
+}
 
 interface AudioPreferences {
   soundOn: boolean
@@ -174,7 +179,7 @@ export function useAudio({ preloadEffects = true } = {}) {
   }
 
   async function fetchAudioAsset(file: string) {
-    const response = await fetch(`${AUDIO_BASE}${file}`, {
+    const response = await fetch(audioAssetUrl(file), {
       cache: 'force-cache', signal: AbortSignal.timeout(AUDIO_PRELOAD_TIMEOUT_MS),
     })
     if (!response.ok) throw new Error(`Failed to preload audio: ${file}`)
@@ -219,7 +224,7 @@ export function useAudio({ preloadEffects = true } = {}) {
     const template = effectTemplates.get(file)
     const audio = (template
       ? template.cloneNode(true)
-      : new Audio(`${AUDIO_BASE}${file}`)) as EffectAudio
+      : new Audio(audioAssetUrl(file))) as EffectAudio
     audio.preload = 'auto'
     audio.volume = volume
     if(audio.dataset) { audio.dataset.effectName=name; audio.dataset.assetFile=file }
@@ -642,7 +647,7 @@ export function useAudio({ preloadEffects = true } = {}) {
   function usePreloadedFallbackSrc(track: FallbackTrack) {
     const cached = bgmFallbackUrls.get(track.file)
     if (cached && track.element.src !== cached) track.element.src = cached
-    else if (!track.element.src) track.element.src = `${AUDIO_BASE}${track.file}`
+    else if (!track.element.src) track.element.src = audioAssetUrl(track.file)
   }
 
   function stopFallbackTrack(track: FallbackTrack) {

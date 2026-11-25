@@ -78,12 +78,15 @@ describe('useAudio LLM 语音播放', () => {
     ['hu.mp3', 'chihu.ogg'],
     ['game_start.mp3', 'game_start.ogg'],
     ['angang.mp3', 'angang.ogg'],
+    ['1z.mp3', '1z.ogg?v=2'],
+    ['7z.mp3', '7z.ogg?v=2'],
   ])('%s uses its Ogg asset and waits for ended; removed sounds finish immediately', async (name, file) => {
     const audio = useAudio()
     let completed = false
     const pending = audio.playEffectAndWait(name).then(() => { completed = true })
     const sound = MockAudio.instances.find((item) => item.src.endsWith(`/sounds/${file}`))!
     expect(sound).toBeDefined()
+    expect(fetch).toHaveBeenCalledWith(sound.src, expect.anything())
     await Promise.resolve()
     expect(completed).toBe(false)
     sound.emit('ended')
