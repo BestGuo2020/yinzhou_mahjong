@@ -146,12 +146,15 @@ const heading = computed(() => [
   props.roundLabel ?? props.result?.roundLabel,
   props.resultTitle ?? resultPresentation.value.label,
 ].filter(Boolean).join(' · '))
-const scoreDetails = computed(() => {
-  const details = props.result?.details ?? []
-  const [only] = details
-  if (props.rulesetId === 'yingzhou' && details.length === 1 && only.label === props.resultTitle
-      && only.multiplier === props.result?.totalMultiplier && only.points == null) return []
-  return details
+const paymentDetail = computed(() => {
+  if (props.rulesetId !== 'yingzhou') return null
+  const payers = props.result?.scoreChanges?.filter(entry => entry.delta < 0) ?? []
+  const [first] = payers
+  if (payers.length === 1) return { label: first.name + '包付', points: -first.delta }
+  if (payers.length === 3 && payers.every(entry => entry.delta === first.delta)) {
+    return { label: '三家各付', points: -first.delta }
+  }
+  return null
 })
 
 /** 胡牌者相对庄家的座位：0=庄家(A) / 1=下家(B) / 2=对家(C) / 3=上家(D)。 */
@@ -206,12 +209,14 @@ const relativeSeat = computed<0 | 1 | 2 | 3>(() => {
             <span>总倍数</span><strong>×{{ result.totalMultiplier ?? result.multiplier }}</strong>
             <em :title="result.winner ? result.winner + '本局共得' : undefined">+{{ result.totalWon ?? result.points * 3 }} 分</em>
           </div>
-          <div v-if="!$slots.summary && resultPresentation.kind !== 'draw' && scoreDetails.length" class="score-details">
-            <span v-for="(detail, index) in scoreDetails" :key="detail.label">
+          <div v-if="!$slots.summary && resultPresentation.kind !== 'draw' && (result.details?.length || paymentDetail)"
+            class="score-details" role="group" aria-label="计分明细">
+            <span v-for="(detail, index) in result.details" :key="detail.label">
               {{ detail.label }} <b v-if="detail.points != null">+{{ detail.points }} 分</b>
               <b v-else-if="rulesetId === 'yingzhou' && index > 0">+{{ detail.multiplier }} 倍</b>
               <b v-else>×{{ detail.multiplier }}</b>
             </span>
+            <span v-if="paymentDetail">{{ paymentDetail.label }} <b>{{ paymentDetail.points }} 分</b></span>
           </div>
           <div v-if="resultPresentation.kind !== 'draw' && result.horses?.length" class="horse-area">
             <div>
@@ -219,7 +224,7 @@ const relativeSeat = computed<0 | 1 | 2 | 3>(() => {
             </div>
           </div>
           <div class="round-rankings">
-            <article v-for="entry in $slots.overview ? rankedScoreChanges : result.scoreChanges" :key="entry.playerIndex" :class="{ winner: entry.playerIndex === result.winnerIndex, self: Boolean($slots.overview) && entry.playerIndex === 0 }" :style="animeEntryStyle(entry)">
+            <article v-for="entry in rankedScoreChanges" :key="entry.playerIndex" :class="{ winner: entry.playerIndex === result.winnerIndex, self: Boolean($slots.overview) && entry.playerIndex === 0 }" :style="animeEntryStyle(entry)">
               <strong class="rank-number">{{ entry.rank }}<small>位</small></strong>
               <img :src="displayedAvatar(entry)" :alt="`${entry.name}头像`" @error="onAvatarError(entry)" />
               <span class="player-line">

@@ -25,11 +25,17 @@ describe('颍州单屏结算', () => {
     expect(text).toContain('明杠开花 ×2 旧标记 1 张 +2 倍 留扎亮牌 +3 倍')
   })
 
-  it('抢补杠显示赢家实收，只展示一次胡法', async () => {
+  it('抢补杠显示胡法倍率和包付明细，并按累计名次排列四家', async () => {
     const text = await roundText({ winType: 'robbed-kong', winLabel: '抢补杠胡', totalMultiplier: 2, totalWon: 60,
-      details: [{ label: '抢补杠胡', multiplier: 2 }] })
+      winnerIndex: 1, details: [{ label: '抢补杠胡', multiplier: 2 }], scoreChanges: [
+        { playerIndex: 0, name: '你', avatar: '', rank: 4, delta: -60, score: -70 },
+        { playerIndex: 1, name: '下家', avatar: '', rank: 1, delta: 60, score: 50 },
+        { playerIndex: 2, name: '对家', avatar: '', rank: 2, delta: 0, score: 30 },
+        { playerIndex: 3, name: '上家', avatar: '', rank: 3, delta: 0, score: -10 },
+      ] })
     expect(text).toContain('第 2 局 · 抢补杠胡 总倍数 ×2 +60 分')
-    expect(text.match(/抢补杠胡/g)).toHaveLength(1)
+    expect(text).toContain('抢补杠胡 ×2 你包付 60 分')
+    expect(text).toContain('1 位 下家 +60 50 2 位 对家 0 30 3 位 上家 0 -10 4 位 你 庄 -60 -70')
   })
 
   it('流局直接显示留庄结果', async () => {

@@ -245,7 +245,7 @@ for (const [seed, choice] of [[848450, '自摸 ×1'], [9890, '扎亮牌 ×3'], [
   })
 }
 
-test('自摸结算突出赢家实收，并按座位显示四家输赢', async ({ page }, info) => {
+test('自摸结算显示倍率与三家付款明细，并按名次显示四家输赢', async ({ page }, info) => {
   test.setTimeout(60_000)
   await page.setViewportSize({ width: 1280, height: 720 })
   await page.emulateMedia({ reducedMotion: 'reduce' })
@@ -262,9 +262,10 @@ test('自摸结算突出赢家实收，并按座位显示四家输赢', async ({
   const card = page.getByRole('dialog', { name: '东1局 · 自摸', exact: true })
   await expect(card.locator('.score-total strong')).toHaveText('×1', { timeout: 15_000 })
   await expect(card.locator('.score-total em')).toHaveText('+30 分')
-  await expect(card.locator('.round-rankings em')).toHaveText(['-10', '+30', '-10', '-10'])
+  await expect(card.locator('.round-rankings .rank-number')).toHaveText(['1位', '2位', '3位', '4位'])
+  await expect(card.locator('.round-rankings em')).toHaveText(['+30', '-10', '-10', '-10'])
   await expect(card.locator('.round-rankings article.winner')).toContainText('下家')
-  await expect(card.locator('.score-details')).toHaveCount(0)
+  await expect(card.getByRole('group', { name: '计分明细' }).locator('span')).toHaveText(['自摸 ×1', '三家各付 10 分'])
   await expect(card.getByRole('button')).toHaveText(['查看牌桌', '继续'])
   await card.screenshot({ path: info.outputPath('round-summary.png'), animations: 'disabled' })
   await card.getByRole('button', { name: '查看牌桌' }).click()
