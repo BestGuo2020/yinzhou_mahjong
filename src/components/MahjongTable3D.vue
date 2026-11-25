@@ -524,6 +524,7 @@ onMounted(async () => {
     ownDynamic,
     dynamicGroups,
     getAtlasMaterial: tableScene.getAtlasMaterial,
+    getMarkedDiscardMaterial: face => tableScene.makeFaceMaterial(face, 'kong-marked'),
     getAtlasCapGeometry: tableScene.getAtlasCapGeometry,
     atlasCellUvFor: tableScene.atlasCellUvFor,
     getJokerAtlasMaterial: tableScene.getJokerAtlasMaterial,
@@ -635,6 +636,7 @@ watch(
     player.concealedTileCount,
     player.drawnTileIndex,
     player.discards.join(','),
+    player.markedDiscardIndices?.join(','),
     player.melds.map((meld) => `${meld.type}:${meld.from ?? '-'}:${meld.tiles.join(',')}`).join('|'),
   ]).flat() as unknown[]).concat(
     props.lastDiscard?.id,
@@ -741,5 +743,6 @@ onBeforeUnmount(() => {
 <template>
   <canvas ref="canvas" class="mahjong-scene" :data-table-theme="props.themeName ?? 'jade'"
     :data-sideways-discards="JSON.stringify(props.sidewaysDiscards)"
+    :data-marked-discards="JSON.stringify(props.players.map(player => player.markedDiscardIndices ?? []))"
     :data-neutral-peng="props.neutralPengOrientation ? '1' : '0'" aria-hidden="true"></canvas>
 </template>

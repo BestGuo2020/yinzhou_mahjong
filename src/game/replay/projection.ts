@@ -6,7 +6,7 @@
 import type { GamePlayer, Meld, TableActionEvent, TileType } from '../core/contracts/types'
 import type { LastDiscard } from '../core/contracts/gamePort'
 import type { TableProps } from '../../components/table/three/tableRenderTypes'
-import { sortTilesWithJokers } from '../core/rules/tiles'
+import { sortTilesWithJokers, tileName } from '../core/rules/tiles'
 import type { ReplayMatch, ReplayRound, ReplayStep } from './types'
 import type { WinPileBatch } from '../../components/table/three/bloodFlowWinPile'
 import type { Seat } from '../variants/lotus/bloodFlow/types'
@@ -81,6 +81,8 @@ export function buildReplayFrames(
   let currentPlayer = round.anchor.currentPlayer
   let yaotongSeats = round.anchor.yaotongSeats
   let yingzhou = round.anchor.yingzhou
+  // Older Yingzhou recordings identified a marked discard in the event text.
+  const legacyMarkedDiscards: number[][] = [[], [], [], []]
   let yaotongSidewaysDiscards = round.anchor.yaotongSidewaysDiscards
   let lastDiscard: LastDiscard | null = null
   let discardCount = 0
@@ -139,6 +141,7 @@ export function buildReplayFrames(
       hand: [...frameHands[seat]],
       concealedTileCount: input.finalHands ? frameHands[seat].length : concealedCounts[seat],
       discards: [...frameDiscards[seat]],
+      ...(yingzhou ? { markedDiscardIndices: [...(yingzhou.markedDiscardIndices?.[seat] ?? legacyMarkedDiscards[seat])] } : {}),
       melds: frameMelds[seat].map(cloneMeld),
       redCount: redCount[seat] ?? 0,
       drawnTileIndex: frameDrawn[seat] ?? -1,
@@ -238,6 +241,9 @@ export function buildReplayFrames(
     }
     if (step.t === 'discard' && step.tile) {
       if (!step.state?.discards && !step.snapshot) discards[step.seat] = [...discards[step.seat], step.tile]
+      if (yingzhou && !yingzhou.markedDiscardIndices && step.text === '打出标记' + tileName(step.tile)) {
+        legacyMarkedDiscards[step.seat].push(discards[step.seat].length - 1)
+      }
       lastDiscard = { tile: step.tile, from: step.seat, id: step.lastDiscardId ?? stepIndex + 1 }
     } else if (step.t === 'meld' && step.from != null) {
       // 被碰/吃/杠的弃牌已离开牌河，旧的「最近弃牌」高亮必须失效。

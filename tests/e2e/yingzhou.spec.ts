@@ -197,6 +197,12 @@ test('横屏在同面普通牌中识别并打出死九的标记补牌', async ({
   await marked.click()
   await expect(hud).toHaveAttribute('data-discard-counts', /^1,/)
   await expect(marked).toHaveCount(0)
+  await expect(hand.getByRole('button', { name: '九筒', exact: true })).toHaveCount(2)
+  const table = hud.locator('.mahjong-scene')
+  await expect(table).toHaveAttribute('data-marked-discards', '[[0],[],[],[]]')
+  await expect(hud).not.toHaveAttribute('data-discard-counts', '1,0,0,0')
+  await expect(table).toHaveAttribute('data-marked-discards', '[[0],[],[],[]]')
+  await page.screenshot({ path: testInfo.outputPath('marked-nine-river.png') })
 })
 
 test('活杠换亮牌时同步更新右上角的牌面与牌名', async ({ page }) => {

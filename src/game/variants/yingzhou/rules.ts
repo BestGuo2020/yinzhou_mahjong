@@ -15,6 +15,7 @@ export interface Seat {
   hand: HeldTile[]
   melds: Meld[]
   discards: TileType[]
+  markedDiscardIndices: number[]
   drawnIndex: number
   score: number
 }

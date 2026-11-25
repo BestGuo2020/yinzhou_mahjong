@@ -5,6 +5,9 @@ import { chooseAction } from './ai'
 import { act, dealRound, decisionSeat, followingRound, legalActions, type Action, type Round } from './engine'
 import { drawWin, ordinary, standardWin, zhaWin, type HeldTile, type Mode } from './rules'
 import { replayFrame, tableResult } from './presentation'
+import { createReplayRecorder } from '../../replay/recorder'
+import { buildReplayFrames } from '../../replay/projection'
+import { handWaits } from './waits'
 
 const held = (...faces: TileType[]) => faces.map(ordinary)
 const mark = (face: TileType): HeldTile => ({ face, marked: true })
@@ -86,6 +89,46 @@ describe('起牌和胡型', () => {
 })
 
 describe('扎与标记', () => {
+  it.each(['fixed','nine'] as const)('%s 算听牌余张时只扣除牌河里普通的同面牌', mode => {
+    const r = fixture(mode, mode === 'nine' ? 's6' : 's9')
+    r.players[0].hand = waitFor('s9')
+    r.players[1].discards = ['s9','s9']
+    r.players[1].markedDiscardIndices = [1]
+    r.players[2].discards = ['s9']
+    r.players[2].markedDiscardIndices = [0]
+    expect(handWaits(r, 0, false).current?.tiles).toContainEqual({ tile: 's9', remaining: 2 })
+  })
+  it.each([['fixed','p6'], ['nine','p9']] as const)('%s 的标记弃牌按座位和牌河位置保存，回放兼容旧牌谱', (mode, face) => {
+    const r = fixture(mode)
+    r.turn = 2
+    r.wall = []
+    r.players[2].discards.push(face)
+    r.players[2].hand = [ordinary(face), mark(face)]
+    const recording = createReplayRecorder({
+      meta: () => ({ rulesetId: 'yingzhou', rulesetName: '颍州扎杠麻将', themeName: 'jade', humanSeat: 1 }),
+      sink: { saveMatch() {}, saveRound() {} },
+    })
+    recording.hooks.roundStart(replayFrame(r, 4))
+    run(r, { kind: 'discard', index: 1 })
+    expect(r.players[2].hand).toEqual([ordinary(face)])
+    expect(r.players[2].discards).toEqual([face, face])
+    expect(r.players[2].markedDiscardIndices).toEqual([1])
+    const frame = replayFrame(r, 4)
+    recording.hooks.step!(r.event!, frame)
+    recording.hooks.roundEnd(tableResult(r)!, frame)
+    const { match, rounds } = recording.snapshot()
+    const record = rounds[0]
+    for (const oldFormat of [false, true]) {
+      if (oldFormat) {
+        delete record.anchor.yingzhou!.markedDiscardIndices
+        delete record.steps[0].snapshot!.yingzhou!.markedDiscardIndices
+      }
+      const frames = buildReplayFrames(match!, record, { revealAll: false })
+      expect(frames.map(f => f.table.players![1].markedDiscardIndices)).toEqual([[], [1], [1]])
+      expect(frames[1].table.players![0].markedDiscardIndices).toEqual([])
+    }
+    expect(followingRound(r).players.every(p => p.markedDiscardIndices.length === 0)).toBe(true)
+  })
   it('三张普通牌可直接扎；标记与碰牌不计，亮九重合只取 3 倍', () => {
     expect(zhaWin(held('red','red','red'), 'red', 'fixed')?.multiplier).toBe(3)
     expect(zhaWin([...held('p9','p9'), mark('p9')], 'p1', 'nine')).toBeNull()
@@ -125,11 +168,16 @@ describe('扎与标记', () => {
   it('标记不能凑暗杠、明杠或补杠，并可选择打出同面的普通牌', () => {
     const r = fixture('fixed')
     r.players[0].hand = [...held('p6','p6','p6'), mark('p6')]
+    r.players[0].discards.push('p6')
+    r.players[0].markedDiscardIndices.push(0)
     expect(legalActions(r).some(a => a.kind === 'kong')).toBe(false)
     r.players[1].hand = held('p6','p6')
     run(r, { kind: 'discard', index: 0 })
     expect(r.window.kind).toBe('claim')
     expect(r.players[0].hand.filter(t => t.marked)).toHaveLength(1)
+    run(r, { kind: 'peng' })
+    expect(r.players[0].discards).toEqual(['p6'])
+    expect(r.players[0].markedDiscardIndices).toEqual([0])
     const s = fixture('fixed')
     s.players[0].melds = [{ type: 'peng', tile:'p6', tiles:['p6','p6','p6'] }]
     s.players[0].hand = [mark('p6')]

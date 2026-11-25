@@ -25,6 +25,7 @@ export function tablePlayers(round: Round): GamePlayer[] {
   return round.players.map((seat, i) => ({
     seat: i, name: NAMES[i], avatar: defaultAvatarForSeat(i), playerKind: i === 0 ? 'human' : 'bot',
     hand: seat.hand.map(tile => tile.face), drawnTileIndex: seat.drawnIndex, discards: seat.discards,
+    markedDiscardIndices: seat.markedDiscardIndices,
     melds: seat.melds, score: seat.score, redCount: 0,
   }))
 }
@@ -54,7 +55,8 @@ export function replayFrame(round: Round, length: MatchLength): ReplayFrameSourc
     roundLabel: roundLabel(round) + (round.settings.smallBan ? ' · 小牌禁胡' : ''), dealer: round.dealer,
     honba: round.honba, matchType: length === 4 ? 'east' : 'hanchan', matchName: MATCH_FORMATS[length].name,
     diceValues: round.dice, diceThrowerIndex: round.dealer, wallBreakIndex: round.breakIndex, jokerTiles: [],
-    yingzhou: { indicator: round.indicator, tailFaceUp: tailFaceUp(round), markedIndices: markedIndices(round) },
+    yingzhou: { indicator: round.indicator, tailFaceUp: tailFaceUp(round), markedIndices: markedIndices(round),
+      markedDiscardIndices: round.players.map(seat => [...seat.markedDiscardIndices]) },
   }
 }
 

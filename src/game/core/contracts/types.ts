@@ -31,6 +31,8 @@ export interface GamePlayer {
   /** Concealed tile count when a remote player's faces are intentionally hidden. */
   concealedTileCount?: number
   discards: TileType[]
+  /** River slots containing discarded Yingzhou kong supplements. */
+  markedDiscardIndices?: number[]
   melds: Meld[]
   redCount: number
   drawnTileIndex: number

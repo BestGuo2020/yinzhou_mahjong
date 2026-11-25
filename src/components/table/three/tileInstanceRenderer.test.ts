@@ -22,6 +22,7 @@ describe('tileInstanceRenderer', () => {
       dynamicGroups,
       ownDynamic: (resource) => resource,
       getAtlasMaterial: () => material,
+      getMarkedDiscardMaterial: () => material,
       getAtlasCapGeometry: () => atlasGeometry,
       atlasCellUvFor: () => ({ u: 0, v: 0 }),
     })
@@ -80,6 +81,7 @@ describe('tileInstanceRenderer', () => {
       dynamicGroups,
       ownDynamic: (resource) => resource,
       getAtlasMaterial: () => material,
+      getMarkedDiscardMaterial: () => material,
       getAtlasCapGeometry: () => atlasGeometry,
       atlasCellUvFor: () => ({ u: 0, v: 0 }),
     })
@@ -98,6 +100,18 @@ describe('tileInstanceRenderer', () => {
     expect(dynamicGroups).toEqual(firstMeshes)
     expect(scene.children).toEqual(firstMeshes)
     expect(atlasGeometry.getAttribute('aUvOffset')).toBe(firstAtlasUv)
+
+    const position = new THREE.Vector3()
+    const rotation = new THREE.Quaternion()
+    const ordinary = renderer.add(position, rotation, 'p9')
+    const marked = renderer.add(position, rotation, 'p9', 1, position, 1, true)
+    renderer.finish()
+    expect(marked.capMesh).not.toBe(ordinary.capMesh)
+    expect(marked.capMesh.count).toBe(1)
+    renderer.begin(true)
+    renderer.add(position, rotation, 'p9')
+    renderer.finish()
+    expect(marked.capMesh.count).toBe(0)
 
     geometry.dispose()
     atlasGeometry.dispose()

@@ -389,8 +389,9 @@ function makeBackTexture() {
   return texture
 }
 
+type FaceMarker = 'joker' | 'wildcard' | 'laizi' | 'kong-marked' | false
 // 在 ctx 上以 (x,y,w,h) 画一张牌的牌面：浅色底 + 牌面图 + 投影，单张纹理与图集共用。
-function drawTileFace(ctx: CanvasRenderingContext2D, tile: TileType, x: number, y: number, w: number, h: number, marker: 'joker' | 'wildcard' | 'laizi' | false = false) {
+function drawTileFace(ctx: CanvasRenderingContext2D, tile: TileType, x: number, y: number, w: number, h: number, marker: FaceMarker = false) {
   const image = scene.userData.tileImages.get(tile) || scene.userData.tileImages.get('white')
   const [faceTop, faceMiddle, faceBottom] = theme.tileFaceGradient ?? ['#e9e8df', '#dad9d0', '#c9ccc2']
   if (options.animeTable) {
@@ -413,10 +414,22 @@ function drawTileFace(ctx: CanvasRenderingContext2D, tile: TileType, x: number, 
     ctx.shadowOffsetY = 1.2
     const insetX = w * 20 / 384
     const insetY = h * 20 / 512
-    ctx.drawImage(image, x + insetX, y + insetY, w - insetX * 2, h - insetY * 2)
+    const scale = marker === 'kong-marked' ? .68 : 1
+    const imageWidth = (w - insetX * 2) * scale
+    ctx.drawImage(image, x + (w - imageWidth) / 2, y + insetY, imageWidth, (h - insetY * 2) * scale)
     ctx.restore()
   }
-  if (marker) {
+  if (marker === 'kong-marked') {
+    ctx.save()
+    ctx.fillStyle = '#73321c'
+    ctx.fillRect(x + w * .05, y + h * .67, w * .9, h * .3)
+    ctx.fillStyle = '#fff5cd'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.font = `bold ${h * .26}px sans-serif`
+    ctx.fillText('杠后', x + w * .5, y + h * .82)
+    ctx.restore()
+  } else if (marker) {
     // 按身份区分标记：精=真精牌/白板翻精（白板即精）；替=莲花麻将白板替身（可代本局精牌）；癞=广麻白板癞子。
     const markerLabel = marker === 'wildcard' ? '\u66ff' : marker === 'laizi' ? '\u764d' : '\u7cbe'
     const markerColor = marker === 'wildcard' ? '#b88220' : marker === 'laizi' ? '#c0342e' : '#08a9dc'
@@ -445,7 +458,7 @@ function drawTileFace(ctx: CanvasRenderingContext2D, tile: TileType, x: number, 
   }
 }
 
-function makeFaceMaterial(tile: TileType, marker: 'joker' | 'wildcard' | 'laizi' | false = false) {
+function makeFaceMaterial(tile: TileType, marker: FaceMarker = false) {
   const key = marker ? `${marker}:${tile}` : tile
   if (faceMaterials.has(key)) return faceMaterials.get(key)
   const surface = document.createElement('canvas')

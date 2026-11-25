@@ -49,7 +49,6 @@ export interface Round {
   headDrawn: number
   indicator: TileType
   openingDiscards: TileType[]
-  discardedMarks: number
   openingBatches: OpeningBatch[]
   players: Seat[]
   turn: number
@@ -93,7 +92,7 @@ export function dealRound(settings: Settings, opening: Opening = {}): Round {
   const breakIndex = (wallBreakIndexForDealer(dice, dealer) + WALL_TOTAL - 2) % WALL_TOTAL
   const wall = [...ordered.slice(breakIndex), ...ordered.slice(0, breakIndex)]
   const players: Seat[] = [0, 1, 2, 3].map(seat => ({
-    hand: [], melds: [], discards: [], drawnIndex: -1, score: opening.scores?.[seat] ?? 0,
+    hand: [], melds: [], discards: [], markedDiscardIndices: [], drawnIndex: -1, score: opening.scores?.[seat] ?? 0,
   }))
   let head = 0
   const openingBatches: OpeningBatch[] = []
@@ -124,7 +123,7 @@ export function dealRound(settings: Settings, opening: Opening = {}): Round {
   }
   const round: Round = {
     settings: { ...settings }, dealer, dice, breakIndex, wallSide: (dealer + dice[0] + dice[1] - 1) % 4,
-    wall: remaining, headDrawn: head, indicator: remaining[remaining.length - 1], openingDiscards, discardedMarks: 0, openingBatches, players,
+    wall: remaining, headDrawn: head, indicator: remaining[remaining.length - 1], openingDiscards, openingBatches, players,
     turn: dealer, origin: 'draw', window: { kind: 'turn' }, lastDiscard: null, result: null, serial: 0, event: null,
     handNumber: opening.handNumber ?? 1,
     dealerRound: opening.dealerRound ?? 1, honba: opening.honba ?? 0,
@@ -286,8 +285,8 @@ function discard(round: Round, index: number) {
   const [tile] = seat.hand.splice(index, 1)
   sortHeld(seat.hand)
   seat.drawnIndex = -1
+  if (tile.marked) seat.markedDiscardIndices.push(seat.discards.length)
   seat.discards.push(tile.face)
-  if (tile.marked) round.discardedMarks++
   round.lastDiscard = { from: round.turn, tile: tile.face, id: round.serial }
   round.event = { t: 'discard', seat: round.turn, tile: tile.face, lastDiscardId: round.serial,
     text: '打出' + (tile.marked ? '标记' : '') + tileName(tile.face) }

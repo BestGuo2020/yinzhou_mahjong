@@ -287,10 +287,11 @@ function addDiscards(playerIndex) {
     const isNewDiscard = highlighted && props.lastDiscard?.id !== animatedDiscardId
     const motionKey = `discard:${playerIndex}:${index}:${tileName}:${props.lastDiscard?.id}`
     const continuing = continuingDiscards.get(motionKey)
+    const origin = continuing?.origin ?? (isNewDiscard ? discardSourcePos(playerIndex) : pos)
+    const marked = props.players[playerIndex].markedDiscardIndices?.includes(index)
+    const inst = addTableTile(pos, quat, tileName, 1, origin, 1, marked)
     if (isNewDiscard || continuing) {
       animatedDiscardId = props.lastDiscard?.id
-      const origin = continuing?.origin ?? discardSourcePos(playerIndex)
-      const inst = addTableTile(pos, quat, tileName, 1, origin)
       discardTweens.push({
         motionKey,
         baseIndex: inst.baseIndex,
@@ -302,8 +303,6 @@ function addDiscards(playerIndex) {
         startedAt: continuing?.startedAt ?? performance.now(),
         duration: 360,
       })
-    } else {
-      addTableTile(pos, quat, tileName)
     }
     if (highlighted) {
       // 最新一张弃牌的高亮垫片保持独立 mesh（仅 1 张，无需合批）。

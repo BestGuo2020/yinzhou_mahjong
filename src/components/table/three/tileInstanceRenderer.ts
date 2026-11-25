@@ -7,6 +7,7 @@ interface TileInstanceRendererOptions {
   ownDynamic<T>(resource: T): T
   dynamicGroups: THREE.Object3D[]
   getAtlasMaterial(): THREE.Material
+  getMarkedDiscardMaterial(face: TileType): THREE.Material
   getJokerAtlasMaterial?: () => THREE.Material
   getWildcardAtlasMaterial?: () => THREE.Material
   getLaiziAtlasMaterial?: () => THREE.Material
@@ -64,6 +65,7 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
   let wildcardAtlasCapCount = 0
   let laiziAtlasCapCount = 0
   let instanceCount = 0
+  const markedDiscardCaps = new Map<TileType, THREE.InstancedMesh>()
   const matrix = new THREE.Matrix4()
   const scaleVector = new THREE.Vector3()
   const shadowMatrix = new THREE.Matrix4()
@@ -99,6 +101,7 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
 
   function begin(reuse = false) {
     if (!reuse || !canReuse()) {
+      markedDiscardCaps.clear()
       baseMesh = options.ownDynamic(new THREE.InstancedMesh(
         options.scene.userData.tileBaseGeometry,
         [options.scene.userData.faceSide, options.scene.userData.faceSide, options.scene.userData.faceSide,
@@ -160,6 +163,7 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
     wildcardAtlasCapCount = 0
     laiziAtlasCapCount = 0
     instanceCount = 0
+    for (const mesh of markedDiscardCaps.values()) mesh.count = 0
   }
 
   function set(baseIndex: number, capMesh: THREE.InstancedMesh, capIndex: number, position: THREE.Vector3, quaternion: THREE.Quaternion, scale: number) {
@@ -181,9 +185,21 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
     }
   }
 
-  function add(position: THREE.Vector3, quaternion: THREE.Quaternion, face: TileType | null, scale = 1, initialPosition: THREE.Vector3 | null = null, initialScale: number | null = null) {
+  function add(position: THREE.Vector3, quaternion: THREE.Quaternion, face: TileType | null, scale = 1, initialPosition: THREE.Vector3 | null = null, initialScale: number | null = null, markedDiscard = false) {
     if (instanceCount >= INSTANCE_CAPACITY) throw new Error('Tile instance capacity exceeded')
     const baseIndex = instanceCount++
+    if (markedDiscard && face) {
+      let capMesh = markedDiscardCaps.get(face)
+      if (!capMesh) {
+        capMesh = createCap(options.getMarkedDiscardMaterial(face), options.scene.userData.tileCapGeometry)
+        capMesh.name = 'marked-discard-' + face
+        capMesh.count = 0
+        markedDiscardCaps.set(face, capMesh)
+      }
+      const capIndex = capMesh.count++
+      set(baseIndex, capMesh, capIndex, initialPosition ?? position, quaternion, initialScale ?? scale)
+      return { baseIndex, capMesh, capIndex }
+    }
     const joker = Boolean(face && options.isJoker?.(face))
     const wildcard = Boolean(face && !joker && options.isWildcard?.(face))
     const laizi = Boolean(face && !joker && !wildcard && options.isLaizi?.(face))

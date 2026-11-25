@@ -72,7 +72,7 @@ export interface ReplayStep {
 }
 
 export interface ReplayAnchor {
-  yingzhou?: { indicator: TileType; tailFaceUp: boolean; markedIndices: number[][] }
+  yingzhou?: { indicator: TileType; tailFaceUp: boolean; markedIndices: number[][]; markedDiscardIndices?: number[][] }
   /** 联机只知道暗牌张数时，牌面数组仍为空。 */
   concealedTileCounts?: number[]
   yaotongSidewaysDiscards?: number[][]
