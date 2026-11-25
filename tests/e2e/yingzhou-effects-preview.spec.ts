@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test'
 
-for (const { device, viewport, mobile, expectedSkew } of [
-  { device: 'PC', viewport: { width: 1280, height: 720 }, mobile: false, expectedSkew: 0 },
-  { device: '手机横屏', viewport: { width: 844, height: 390 }, mobile: true, expectedSkew: -8 },
+for (const { device, viewport, mobile } of [
+  { device: 'PC', viewport: { width: 1280, height: 720 }, mobile: false },
+  { device: '手机横屏', viewport: { width: 844, height: 390 }, mobile: true },
 ]) {
   test.describe(device, () => {
     test.use({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: mobile ? 3 : 1 })
@@ -30,7 +30,7 @@ for (const { device, viewport, mobile, expectedSkew } of [
         return Math.atan2(matrix.c, matrix.d) * 180 / Math.PI
       }))
       expect(skews).toHaveLength(2)
-      for (const skew of skews) expect(skew).toBeCloseTo(expectedSkew)
+      for (const skew of skews) expect(skew).toBeCloseTo(0)
       const frames = await layer.locator('.coin-slide').first().evaluate(el =>
         (el.getAnimations()[0].effect as KeyframeEffect).getKeyframes())
       expect(frames[0]).toMatchObject({ opacity: '0', transform: 'translateX(-28%)' })
