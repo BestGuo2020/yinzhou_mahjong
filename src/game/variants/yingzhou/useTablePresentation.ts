@@ -12,7 +12,7 @@ import {
   KONG_WEATHER_DURATION, REDUCED_KONG_WEATHER_DURATION, type KongWeatherCue,
 } from '../yaotong/kongPresentation'
 import type { YaotongWinPatternCue } from '../yaotong/presentation'
-import { HAND_REVEAL_MS, YINGZHOU_WIN_MOTION, zhaTileIndices } from './winMotion'
+import { HAND_REVEAL_MS, winPlaybackTiming, zhaTileIndices } from './winMotion'
 import type { Round } from './engine'
 import { tablePlayers, tableResult } from './presentation'
 
@@ -40,7 +40,7 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
     const effect = view.winEffect.value
     const win = current()?.result?.win
     if (!effect || !win) return null
-    const impactMs = win.lastTileBloom ? 130 : YINGZHOU_WIN_MOTION[win.kind].impact
+    const impactMs = win.lastTileBloom ? 130 : winPlaybackTiming(win.kind).impact
     return { ...effect, startedAt: effect.id, impactMs, tableFocus: !win.lastTileBloom,
       winners: [{ seat: effect.winnerIndex, label: win.label, tier: 1 }] }
   })
@@ -94,7 +94,7 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
     const timeline = createSettlementTimeline({
       // A direct declaration can happen on someone else's turn; a self-draw voice would announce the wrong win.
       shouldPlayWinVoice: () => win?.kind !== 'indicator' && win?.kind !== 'nine',
-      winTiming: win && !win.lastTileBloom ? YINGZHOU_WIN_MOTION[win.kind] : undefined,
+      winTiming: win && !win.lastTileBloom ? winPlaybackTiming(win.kind) : undefined,
       state: { ...view, get players() { return visiblePlayers(round) } },
       clearTimers: scheduler.clear, later: scheduler.later, playSound: audio.play,
       getRoundLabel: () => windRoundLabel(round.dealerRound), finalizeWin: finalize, endDraw: finalize,

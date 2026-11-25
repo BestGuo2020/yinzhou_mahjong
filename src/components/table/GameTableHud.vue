@@ -2,7 +2,7 @@
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import YingzhouWinCinematic from './YingzhouWinCinematic.vue'
 import { warmWinArtwork } from './yingzhouCinematic'
-import type { RobSourceAnchor } from '../../game/variants/yingzhou/winMotion'
+import { HAND_REVEAL_MS, type RobSourceAnchor } from '../../game/variants/yingzhou/winMotion'
 import MahjongTile from '../MahjongTile.vue'
 import TableControlIcon from './TableControlIcon.vue'
 import YaotongSeatMarker from '../yaotong/YaotongSeatMarker.vue'
@@ -159,6 +159,7 @@ const presentationDirector=new BloodFlowPresentationDirector(import.meta.env.DEV
 const effectPlayer=useEffectPlayer(),playedImpacts=new Set<string>()
 const tableHudElement=ref<HTMLElement|null>(null), ownDrawScreen=shallowRef<{sourceId:string;x:number;y:number}|null>(null)
 const robSource = shallowRef<RobSourceAnchor | null>(null)
+const handRevealDuration = HAND_REVEAL_MS + 'ms'
 function ownHandPoint(index: number) {
   const hud = tableHudElement.value
   const rect = hud?.querySelector('.mahjong-scene')?.getBoundingClientRect()
@@ -922,7 +923,7 @@ function onAvatarError(entry: GamePlayer) {
 <style scoped>
 .hand-rack .hand-tile-slot.in-flight { visibility: hidden; }
 @media (prefers-reduced-motion: no-preference) {
-  .hand-rack.yingzhou-tip .hand-tile-slot { transform-origin: center bottom; animation: yingzhou-tip 240ms ease-in both; }
+  .hand-rack.yingzhou-tip .hand-tile-slot { transform-origin: center bottom; animation: yingzhou-tip v-bind(handRevealDuration) ease-in both; }
   @keyframes yingzhou-tip {
     from { transform: perspective(350px) rotateX(-28deg) translateY(-5%); }
     to { transform: perspective(350px) rotateX(0); }

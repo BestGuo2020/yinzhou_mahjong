@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as THREE from 'three'
 import type { WinEffect } from '../../../game/core/contracts/gamePort'
-import { YINGZHOU_WIN_MOTION, type YingzhouWinDisplay } from '../../../game/variants/yingzhou/winMotion'
+import { WIN_PLAYBACK_RATE, winPlaybackTiming, YINGZHOU_WIN_MOTION, type YingzhouWinDisplay } from '../../../game/variants/yingzhou/winMotion'
 import { createYingzhouWinEffect } from './yingzhouWinEffect'
 import type { ResolvedTableProps } from './tableRenderTypes'
 
@@ -13,7 +13,7 @@ function create(kind: YingzhouWinDisplay['kind'], reducedMotion = false) {
     fillRect() {}, beginPath() {}, arc() {}, stroke() {} }) }
   vi.stubGlobal('document', { createElement: () => canvas })
   const winEffect: WinEffect = { id: 0, winnerIndex: 1, tile: 'p5', robbedKong: kind === 'rob',
-    robbedKongPlayerIndex: 2, robbedKongMeldIndex: 0, duration: YINGZHOU_WIN_MOTION[kind].duration, reducedMotion }
+    robbedKongPlayerIndex: 2, robbedKongMeldIndex: 0, duration: winPlaybackTiming(kind).duration, reducedMotion }
   // The renderer reads just the theme and the active win from the table snapshot.
   const props = { winEffect, themeName: 'rosewood' } as ResolvedTableProps
   const group = new THREE.Group()
@@ -29,8 +29,8 @@ afterEach(() => vi.unstubAllGlobals())
 describe('颍州胡牌的桌面动画', () => {
   it.each(['self', 'rob', 'bloom', 'indicator', 'nine'] as const)('%s 的光束在落牌后亮起并在亮牌前收束', kind => {
     const { sample, beamStrength } = create(kind)
-    const { land, impact, duration } = YINGZHOU_WIN_MOTION[kind]
-    sample(1000 + land)
+    const { impact, duration } = winPlaybackTiming(kind)
+    sample(1000 + YINGZHOU_WIN_MOTION[kind].land / WIN_PLAYBACK_RATE)
     expect(beamStrength).toHaveBeenLastCalledWith(0)
     sample(1000 + impact)
     expect(beamStrength).toHaveBeenLastCalledWith(1)
@@ -42,22 +42,22 @@ describe('颍州胡牌的桌面动画', () => {
     const tile = group.children[0]
     sample(1000)
     expect(tile.position.toArray()).toEqual([source.x, source.y, source.z])
-    sample(1280)
+    sample(1350)
     const held = tile.position.clone()
     expect([held.x, held.z]).toEqual([source.x, source.z])
     expect(held.y).toBeGreaterThan(source.y + 1)
     expect(tile.scale.x).toBeGreaterThan(1.6)
-    sample(1640)
+    sample(1800)
     expect(tile.position.equals(held)).toBe(true)
-    sample(1980)
+    sample(2225)
     expect(tile.position.x).toBeGreaterThan(source.x)
     expect(tile.position.x).toBeLessThan(anchor.x)
     expect(tile.position.y).toBeGreaterThan(held.y)
     expect(group.children.filter(n => n instanceof THREE.Sprite).every(s => s.material.opacity === 0)).toBe(true)
-    sample(2460)
+    sample(2825)
     expect(tile.position.distanceTo(new THREE.Vector3(anchor.x, anchor.y, anchor.z))).toBeLessThan(1e-10)
     expect(tile.scale.x).toBeCloseTo(1)
-    expect(sample(3480)).toBeNull()
+    expect(sample(4100)).toBeNull()
   })
 
   it('扎九的三张牌顺着座位方向排列，依次抬起并回到同一桌面高度', () => {
@@ -67,9 +67,9 @@ describe('颍州胡牌的桌面动画', () => {
     expect([first, second, third].map(tile => tile.position.x)).toEqual([-4,-3,-2])
     sample(1125)
     expect(first.position.y).toBeGreaterThan(second.position.y)
-    sample(1900)
+    sample(2125)
     expect(third.position.y).toBeGreaterThan(first.position.y)
-    sample(2170)
+    sample(2463)
     for (const tile of [first, second, third]) expect(tile.position.y).toBeCloseTo(anchor.y, 10)
     expect(first.position.z).toBeGreaterThan(second.position.z)
     expect(second.position.z).toBeGreaterThan(third.position.z)
@@ -81,11 +81,11 @@ describe('颍州胡牌的桌面动画', () => {
     const timing = YINGZHOU_WIN_MOTION[kind]
     sample(1000)
     expect(tile.position.toArray()).toEqual([source.x, source.y, source.z])
-    sample(1000 + (timing.takeoff + timing.land - 150) / 2)
+    sample(1000 + (timing.takeoff + timing.land - 150) / (2 * WIN_PLAYBACK_RATE))
     expect(tile.scale.x).toBeGreaterThan(2)
     if (kind === 'bloom') expect(tile.rotation.x).toBeGreaterThan(.4)
     else expect(tile.rotation.x).toBeLessThan(-.25)
-    sample(1000 + timing.land)
+    sample(1000 + timing.land / WIN_PLAYBACK_RATE)
     expect(tile.position.distanceTo(new THREE.Vector3(anchor.x, anchor.y, anchor.z))).toBeLessThan(1e-10)
   })
 

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { TileType } from '../../../game/core/contracts/types'
 import type { YingzhouWinDisplay } from '../../../game/variants/yingzhou/winMotion'
-import { YINGZHOU_WIN_MOTION } from '../../../game/variants/yingzhou/winMotion'
+import { WIN_PLAYBACK_RATE, YINGZHOU_WIN_MOTION } from '../../../game/variants/yingzhou/winMotion'
 import { TABLE_LAYOUT } from '../../../game/core/presentation/tableLayout'
 import { themePresentationByName } from '../../../theme/themePresentation'
 import type { WinEffectPresenterOptions } from './winEffectPresenter'
@@ -98,6 +98,7 @@ export function createYingzhouWinEffect(options: Resources, group: THREE.Group, 
   const kind = display.kind
   const isZha = display.zhaIndices.length === 3
   const { land, impact } = YINGZHOU_WIN_MOTION[kind]
+  const end = effect.duration * WIN_PLAYBACK_RATE
   const targets = tiles.map(tile => ({ x: tile.position.x, y: tile.position.y, z: tile.position.z, rotation: anchor.rotation }))
   const stage = THREE.MathUtils.smoothstep
   const still = effect.reducedMotion
@@ -127,9 +128,9 @@ export function createYingzhouWinEffect(options: Resources, group: THREE.Group, 
     }
   }
   function sample(time: number) {
-    const ms = Math.max(0, time - startedAt)
+    const ms = Math.max(0, time - startedAt) * WIN_PLAYBACK_RATE
     if (!still) tiles.forEach((tile, i) => moveTile(tile, kind, sources[i] ?? targets[i], targets[i], i, ms))
-    setBeamStrength?.(stage(ms, land, impact) * (1 - stage(ms, effect.duration - 350, effect.duration)))
+    setBeamStrength?.(stage(ms, land, impact) * (1 - stage(ms, end - 350, end)))
     if (motion && kind === 'rob') {
       // The shower follows the stolen tile down, after its face is visible at the destination.
       flecks.forEach((sprite, index) => {
