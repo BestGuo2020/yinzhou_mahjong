@@ -41,6 +41,11 @@ interface MeldTween extends InstanceTween {
   extraY?: number
 }
 
+// Hinge at the lower, felt-facing edge of the base (.94 long, .22 thick, offset -.06).
+const HAND_STANDING_Y = .56
+const HAND_HALF_LENGTH = .47
+const HAND_BACK_DEPTH = .17
+
 interface TableTilePresenterOptions {
   projectOwnDraw?(point:{x:number;y:number}):THREE.Vector3|null
   props: Readonly<ResolvedTableProps>
@@ -93,7 +98,7 @@ export function createTableTilePresenter(options: TableTilePresenterOptions) {
   const beginTableInstances = tileInstances.begin
   const addTableTile = tileInstances.add
   const finishTableInstances = tileInstances.finish
-  const tippingTiles: { instance: ReturnType<TileInstanceRenderer['add']>; position: THREE.Vector3; rotation: number }[] = []
+  const tippingTiles: { instance: ReturnType<TileInstanceRenderer['add']>; position: THREE.Vector3; rotation: number; delay: number }[] = []
   const tipRotation = new THREE.Quaternion()
   const tipEuler = new THREE.Euler(0, 0, 0, 'YXZ')
   const handFaceInstances: { seat: number; instance: ReturnType<TileInstanceRenderer['add']> }[] = []
@@ -106,10 +111,11 @@ function addConcealedHand(playerIndex) {
   const presentation = props.winPresentation?.winnerIndex === playerIndex
     ? props.winPresentation
     : null
-  const moving = presentation?.yingzhou && props.winEffect && !props.winEffect.reducedMotion && !presentation.robbedKong
-    ? presentation.yingzhou.zhaIndices : []
+  const winnerReveal = props.revealHands && !!presentation?.yingzhou
+  const emptySlots = props.winEffect || winnerReveal ? presentation?.yingzhou?.zhaIndices ?? [] : []
   const beforeEffect = presentation?.yingzhou && !props.winEffect && !props.revealHands
-  const displayedHand = moving.length || beforeEffect ? rawHand : splitWinningTile(rawHand, presentation).hand
+  const splitHand = splitWinningTile(rawHand, presentation).hand
+  const displayedHand = emptySlots.length || beforeEffect ? rawHand : splitHand
   // 赢家：和牌张已移入胡牌区（splitWinningTile 移除），暗手按 split 后的张数显示，
   // 避免结算快照的 concealedTileCount（含和牌）让和牌在暗手与胡牌区重复出现（对齐单机）。
   const concealedCount = presentation
@@ -125,11 +131,11 @@ function addConcealedHand(playerIndex) {
   const drawnTileIndex = rawDrawn >= 0 && rawDrawn < total
     ? rawDrawn
     : (displayedHand.length > baseHand ? displayedHand.length - 1 : -1)
-  const layoutDrawnTileIndex = props.revealHands ? -1 : drawnTileIndex
+  const layoutDrawnTileIndex = props.revealHands && !winnerReveal ? -1 : drawnTileIndex
   const drawnGap = .28
   const arrangedTotal = layoutDrawnTileIndex >= 0 ? total - 1 : total
   const melds = props.players[playerIndex]?.melds || []
-  const revealedHand = props.revealHands ? sortTilesWithJokers(displayedHand, props.jokerTiles) : []
+  const revealedHand = props.revealHands ? sortTilesWithJokers(splitHand, props.jokerTiles) : []
   // 牌面按每位玩家自身视角从左到右排列；副露固定在右手边，因此邻近副露的是字牌。
   const reverseRevealedFaces = position === 'top' || position === 'right' || melds.length > 0
   const exposedSpan = melds.reduce((span, meld, meldIndex) => {
@@ -149,10 +155,10 @@ function addConcealedHand(playerIndex) {
   // 对家/左右三家统一此规则（本家不在此函数内处理）。meldClear = 手牌 index 0 的让位起点。
   const meldClear = melds.length ? concealedMeldClear(playerIndex, exposedSpan, arrangedTotal, gap) : null
 
+  let handSlot = 0
+  const visibleCount = total - emptySlots.length
   for (let index = 0; index < total; index += 1) {
-    const faceIndex = reverseRevealedFaces ? total - 1 - index : index
-    const face = props.revealHands ? revealedHand[faceIndex] : null
-    const tileY = props.revealHands ? .28 : .56
+    const tileY = props.revealHands ? .28 : HAND_STANDING_Y
     let x
     let z
     let rotationY
@@ -195,10 +201,20 @@ function addConcealedHand(playerIndex) {
       }
     }
     const pos = new THREE.Vector3(x, tileY, z + TILE_LAYER_Z)
-    if (moving.includes(index)) {
-      winHandOrigins.set(index, { x: pos.x, y: pos.y, z: pos.z, rotation: rotationY, tilt: -Math.PI / 2 })
+    if (emptySlots.includes(index)) {
+      if (!props.revealHands) winHandOrigins.set(index, { x: pos.x, y: pos.y, z: pos.z, rotation: rotationY, tilt: -Math.PI / 2 })
       continue
     }
+    // Keep the standing row's slots (including gaps left by a zha). The top of
+    // each tile falls inward, so its resting center is nearer the middle of the table.
+    if (winnerReveal) {
+      const travel = HAND_HALF_LENGTH + HAND_BACK_DEPTH
+      pos.x -= Math.sin(rotationY) * travel
+      pos.z -= Math.cos(rotationY) * travel
+      pos.y = HAND_STANDING_Y - HAND_HALF_LENGTH + HAND_BACK_DEPTH
+    }
+    const faceIndex = reverseRevealedFaces ? visibleCount - 1 - handSlot : handSlot
+    const face = props.revealHands ? revealedHand[faceIndex] : null
     if(index===drawnTileIndex)drawnTransforms.set(playerIndex,{x:pos.x,y:pos.y,z:pos.z,rotation:rotationY,tilt:props.revealHands?0:-Math.PI/2})
     // 暗手为背面朝玩家的立牌：makeHiddenTile 内部 body 绕 X 转 -90°，合批时折进实例矩阵。
     const quat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rotationY, 0))
@@ -223,10 +239,12 @@ function addConcealedHand(playerIndex) {
     } else {
       const instance = addTableTile(pos, quat, face)
       if (props.revealHands && presentation?.yingzhou?.revealAt != null) {
-        tippingTiles.push({ instance, position: pos, rotation: rotationY })
+        const delay = visibleCount > 1 ? .12 * Math.abs(2 * handSlot / (visibleCount - 1) - 1) : 0
+        tippingTiles.push({ instance, position: pos, rotation: rotationY, delay })
       }
       if (import.meta.env.DEV && props.revealHands) handFaceInstances.push({ seat: playerIndex, instance })
     }
+    handSlot++
   }
 }
 
@@ -762,17 +780,20 @@ function rebuildTableTiles({ reuseInstances = false }: { reuseInstances?: boolea
   function animate(time: number, scratchVector: THREE.Vector3) {
     const revealAt = props.winPresentation?.yingzhou?.revealAt
     if (tippingTiles.length && revealAt != null) {
-      const t = THREE.MathUtils.clamp((time - revealAt) / HAND_REVEAL_MS, 0, 1)
-      const angle = -(1 - t * t) * Math.PI / 2
-      // Rotate around the lower long edge; the tile lands flat once at t=1.
-      const lift = .2 * (Math.cos(angle) - 1) - .45 * Math.sin(angle)
-      const shift = .2 * Math.sin(angle) + .45 * (Math.cos(angle) - 1)
-      for (const { instance, position, rotation } of tippingTiles) {
+      const elapsed = THREE.MathUtils.clamp((time - revealAt) / HAND_REVEAL_MS, 0, 1)
+      for (const { instance, position, rotation, delay } of tippingTiles) {
+        const t = Math.max(0, (elapsed - delay) / (1 - delay))
+        // +90° starts with the printed side facing its owner. Keep the same
+        // bottom edge on the felt as the player's push turns that side upward.
+        const angle = (1 - t * (.25 + .75 * t)) * Math.PI / 2
+        const sin = Math.sin(angle), cos = Math.cos(angle)
+        const lift = HAND_BACK_DEPTH * (cos - 1) + HAND_HALF_LENGTH * sin
+        const shift = HAND_BACK_DEPTH * sin + HAND_HALF_LENGTH * (1 - cos)
         scratchVector.set(position.x + Math.sin(rotation) * shift, position.y + lift, position.z + Math.cos(rotation) * shift)
         tipRotation.setFromEuler(tipEuler.set(angle, rotation, 0, 'YXZ'))
         tileInstances.set(instance.baseIndex, instance.capMesh, instance.capIndex, scratchVector, tipRotation, 1)
       }
-      if (t === 1) tippingTiles.length = 0
+      if (elapsed === 1) tippingTiles.length = 0
     }
     let indicatorMoving = false
     if (indicatorMotion && indicatorInstance) {

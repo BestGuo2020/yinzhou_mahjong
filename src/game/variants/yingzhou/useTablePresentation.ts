@@ -154,7 +154,8 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
   }
   watch(view.revealHands, value => {
     if (!value) return
-    if (current()?.result?.win?.kind === 'self' && !prefersReducedMotion()) {
+    const result = current()?.result
+    if (result?.win && (result.winner !== 0 || result.win.kind === 'self') && !prefersReducedMotion()) {
       revealAt.value = performance.now()
       scheduler.later(() => audio.play('tuidao.wav', .55), HAND_REVEAL_MS)
     } else audio.play('tuidao.wav', .55)

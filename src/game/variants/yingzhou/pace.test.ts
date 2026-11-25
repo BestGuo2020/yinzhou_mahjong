@@ -2,7 +2,7 @@ import { effectScope, nextTick, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TileType } from '../../core/contracts/types'
 import type { ReplayRecording } from '../../replay/useReplayRecorder'
-import { PACE_MS } from '../../core/local/localGameConfig'
+import { LOCAL_TABLE_PACE, PACE_MS } from '../../core/local/localGameConfig'
 import { OPENING_PACE_MS } from '../../shared/runtime/localOpening'
 import { dealRound } from './engine'
 import { ordinary } from './rules'
@@ -12,6 +12,7 @@ import { splitWinningTile } from '../../core/presentation/winEffect'
 import { resolveTableActionPresentation } from '../../../theme/themeEventPresentation'
 import { chooseAction } from './ai'
 import { handWaits } from './waits'
+import { HAND_REVEAL_MS } from './winMotion'
 
 const held = (...faces: TileType[]) => faces.map(ordinary)
 function fixture() {
@@ -144,6 +145,27 @@ describe('颍州实桌沿用幺筒节奏', () => {
     await vi.advanceTimersByTimeAsync(1)
     expect(play).toHaveBeenCalledWith('tuidao.wav', .55)
     expect(play).toHaveBeenCalledWith('hu_effect_sound.mp3', .72)
+  })
+
+  it.each([false, true])('AI 报扎的摊牌声只响一次，减少动态效果=%s', async reduced => {
+    vi.stubGlobal('matchMedia', () => ({ matches: reduced }))
+    const round = fixture()
+    round.turn = 2
+    round.players[2].hand = held('m1','m2','m3','m4','m5','m6','s1','s2','s3','east','east','p6','p6','p6')
+    const { game, play } = setup(round)
+    await vi.advanceTimersByTimeAsync(openTime + LOCAL_TABLE_PACE.aiDiscard)
+    expect(game.winPresentation.value).toMatchObject({ winnerIndex: 2, yingzhou: { kind: 'indicator' } })
+    await vi.advanceTimersByTimeAsync(game.winEffect.value!.duration)
+    expect(game.revealHands.value).toBe(true)
+    if (reduced) {
+      expect(game.winPresentation.value?.yingzhou?.revealAt).toBeNull()
+    } else {
+      expect(game.winPresentation.value?.yingzhou?.revealAt).toEqual(expect.any(Number))
+      await vi.advanceTimersByTimeAsync(HAND_REVEAL_MS - 1)
+      expect(play).not.toHaveBeenCalledWith('tuidao.wav', .55)
+      await vi.advanceTimersByTimeAsync(1)
+    }
+    expect(play.mock.calls.filter(([name]) => name === 'tuidao.wav')).toHaveLength(1)
   })
 
   it('墙尾还有牌时只报杠上开花', async () => {

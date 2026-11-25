@@ -5,7 +5,8 @@ import type { TileInstanceRenderer } from './tileInstanceRenderer'
 import type { ResolvedTableProps } from './tableRenderTypes'
 import type { GamePlayer, Meld, TableActionType, TileType } from '../../../game/core/contracts/types'
 import * as winEffect from '../../../game/core/presentation/winEffect'
-import { discardTileLayout } from '../../../game/core/presentation/tableLayout'
+import { discardTileLayout, seatTableLayout } from '../../../game/core/presentation/tableLayout'
+import { HAND_REVEAL_MS } from '../../../game/variants/yingzhou/winMotion'
 import { wallStackSlot, WALL_TOTAL } from '../../../game/core/rules/wallLayout'
 
 function setup(meld?: Meld, action?: TableActionType) {
@@ -48,6 +49,68 @@ function setup(meld?: Meld, action?: TableActionType) {
 }
 
 afterEach(() => vi.restoreAllMocks())
+
+describe('颍州 AI 赢家摊牌', () => {
+  it.each([1, 2, 3])('座位 %s 从原来的立牌向桌心倾倒，整段共用同一条底边', seat => {
+    const s = setup()
+    const player = s.props.players[seat]
+    player.hand = ['m1', 'p6', 'm3', 'p6', 's1', 'p6', 's2']
+    player.drawnTileIndex = 6
+    const win = { winnerIndex: seat, tile: 'p6' as const, sourceIndex: 5, robbedKong: false,
+      robbedKongPlayerIndex: -1, robbedKongMeldIndex: -1 }
+    s.props.winPresentation = { ...win, yingzhou: { kind: 'indicator', zhaIndices: [1,3,5], revealAt: null } }
+    s.props.winEffect = { ...win, id: 1, duration: 2800, reducedMotion: false }
+    s.presenter.rebuild()
+    const standing = s.rendered.slice(0, 4).map(tile => tile.position.clone())
+
+    const start = 500, axis = seatTableLayout(seat).outward
+    const outward = new THREE.Vector3(axis.x, 0, axis.z)
+    s.setNow(start)
+    s.props.winPresentation.yingzhou!.revealAt = start
+    s.props.winEffect = null
+    s.props.revealHands = true
+    s.presenter.rebuild()
+    const hand = () => s.rendered.filter(tile => tile.face !== null)
+    expect(hand().map(t => t.face).sort()).toEqual(['m1','m3','s1','s2'])
+    const normal = (q: THREE.Quaternion) => new THREE.Vector3(0,1,0).applyQuaternion(q)
+    const hinges = hand().map((tile, i) => {
+      expect(tile.position.distanceTo(standing[i])).toBeLessThan(1e-6)
+      expect(normal(tile.rotation).dot(outward)).toBeCloseTo(1)
+      return standing[i].clone().addScaledVector(outward, -.17).setY(.56 - .47)
+    })
+    function checkHinges() {
+      hand().forEach((tile, i) => {
+        const foot = new THREE.Vector3(0, -.17, .47).applyQuaternion(tile.rotation).add(tile.position)
+        expect(foot.distanceTo(hinges[i])).toBeLessThan(1e-6)
+      })
+    }
+    const mid = start + HAND_REVEAL_MS / 2
+    s.setNow(mid)
+    s.presenter.animate(mid, new THREE.Vector3())
+    hand().forEach((tile, i) => {
+      expect(normal(tile.rotation).dot(outward)).toBeGreaterThan(0)
+      expect(normal(tile.rotation).y).toBeGreaterThan(0)
+      expect(tile.position.clone().sub(standing[i]).dot(outward)).toBeLessThan(0)
+    })
+    checkHinges()
+    const middle = hand().map(tile => tile.position.clone())
+    s.props.players = structuredClone(s.props.players)
+    s.presenter.rebuild()
+    hand().forEach((tile,i) => expect(tile.position.distanceTo(middle[i])).toBeLessThan(1e-6))
+    s.setNow(start + HAND_REVEAL_MS)
+    s.presenter.animate(start + HAND_REVEAL_MS, new THREE.Vector3())
+    checkHinges()
+    hand().forEach((tile, i) => {
+      expect(normal(tile.rotation).y).toBeCloseTo(1)
+      expect(tile.position.clone().sub(standing[i]).dot(outward)).toBeCloseTo(-.64)
+    })
+    // Reduced motion shows the same final row immediately, including the gaps left by the declaration.
+    const resting = hand().map(tile => tile.position.clone())
+    s.props.winPresentation.yingzhou!.revealAt = null
+    s.presenter.rebuild()
+    hand().forEach((tile,i) => expect(tile.position.distanceTo(resting[i])).toBeLessThan(1e-6))
+  })
+})
 
 describe('shared normal tile animations survive state refreshes', () => {
   it.each([0, 1, 2, 3])('座位%s的首鸡横放且预留宽度；被取走后不把标记自动转给下一张', seat => {
