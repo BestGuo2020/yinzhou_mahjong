@@ -50,6 +50,8 @@ export interface YaotongTableView {
   chickenPerformances?: ChickenPerformance[]
 }
 export interface YaotongWinPatternCue {
+  tableFocus?: boolean
+  impactMs?: number
   id: number
   startedAt: number
   duration: number

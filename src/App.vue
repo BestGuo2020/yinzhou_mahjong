@@ -30,6 +30,8 @@ import './style.css'
 const { startupScreen } = defineProps<{ startupScreen: ReturnType<typeof createStartupScreen> }>()
 const startupReady = ref(false)
 const url = new URL(window.location.href)
+const EffectsPreview = import.meta.env.DEV && url.searchParams.get('preview') === 'win-effects'
+  ? defineAsyncComponent(() => import('./dev/WinEffectsPreview.vue')) : null
 const requestedTheme = url.searchParams.get('theme')
 const theme = ref(resolveInitialTableTheme(requestedTheme).theme)
 function changeTheme(value: TableThemeName) {
@@ -131,8 +133,7 @@ const shownMarks = computed(() => {
     const taken = hand.findIndex(t => !t.marked && t.face === w.tile)
     hand = hand.filter((_, i) => i !== taken)
   }
-  const win = winPresentation.value
-  if (win?.winnerIndex === 0 && !win.robbedKong) hand = hand.filter((_, i) => i !== win.sourceIndex)
+  // GameTableHud maps physical indices to the hand left after moving the winning tile(s).
   return hand.flatMap((tile, i) => tile.marked ? [i] : [])
 })
 const matchName = computed(() => MATCH_FORMATS[matchLength.value].name)
@@ -149,11 +150,12 @@ function quit() {
 
 <template>
   <OrientationGate v-if="startupReady && !replayOpen && !replayView" :theme-name="theme" />
-  <main v-if="startupReady" class="game-app" :class="[{ 'is-lobby': !round }, presentation.typography.headingClass]"
+  <main v-if="startupReady" class="game-app" :class="[{ 'is-lobby': !round && !EffectsPreview }, presentation.typography.headingClass]"
     :data-table-theme="theme" :data-theme-player-frame="presentation.hud.playerFrame"
     :data-theme-particle="presentation.shell.particle" :data-theme-loading="presentation.presentation.loading"
     :style="themePresentationCssVariables(presentation)">
-    <div v-if="!replayView" :class="{ 'has-three-scene': round }">
+    <EffectsPreview v-if="EffectsPreview" :theme-name="theme" :audio="{ play: playEffect, playAndWait: playEffectAndWait }" />
+    <div v-else-if="!replayView" :class="{ 'has-three-scene': round }">
       <GameShellHeader game-mode="local" :phase="phase" :has-players="!!round" :match-name="matchName"
         :round-label="handLabel" :honba="round?.honba ?? 0" :base-score="BASE_POINTS" room-id="" :signal-quality="3" :theme-name="theme"
         @quit="quit" @open-rules="rulesOpen = true" @change-theme="changeTheme" />

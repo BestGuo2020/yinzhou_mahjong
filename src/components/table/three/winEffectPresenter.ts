@@ -7,6 +7,8 @@ import type { TileType } from '../../../game/core/contracts/types'
 import type { ResolvedTableProps, TableTransform } from './tableRenderTypes'
 import { sampleWinningTileFlight, type FlightPose, type WinningTileFlightTiming } from './winningTileFlight'
 
+import { addYingzhouTiles, createYingzhouWinEffect } from './yingzhouWinEffect'
+
 interface DiamondParticle {
   mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
   direction: THREE.Vector3
@@ -19,8 +21,7 @@ interface WinEffectAnimation {
   anchor: THREE.Vector3
   burstAnchor: THREE.Vector3
   outward: THREE.Vector3
-  beam: THREE.Mesh<THREE.CylinderGeometry, THREE.MeshBasicMaterial>
-  beamGlow: THREE.Mesh<THREE.CylinderGeometry, THREE.MeshBasicMaterial>
+  setBeamStrength(strength: number): void
   starburst: THREE.Sprite
   glow: THREE.Sprite
   diamonds: DiamondParticle[]
@@ -33,6 +34,7 @@ interface WinEffectAnimation {
 }
 
 export interface WinEffectPresenterOptions {
+  winHandOrigin?(seat: number, index: number): FlightPose | null
   tileFlight?: { source:FlightPose; target:FlightPose; timing:WinningTileFlightTiming }
   visual?: {color:number;sparks:readonly number[];shape:string;particleCount:number;particleSpeed:number;beamHeight:number;beamRadius:number;intensity:number;starburstScale:number}
   winLayout?: (playerIndex: number) => { x: number; y: number; z: number; rotation: number }
@@ -56,11 +58,19 @@ export function createWinEffectPresenter(options: WinEffectPresenterOptions) {
   const { meldTransform, alignMeldBottom, sourceTileRotationOffset } = options
   const TILE_LAYER_Z = options.tileLayerZ
   const effectLayout = options.winLayout ?? (options.tileFlight ? () => options.tileFlight!.target : winDisplayLayout)
+  let yingzhouFrame: ReturnType<typeof createYingzhouWinEffect> | null = null
   let winEffectAnimation: WinEffectAnimation | null = null
 
 function winEffectAnchor(playerIndex) {
   const layout = effectLayout(playerIndex)
   return new THREE.Vector3(layout.x, layout.y, layout.z)
+}
+
+// Keep all three declared tiles inside the wall, apart from the physical tail indicator.
+function yingzhouAnchor(pose: FlightPose, zha: boolean): FlightPose {
+  if (!zha) return pose
+  const inward = new THREE.Vector3(-pose.x, 0, TILE_LAYER_Z - pose.z).normalize()
+  return { ...pose, x: pose.x + inward.x * 3, z: pose.z + inward.z * 3 }
 }
 
 function cameraAlignedPoint(point: THREE.Vector3, planeY: number) {
@@ -87,10 +97,16 @@ function addWinningDisplayTile() {
   const group = new THREE.Group()
   group.name = 'winning-display-tile'
   group.userData.winnerIndex = props.winPresentation.winnerIndex
-  const tile = makeFaceTile(props.winPresentation.tile)
-  tile.position.set(layout.x, layout.y, layout.z + TILE_LAYER_Z)
-  tile.rotation.y = layout.rotation
-  group.add(tile)
+  if (props.winPresentation.yingzhou) {
+    const display = props.winPresentation.yingzhou
+    const target = yingzhouAnchor({ ...layout, z: layout.z + TILE_LAYER_Z }, display.zhaIndices.length === 3)
+    addYingzhouTiles(group, makeFaceTile, props.winPresentation.tile, target, display)
+  } else {
+    const tile = makeFaceTile(props.winPresentation.tile)
+    tile.position.set(layout.x, layout.y, layout.z + TILE_LAYER_Z)
+    tile.rotation.y = layout.rotation
+    group.add(tile)
+  }
   scene.add(group)
   dynamicGroups.push(group)
 }
@@ -302,18 +318,8 @@ function getDiamondGeometry() {
   return diamondGeometry
 }
 
-function addWinEffect(startedAt = options.startedAt ?? performance.now()) {
-  if (!props.winEffect?.tile) return
+function addWinBeams(group: THREE.Group, anchor: { x: number; y: number; z: number }) {
   const animeEffect = props.themeName === 'llmAnime'
-  const anchor = winEffectAnchor(props.winEffect.winnerIndex)
-  anchor.z += TILE_LAYER_Z
-  const faceCenter = anchor.clone().setY(anchor.y + .25)
-  const burstAnchor = cameraAlignedPoint(faceCenter, .38)
-  const outward = new THREE.Vector3(anchor.x, 0, anchor.z - TILE_LAYER_Z).normalize()
-  const group = new THREE.Group()
-  group.name = 'win-effect'
-  group.userData.winnerIndex = props.winEffect.winnerIndex
-
   // 信标式竖直光束：从胡牌牌垂直射向天空（垂直于牌面），带光晕
   const beamMaterial = ownDynamic(new THREE.MeshBasicMaterial({
     map: getBeamTexture(),
@@ -329,6 +335,7 @@ function addWinEffect(startedAt = options.startedAt ?? performance.now()) {
   const beam = new THREE.Mesh(getBeamGeometry(), beamMaterial)
   beam.position.set(anchor.x, anchor.y + .25 + (options.visual?.beamHeight??8.5) / 2, anchor.z)
   if(options.visual)beam.visible=options.visual.beamHeight>0
+  beam.name = 'win-beam-core'
   group.add(beam)
   const beamGlowMaterial = ownDynamic(new THREE.MeshBasicMaterial({
     map: getBeamTexture(),
@@ -344,7 +351,46 @@ function addWinEffect(startedAt = options.startedAt ?? performance.now()) {
   const beamGlow = new THREE.Mesh(getBeamGlowGeometry(), beamGlowMaterial)
   beamGlow.position.set(anchor.x, anchor.y + .3 + (options.visual?options.visual.beamHeight*.82:7) / 2, anchor.z)
   if(options.visual)beamGlow.visible=options.visual.beamHeight>0
+  beamGlow.name = 'win-beam-glow'
   group.add(beamGlow)
+
+  return (strength: number) => {
+    const intensity = strength * (options.visual?.intensity ?? 1)
+    beamMaterial.opacity = intensity * (animeEffect ? .92 : .8)
+    beamGlowMaterial.opacity = intensity * (animeEffect ? .62 : .32)
+  }
+}
+
+function addWinEffect(startedAt = options.startedAt ?? performance.now()) {
+  if (!props.winEffect?.tile) return
+  const animeEffect = props.themeName === 'llmAnime'
+  const anchor = winEffectAnchor(props.winEffect.winnerIndex)
+  anchor.z += TILE_LAYER_Z
+  const faceCenter = anchor.clone().setY(anchor.y + .25)
+  const burstAnchor = cameraAlignedPoint(faceCenter, .38)
+  const outward = new THREE.Vector3(anchor.x, 0, anchor.z - TILE_LAYER_Z).normalize()
+  const group = new THREE.Group()
+  group.name = 'win-effect'
+  group.userData.winnerIndex = props.winEffect.winnerIndex
+
+  const display = props.winPresentation?.yingzhou
+  if (display) {
+    const origin = display.kind === 'rob' ? robbedKongSourceTransform(props.winEffect) : null
+    const win = props.winPresentation!
+    const sources = origin ? [{ x: origin.position.x, y: origin.position.y, z: origin.position.z, rotation: origin.rotation }]
+      : display.zhaIndices.map(index => options.winHandOrigin?.(win.winnerIndex, index) ?? null)
+    const target = yingzhouAnchor({ x: anchor.x, y: anchor.y, z: anchor.z,
+      rotation: effectLayout(props.winEffect.winnerIndex).rotation }, display.zhaIndices.length === 3)
+    // A scene rebuild may happen mid-flight. Keep title, audio and tiles on the original clock.
+    const start = startedAt - Math.max(0, Date.now() - props.winEffect.id)
+    const setBeamStrength = props.winEffect.reducedMotion ? undefined : addWinBeams(group, target)
+    yingzhouFrame = createYingzhouWinEffect(options, group, display, target, sources, start, setBeamStrength)
+    scene.add(group)
+    dynamicGroups.push(group)
+    return
+  }
+
+  const setBeamStrength = addWinBeams(group, anchor)
 
   // 星芒：光束底部向外爆发的光芒（与信标光束叠加）
   const starburstMaterial = ownDynamic(new THREE.SpriteMaterial({
@@ -430,7 +476,7 @@ function addWinEffect(startedAt = options.startedAt ?? performance.now()) {
   dynamicGroups.push(group)
   winEffectAnimation = {
     startedAt, anchor, burstAnchor, outward,
-    beam, beamGlow, starburst, glow, diamonds, winningTile,
+    setBeamStrength, starburst, glow, diamonds, winningTile,
     startPosition, startRotation, seatRotation,
     duration: props.winEffect.duration ?? WIN_EFFECT_DURATION,
     reducedMotion: Boolean(props.winEffect.reducedMotion),
@@ -438,6 +484,7 @@ function addWinEffect(startedAt = options.startedAt ?? performance.now()) {
 }
 
   function animate(time: number) {
+    if (yingzhouFrame) return yingzhouFrame(time)
     if (!winEffectAnimation) return null
     const effect = winEffectAnimation
     const progress = Math.max(0, Math.min(1, (time - effect.startedAt) / effect.duration))
@@ -455,9 +502,7 @@ function addWinEffect(startedAt = options.startedAt ?? performance.now()) {
     }
     const beamIn = THREE.MathUtils.smoothstep(progress, .08, .15)
     const beamOut = 1 - THREE.MathUtils.smoothstep(progress, .55, 1)
-    const beamVis = beamIn * beamOut
-    effect.beam.material.opacity = beamVis * (props.themeName === 'llmAnime' ? .92 : .8)*(options.visual?.intensity??1)
-    effect.beamGlow.material.opacity = beamVis * (props.themeName === 'llmAnime' ? .62 : .32)*(options.visual?.intensity??1)
+    effect.setBeamStrength(beamIn * beamOut)
     const burstIn = THREE.MathUtils.smoothstep(progress, .08, .16)
     const burstOut = 1 - THREE.MathUtils.smoothstep(progress, .3, .42)
     effect.starburst.material.opacity = burstIn * burstOut * .85
@@ -488,5 +533,5 @@ function addWinEffect(startedAt = options.startedAt ?? performance.now()) {
     }
   }
 
-  return { addWinEffect, addWinningDisplayTile, animate, reset: () => { winEffectAnimation = null } }
+  return { addWinEffect, addWinningDisplayTile, animate, reset: () => { winEffectAnimation = null; yingzhouFrame = null } }
 }

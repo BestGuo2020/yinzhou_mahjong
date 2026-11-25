@@ -2,11 +2,13 @@ import { effectScope, nextTick, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TileType } from '../../core/contracts/types'
 import type { ReplayRecording } from '../../replay/useReplayRecorder'
+import { PACE_MS } from '../../core/local/localGameConfig'
 import { OPENING_PACE_MS } from '../../shared/runtime/localOpening'
 import { dealRound } from './engine'
 import { ordinary } from './rules'
 import { useYingzhouGame } from './useYingzhouGame'
 import { tileAudioFile } from '../../core/rules/tiles'
+import { splitWinningTile } from '../../core/presentation/winEffect'
 import { resolveTableActionPresentation } from '../../../theme/themeEventPresentation'
 import { chooseAction } from './ai'
 import { handWaits } from './waits'
@@ -80,13 +82,81 @@ describe('颍州实桌沿用幺筒节奏', () => {
     expect(game.result.value).toMatchObject({ winLabel: '海底捞月', totalMultiplier: 3 })
   })
 
+  it.each(['p6', 'p9'] as const)('直接报扎只展示三张普通 %s，同面标记牌留在手中', async face => {
+    const round = fixture()
+    round.settings.mode = 'nine'
+    round.players[0].hand = [ordinary(face), { face, marked: true }, ordinary('m1'), ordinary(face), ordinary(face)]
+    const { game, play } = setup(round)
+    await vi.advanceTimersByTimeAsync(openTime)
+    expect(game.winPatterns.value).toBeNull()
+    game.play(game.controls.value.find(action => action.kind === 'win')!)
+    const presentation = game.winPresentation.value!
+    expect(presentation.yingzhou?.zhaIndices).toEqual([0, 3, 4])
+    expect(splitWinningTile(game.players.value[0].hand, presentation).hand).toEqual([face, 'm1'])
+    expect(game.actionCue.value).toBeNull()
+    expect(game.winPatterns.value).toMatchObject({ impactMs: 1713, duration: 2800,
+      winners: [{ seat: 0, label: face === 'p6' ? '扎亮牌' : '扎九' }] })
+    expect(play).not.toHaveBeenCalledWith('zimo.mp3')
+    await vi.advanceTimersByTimeAsync(1712)
+    expect(play).not.toHaveBeenCalledWith('hu_effect_sound.mp3', .72)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(play).toHaveBeenCalledWith('hu_effect_sound.mp3', .72)
+    await vi.advanceTimersByTimeAsync(1087)
+    expect(game.revealHands.value).toBe(true)
+    expect(game.players.value[0].hand).toHaveLength(5)
+  })
+
+  it('抢补杠胡只展示被抢的第四张，离桌取消尚未到点的落牌声', async () => {
+    const round = fixture()
+    round.turn = 1
+    round.window = { kind: 'rob', seats: [0], tile: 'p5' }
+    round.players[1].melds = [{ type: 'peng', tile: 'p5', tiles: ['p5','p5','p5'] }]
+    round.players[1].hand = held('p5')
+    round.players[0].hand = held('p3','p4','m4','m5','m6','s2','s3','s4','green','green','green','south','south')
+    const { game, play } = setup(round)
+    await vi.advanceTimersByTimeAsync(openTime)
+    game.play(game.controls.value.find(action => action.kind === 'win')!)
+    await vi.advanceTimersByTimeAsync(PACE_MS.betweenRobKongs)
+    expect(game.winPresentation.value).toMatchObject({ robbedKongPlayerIndex: 1, robbedKongMeldIndex: 0, yingzhou: { kind: 'rob' } })
+    expect(game.players.value[0].hand).toHaveLength(13)
+    expect(game.players.value[1].melds[0].tiles).toHaveLength(3)
+    expect(game.winPatterns.value?.winners[0].label).toBe('抢补杠胡')
+    game.leave()
+    await vi.advanceTimersByTimeAsync(3100)
+    expect(play).not.toHaveBeenCalledWith('hu_effect_sound.mp3', .72)
+  })
+
+  it('自摸推牌落定才响倒牌声', async () => {
+    const round = fixture()
+    round.origin = 'draw'
+    round.players[0].hand = held('p3','p4','m4','m5','m6','s2','s3','s4','green','green','green','south','south','p5')
+    round.players[0].drawnIndex = 13
+    const { game, play } = setup(round)
+    await vi.advanceTimersByTimeAsync(openTime)
+    game.play(game.controls.value.find(action => action.kind === 'win')!)
+    expect(game.winPatterns.value?.winners[0].label).toBe('自摸')
+    await vi.advanceTimersByTimeAsync(1875)
+    expect(game.revealHands.value).toBe(true)
+    expect(game.winPresentation.value?.yingzhou?.revealAt).toEqual(expect.any(Number))
+    expect(play).not.toHaveBeenCalledWith('tuidao.wav', .55)
+    await vi.advanceTimersByTimeAsync(299)
+    expect(play).not.toHaveBeenCalledWith('tuidao.wav', .55)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(play).toHaveBeenCalledWith('tuidao.wav', .55)
+    expect(play).toHaveBeenCalledWith('hu_effect_sound.mp3', .72)
+  })
+
   it('墙尾还有牌时只报杠上开花', async () => {
     const game = await takeLiveKongSupplement(['m2','p6'])
     game.play(game.controls.value.find(action => action.kind === 'win')!)
-    expect(game.actionCue.value?.label).toBe('杠上开花')
-    await vi.advanceTimersByTimeAsync(2000)
+    expect(game.actionCue.value).toBeNull()
+    expect(game.winPatterns.value?.winners[0].label).toBe('杠上开花')
+    expect(game.winPresentation.value?.yingzhou?.kind).toBe('bloom')
+    await vi.advanceTimersByTimeAsync(2312)
     expect(game.winEffect.value).not.toBeNull()
+    await vi.advanceTimersByTimeAsync(1)
     expect(game.winPatterns.value).toBeNull()
+    expect(game.revealHands.value).toBe(true)
   })
 
   it('只在开始一场时读取大厅的玩法、禁胡开关和场次', () => {

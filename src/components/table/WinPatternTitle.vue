@@ -12,6 +12,8 @@ const props = defineProps<{
   motion: ReturnType<typeof bloodFlowTitleMotion>
   compact?: boolean
   main?: boolean
+  tableFocus?: boolean
+  detail?: string
 }>()
 const titleStyle = computed(() => {
   const m = props.motion, seat = props.seatIndex
@@ -19,11 +21,16 @@ const titleStyle = computed(() => {
   const anchor = seat === 0 ? { bottom: props.compact ? '22%' : '19%' }
     : { top: `${(props.compact ? [0, 42, 8, 42] : [0, 38, 12, 38])[seat]}%` }
   const unit = props.main ? (props.compact ? 52 : 110) : props.tier >= 2 ? (props.compact ? 36 : 66) : (props.compact ? 30 : 54)
-  return { left: `${left}%`, ...anchor,
-    width: `min(${(props.text.length * .92 + .4) * unit}px,${props.main ? 65 : 34}vw)`,
+  const position = props.tableFocus
+    ? { left: '50%', top: '50%' }
+    : { left: `${left}%`, ...anchor }
+  const translateY = props.tableFocus ? `calc(-50% + ${m.y}px)` : `${m.y}px`
+  return { ...position,
+    width: props.tableFocus ? `min(${props.text.length * 64}px, 36vw, ${props.text.length * 9}vh)`
+      : `min(${(props.text.length * .92 + .4) * unit}px,${props.main ? 65 : 34}vw)`,
     fontFamily: bloodFlowImpactProfile(props.themeName, props.tier).font,
     opacity: m.opacity,
-    transform: `translate(-50%,${m.y}px) perspective(650px) rotateY(${m.tilt}deg) rotateX(${m.tilt * .3}deg) scale(${1 + (m.scale - 1) * .55}) rotate(${m.rotation}deg)`,
+    transform: `translate(-50%,${translateY}) perspective(650px) rotateY(${m.tilt}deg) rotateX(${m.tilt * .3}deg) scale(${1 + (m.scale - 1) * .55}) rotate(${m.rotation}deg)`,
   }
 })
 </script>
@@ -31,10 +38,12 @@ const titleStyle = computed(() => {
 <template>
   <div class="blood-flow-central" :data-theme="themeName" :style="titleStyle">
     <BloodFlowImpactTitle :text="text" :theme="themeName" />
+    <small v-if="detail" class="win-detail">{{ detail }}</small>
   </div>
 </template>
 
 <style scoped>
+.win-detail { display: block; text-align: center; color: #fff8e9; text-shadow: 0 1px 3px #161510; white-space: nowrap; }
 .blood-flow-central { position: absolute; isolation: isolate; transform-origin: 50% 65%; --win-color: var(--theme-accent,#e4c17a); }
 .blood-flow-central::before { content: ''; position: absolute; inset: -12% -25%; z-index: -1; background: radial-gradient(ellipse,color-mix(in srgb,var(--win-color) 22%,transparent),transparent 70%); }
 [data-theme="rosewood"]::before { inset: 18% -10%; border-block: 1px solid #d3976599; background: linear-gradient(90deg,transparent,#452016b8 25%,#452016b8 75%,transparent); transform: skewX(-8deg); }

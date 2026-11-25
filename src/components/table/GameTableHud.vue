@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import YingzhouWinCinematic from './YingzhouWinCinematic.vue'
+import { warmWinArtwork } from './yingzhouCinematic'
+import { HAND_REVEAL_MS } from '../../game/variants/yingzhou/winMotion'
 import MahjongTile from '../MahjongTile.vue'
 import TableControlIcon from './TableControlIcon.vue'
 import YaotongSeatMarker from '../yaotong/YaotongSeatMarker.vue'
@@ -155,6 +158,14 @@ const compactBloodFlowEffects = computed(() => compactPiles.value || new URLSear
 const presentationDirector=new BloodFlowPresentationDirector(import.meta.env.DEV?Number(new URLSearchParams(window.location.search).get('motionScale'))||1:1)
 const effectPlayer=useEffectPlayer(),playedImpacts=new Set<string>()
 const tableHudElement=ref<HTMLElement|null>(null), ownDrawScreen=shallowRef<{sourceId:string;x:number;y:number}|null>(null)
+const handRevealDuration = HAND_REVEAL_MS + 'ms'
+function ownHandPoint(index: number) {
+  const hud = tableHudElement.value
+  const rect = hud?.querySelector('.mahjong-scene')?.getBoundingClientRect()
+  const slot = hud?.querySelectorAll('.hand-rack .hand-tile-slot')[index]?.getBoundingClientRect()
+  return rect?.width && rect.height && slot?.width
+    ? { x: (slot.left + slot.width / 2 - rect.left) / rect.width, y: (slot.top + slot.height / 2 - rect.top) / rect.height } : null
+}
 const bloodFlowHidden=shallowRef<readonly string[]>([])
 const bloodFlowCue=shallowRef<BloodFlowCue|null>(null), presentationNow=ref(0), presentationBusy=ref(false)
 // 血流：结算快照与最后一批胡/杠 cue 同帧到达，若直接跟随 revealHands，手牌会在胡牌演出
@@ -264,6 +275,9 @@ const additionalWinActions = computed(() => {
 const presentedWinEffect = computed(() => props.winEffect && winWinnerIndices.value.length > 1
   ? { ...props.winEffect, winnerIndices: winWinnerIndices.value } : props.winEffect)
 const presentedWinPatterns = computed(() => props.winPatterns ?? props.yaotongView?.winPatterns)
+const cinematic = computed(() => props.winEffect && !props.winEffect.reducedMotion && props.winPatterns?.tableFocus
+  ? props.winPresentation?.yingzhou : null)
+onMounted(() => { if (props.rulesetId === 'yingzhou' && !prefersReducedMotion()) warmWinArtwork() })
 const presentedWinPresentation = computed(() => props.winPresentation && winWinnerIndices.value.length > 1
   ? { ...props.winPresentation, winnerIndices: winWinnerIndices.value } : props.winPresentation)
 const presentedLlmBubbles = computed(() => {
@@ -394,9 +408,22 @@ function toggleWaits() {
   }
   waitsOpen.value = true
 }
+const movingHandIndices = computed(() => {
+  const win = props.winPresentation
+  if (!win?.yingzhou || win.winnerIndex !== 0 || win.robbedKong || !props.winEffect || props.winEffect.reducedMotion) return []
+  return win.yingzhou.zhaIndices
+})
 const displayedUserHand = computed(() => {
-  if (props.winPresentation?.winnerIndex !== 0) return props.user.hand
+  const win = props.winPresentation
+  if (win?.winnerIndex !== 0 || movingHandIndices.value.length || (win.yingzhou && !props.winEffect && !props.revealHands)) return props.user.hand
   return splitWinningTile(props.user.hand, props.winPresentation).hand
+})
+const displayedMarkedIndices = computed(() => {
+  const win = props.winPresentation
+  if (!win?.yingzhou || win.winnerIndex !== 0 || win.robbedKong || movingHandIndices.value.length || (!props.winEffect && !props.revealHands)) return props.markedIndices
+  const removed = win.yingzhou.zhaIndices.length ? win.yingzhou.zhaIndices : [win.sourceIndex]
+  return props.markedIndices?.filter(index => !removed.includes(index))
+    .map(index => index - removed.filter(slot => slot >= 0 && slot < index).length)
 })
 const tableSeatCounts = computed(() => [...props.players]
   .sort((left, right) => left.seat - right.seat)
@@ -624,6 +651,7 @@ function onAvatarError(entry: GamePlayer) {
       :blood-flow-hidden-records="bloodFlowHidden"
       :blood-flow-source-event="bloodFlow?.sourceEvent"
       :blood-flow-own-draw="ownDrawScreen"
+      :own-hand-point="ownHandPoint"
       @ready="handleTableReady"
       @load-error="handleTableLoadError"
     />
@@ -724,7 +752,13 @@ function onAvatarError(entry: GamePlayer) {
     <MultiWinIntro v-if="yaotongView?.multiWinIntro" :key="`multi-${yaotongView.multiWinIntro.id}`"
       :source-index="yaotongView.multiWinIntro.sourceIndex" :theme-name="themeName"
       :compact="compactBloodFlowEffects" :reduced="prefersReducedMotion()" />
-    <YaotongWinPatterns v-if="presentedWinPatterns" :key="`patterns-${presentedWinPatterns.id}`"
+    <YingzhouWinCinematic v-if="cinematic && winEffect && winPatterns" :key="winEffect.id"
+      :source-name="players[winEffect.robbedKongPlayerIndex]?.name"
+      :effect="winEffect" :kind="cinematic.kind" :label="winPatterns.winners[0].label" :winner="players[winEffect.winnerIndex].name" />
+    <YaotongWinPatterns v-else-if="presentedWinPatterns" :key="`patterns-${presentedWinPatterns.id}`"
+      :centered="rulesetId === 'yingzhou'"
+      :detail="winPresentation?.yingzhou?.kind === 'rob' && winEffect?.reducedMotion
+        ? players[winEffect.winnerIndex].name + '抢' + players[winEffect.robbedKongPlayerIndex].name + '的' + tileName(winEffect.tile) : undefined"
       :cue="presentedWinPatterns" :theme-name="themeName" :compact="compactBloodFlowEffects" />
     <TransitionGroup name="table-action">
       <TableActionCue v-for="cue in yaotongView?.declarationCues ?? []" :key="`declaration-${cue.id}`"
@@ -779,10 +813,10 @@ function onAvatarError(entry: GamePlayer) {
           :data-score-direction="scoreDirectionFor(0)"
         >{{ scoreDeltaFor(0) > 0 ? '+' : '' }}{{ scoreDeltaFor(0) }}</strong>
       </Transition>
-      <div class="hand-rack" :class="{ playable: isUserTurn, dealing: phase === 'dealing', 'has-melds': user.melds.length }">
+      <div class="hand-rack" :class="{ 'yingzhou-tip': winPresentation?.winnerIndex === 0 && winPresentation.yingzhou?.revealAt != null, playable: isUserTurn, dealing: phase === 'dealing', 'has-melds': user.melds.length }">
         <div
           v-for="(tile, index) in displayedUserHand" :key="`${tile}-${index}`" class="hand-tile-slot"
-          :class="{ drawn: userDrawnIndex === index, 'ting-discard': isTingDiscard(index, tile), 'reform-discard': isReformDiscard(index, tile) }"
+          :class="{ drawn: userDrawnIndex === index, 'in-flight': movingHandIndices.includes(index), 'ting-discard': isTingDiscard(index, tile), 'reform-discard': isReformDiscard(index, tile) }"
           @mouseenter="previewDesktopWaits(tile, index)" @mouseleave="clearDesktopWaits"
           @pointerdown.stop="beginTileGesture(index, $event)" @pointerup.stop="finishTileGesture(index, $event)" @pointercancel="cancelTileGesture"
         >
@@ -790,7 +824,7 @@ function onAvatarError(entry: GamePlayer) {
           <span v-if="isTingDiscard(index, tile) && !isReformDiscard(index, tile)" class="ting-arrow" aria-hidden="true"></span>
           <span v-if="isReformDiscard(index, tile)" class="ting-arrow reform-arrow" aria-hidden="true"></span>
           <span v-if="isReformDiscard(index, tile)" class="reform-badge" aria-hidden="true">改</span>
-          <MahjongTile :tile="tile" :kong-marked="markedIndices?.includes(index)" :joker-tiles="jokerTiles" :wildcard-tiles="wildcardTiles" :laizi-only="rulesetId === 'yaotong'" :theme-name="themeName" :selected="selectedIndex === index" :drawn="userDrawnIndex === index" :disabled="!isUserTurn || blockedDiscardIndices?.includes(index) || Boolean((lockedHand || bloodFlow?.seats[user.seat].locked) && index !== userDrawnIndex)" @choose="handleTileActivation(index, $event)" />
+          <MahjongTile :tile="tile" :kong-marked="displayedMarkedIndices?.includes(index)" :joker-tiles="jokerTiles" :wildcard-tiles="wildcardTiles" :laizi-only="rulesetId === 'yaotong'" :theme-name="themeName" :selected="selectedIndex === index" :drawn="userDrawnIndex === index" :disabled="!isUserTurn || blockedDiscardIndices?.includes(index) || Boolean((lockedHand || bloodFlow?.seats[user.seat].locked) && index !== userDrawnIndex)" @choose="handleTileActivation(index, $event)" />
         </div>
       </div>
     </section>
@@ -886,6 +920,15 @@ function onAvatarError(entry: GamePlayer) {
 </template>
 
 <style scoped>
+.hand-rack .hand-tile-slot.in-flight { visibility: hidden; }
+@media (prefers-reduced-motion: no-preference) {
+  .hand-rack.yingzhou-tip .hand-tile-slot { transform-origin: center bottom; animation: yingzhou-tip v-bind(handRevealDuration) ease-in both; }
+  @keyframes yingzhou-tip {
+    from { transform: perspective(350px) rotateX(-28deg) translateY(-5%); }
+    to { transform: perspective(350px) rotateX(0); }
+  }
+}
+
 .game-table-hud { display: contents; }
 /* Vue 的离场过渡会暂留动作字，牌型字出现时立即收起上一段。 */
 .game-table-hud:has(> .yaotong-win-patterns) > .action-win.table-action-leave-active { display: none; }

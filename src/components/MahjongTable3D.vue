@@ -553,6 +553,7 @@ onMounted(async () => {
     addWinningDisplayTile: () => winEffectPresenter?.addWinningDisplayTile(),
   })
   const winEffectOptions = {
+    winHandOrigin: tableTiles.winHandOrigin,
     scene,
     camera,
     props,

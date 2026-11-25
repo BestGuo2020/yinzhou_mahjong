@@ -4,6 +4,7 @@ import { isHorseForSeat, sortTilesWithJokers } from '../../../game/core/rules/ti
 import { meldDisplayTiles, meldSourceTileIndex } from '../../../game/core/rules/rules'
 import { addedKongTileOffset, TABLE_LAYOUT, OPPOSITE_HAND_Z, meldTileCenter, discardTileLayout, meldTrackTransform, concealedMeldClear, concealedSideX, pointFromSeat } from '../../../game/core/presentation/tableLayout'
 import { wallBreakIndexForDealer, wallStackSlot, wallTilePlacement, WALL_TOTAL } from '../../../game/core/rules/wallLayout'
+import { HAND_REVEAL_MS } from '../../../game/variants/yingzhou/winMotion'
 import { splitWinningTile } from '../../../game/core/presentation/winEffect'
 import type { TableActionEvent, TileType } from '../../../game/core/contracts/types'
 import type { TileInstanceRenderer } from './tileInstanceRenderer'
@@ -92,7 +93,11 @@ export function createTableTilePresenter(options: TableTilePresenterOptions) {
   const beginTableInstances = tileInstances.begin
   const addTableTile = tileInstances.add
   const finishTableInstances = tileInstances.finish
+  const tippingTiles: { instance: ReturnType<TileInstanceRenderer['add']>; position: THREE.Vector3; rotation: number }[] = []
+  const tipRotation = new THREE.Quaternion()
+  const tipEuler = new THREE.Euler(0, 0, 0, 'YXZ')
   const handFaceInstances: { seat: number; instance: ReturnType<TileInstanceRenderer['add']> }[] = []
+  const winHandOrigins = new Map<number, FlightPose>()
 
 function addConcealedHand(playerIndex) {
   if (playerIndex === 0) return
@@ -101,7 +106,10 @@ function addConcealedHand(playerIndex) {
   const presentation = props.winPresentation?.winnerIndex === playerIndex
     ? props.winPresentation
     : null
-  const displayedHand = splitWinningTile(rawHand, presentation).hand
+  const moving = presentation?.yingzhou && props.winEffect && !props.winEffect.reducedMotion && !presentation.robbedKong
+    ? presentation.yingzhou.zhaIndices : []
+  const beforeEffect = presentation?.yingzhou && !props.winEffect && !props.revealHands
+  const displayedHand = moving.length || beforeEffect ? rawHand : splitWinningTile(rawHand, presentation).hand
   // 赢家：和牌张已移入胡牌区（splitWinningTile 移除），暗手按 split 后的张数显示，
   // 避免结算快照的 concealedTileCount（含和牌）让和牌在暗手与胡牌区重复出现（对齐单机）。
   const concealedCount = presentation
@@ -187,6 +195,10 @@ function addConcealedHand(playerIndex) {
       }
     }
     const pos = new THREE.Vector3(x, tileY, z + TILE_LAYER_Z)
+    if (moving.includes(index)) {
+      winHandOrigins.set(index, { x: pos.x, y: pos.y, z: pos.z, rotation: rotationY, tilt: -Math.PI / 2 })
+      continue
+    }
     if(index===drawnTileIndex)drawnTransforms.set(playerIndex,{x:pos.x,y:pos.y,z:pos.z,rotation:rotationY,tilt:props.revealHands?0:-Math.PI/2})
     // 暗手为背面朝玩家的立牌：makeHiddenTile 内部 body 绕 X 转 -90°，合批时折进实例矩阵。
     const quat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rotationY, 0))
@@ -210,6 +222,9 @@ function addConcealedHand(playerIndex) {
       })
     } else {
       const instance = addTableTile(pos, quat, face)
+      if (props.revealHands && presentation?.yingzhou?.revealAt != null) {
+        tippingTiles.push({ instance, position: pos, rotation: rotationY })
+      }
       if (import.meta.env.DEV && props.revealHands) handFaceInstances.push({ seat: playerIndex, instance })
     }
   }
@@ -690,6 +705,8 @@ function rebuildTableTiles({ reuseInstances = false }: { reuseInstances?: boolea
   if(epoch!==sourceEpoch){sourceEpoch=epoch;sourceTransforms.clear();ownDrawScreens.clear()}
   drawnTransforms.clear();addedTransforms.clear();flights.length=0
   handFaceInstances.length = 0
+  winHandOrigins.clear()
+  tippingTiles.length = 0
   if (!reuse) clearDynamicScene()
   dealTweens.length = 0
   meldTweens.length = 0
@@ -743,6 +760,20 @@ function rebuildTableTiles({ reuseInstances = false }: { reuseInstances?: boolea
 }
 
   function animate(time: number, scratchVector: THREE.Vector3) {
+    const revealAt = props.winPresentation?.yingzhou?.revealAt
+    if (tippingTiles.length && revealAt != null) {
+      const t = THREE.MathUtils.clamp((time - revealAt) / HAND_REVEAL_MS, 0, 1)
+      const angle = -(1 - t * t) * Math.PI / 2
+      // Rotate around the lower long edge; the tile lands flat once at t=1.
+      const lift = .2 * (Math.cos(angle) - 1) - .45 * Math.sin(angle)
+      const shift = .2 * Math.sin(angle) + .45 * (Math.cos(angle) - 1)
+      for (const { instance, position, rotation } of tippingTiles) {
+        scratchVector.set(position.x + Math.sin(rotation) * shift, position.y + lift, position.z + Math.cos(rotation) * shift)
+        tipRotation.setFromEuler(tipEuler.set(angle, rotation, 0, 'YXZ'))
+        tileInstances.set(instance.baseIndex, instance.capMesh, instance.capIndex, scratchVector, tipRotation, 1)
+      }
+      if (t === 1) tippingTiles.length = 0
+    }
     let indicatorMoving = false
     if (indicatorMotion && indicatorInstance) {
       // Finish within the existing hand-reveal stage; no extra settlement delay.
@@ -792,10 +823,16 @@ function rebuildTableTiles({ reuseInstances = false }: { reuseInstances?: boolea
       return progress < 1
     })
     discardTweens.splice(0, discardTweens.length, ...keepDiscard)
-    return indicatorMoving || dealTweens.length + meldTweens.length + discardTweens.length + flights.length > 0
+    return indicatorMoving || tippingTiles.length > 0 || dealTweens.length + meldTweens.length + discardTweens.length + flights.length > 0
   }
 
   return { rebuild: rebuildTableTiles, animate, meldTransform, alignMeldBottom, sourceTileRotationOffset,
+    winHandOrigin(seat: number, index: number): FlightPose | null {
+      if (seat !== 0) return winHandOrigins.get(index) ?? null
+      const screen = props.ownHandPoint?.(index)
+      const point = screen && options.projectOwnDraw?.(screen)
+      return point ? { x: point.x, y: point.y, z: point.z, rotation: 0 } : null
+    },
     // 相机实验室读取真实实例几何的投影，供 HUD 遮挡验收；正式构建不采集手牌实例。
     handFaceScreenRects(camera: THREE.Camera) {
       camera.updateMatrixWorld()
