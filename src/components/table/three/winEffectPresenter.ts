@@ -66,6 +66,13 @@ function winEffectAnchor(playerIndex) {
   return new THREE.Vector3(layout.x, layout.y, layout.z)
 }
 
+// Keep all three declared tiles inside the wall, apart from the physical tail indicator.
+function yingzhouAnchor(pose: FlightPose, zha: boolean): FlightPose {
+  if (!zha) return pose
+  const inward = new THREE.Vector3(-pose.x, 0, TILE_LAYER_Z - pose.z).normalize()
+  return { ...pose, x: pose.x + inward.x * 3, z: pose.z + inward.z * 3 }
+}
+
 function cameraAlignedPoint(point: THREE.Vector3, planeY: number) {
   const direction = point.clone().sub(camera.position).normalize()
   const distance = (planeY - camera.position.y) / direction.y
@@ -91,7 +98,9 @@ function addWinningDisplayTile() {
   group.name = 'winning-display-tile'
   group.userData.winnerIndex = props.winPresentation.winnerIndex
   if (props.winPresentation.yingzhou) {
-    addYingzhouTiles(group, makeFaceTile, props.winPresentation.tile, { ...layout, z: layout.z + TILE_LAYER_Z }, props.winPresentation.yingzhou)
+    const display = props.winPresentation.yingzhou
+    const target = yingzhouAnchor({ ...layout, z: layout.z + TILE_LAYER_Z }, display.zhaIndices.length === 3)
+    addYingzhouTiles(group, makeFaceTile, props.winPresentation.tile, target, display)
   } else {
     const tile = makeFaceTile(props.winPresentation.tile)
     tile.position.set(layout.x, layout.y, layout.z + TILE_LAYER_Z)
@@ -325,7 +334,8 @@ function addWinEffect(startedAt = options.startedAt ?? performance.now()) {
   if (display) {
     const origin = display.kind === 'rob' ? robbedKongSourceTransform(props.winEffect) : null
     const source = origin ? { x: origin.position.x, y: origin.position.y, z: origin.position.z, rotation: origin.rotation } : null
-    const target = { x: anchor.x, y: anchor.y, z: anchor.z, rotation: effectLayout(props.winEffect.winnerIndex).rotation }
+    const target = yingzhouAnchor({ x: anchor.x, y: anchor.y, z: anchor.z,
+      rotation: effectLayout(props.winEffect.winnerIndex).rotation }, display.zhaIndices.length === 3)
     // A scene rebuild may happen mid-flight. Keep title, audio and tiles on the original clock.
     const start = startedAt - Math.max(0, Date.now() - props.winEffect.id)
     yingzhouFrame = createYingzhouWinEffect(options, group, display, target, source, start)

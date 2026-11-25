@@ -27,7 +27,7 @@ const titles = computed(() => props.cue.winners.map(winner => ({ ...winner,
   <div class="yaotong-win-patterns" aria-live="polite">
     <WinPatternTitle v-for="winner in titles" :key="winner.seat" :text="winner.label" :theme-name="themeName"
       :seat-index="winner.seat" :tier="winner.tier" :motion="winner.motion" :compact="compact"
-      :main="titles.length === 1 && winner.seat === 0 && winner.tier >= 2"
+      :main="titles.length === 1 && winner.seat === 0 && winner.tier >= 2" :table-focus="cue.tableFocus"
       :data-title-seat="winner.seat" />
   </div>
 </template>

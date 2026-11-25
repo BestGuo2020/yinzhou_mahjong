@@ -14,6 +14,7 @@ const settings = defineModel<Settings>('settings', { required: true })
 const length = defineModel<MatchLength>('length', { required: true })
 const emit = defineEmits<{ start: []; openReplay: []; openRules: []; openStats: [] }>()
 const picker = ref<'length' | 'rules' | null>(null)
+const showEffectsPreview = import.meta.env.DEV
 </script>
 
 <template>
@@ -28,6 +29,7 @@ const picker = ref<'length' | 'rules' | null>(null)
           <b>开始对局</b><span>{{ MODES[settings.mode].name }} · 底分 10 分</span>
         </button>
         <div class="lobby-links">
+          <a v-if="showEffectsPreview" class="text-button effects-link" :href="'?preview=win-effects&theme=' + themeName">特效预览 →</a>
           <button type="button" class="text-button" data-action-role="light" @click="emit('openStats')">我的战绩 →</button>
           <button type="button" class="text-button" data-action-role="light" data-testid="open-replay" @click="emit('openReplay')">对局回放 →</button>
           <button type="button" class="text-button" data-action-role="light" @click="emit('openRules')">游戏规则 →</button>
@@ -44,4 +46,6 @@ const picker = ref<'length' | 'rules' | null>(null)
 
 <style scoped>
 .lobby-actions { min-width: 0; }
+.lobby-links { flex-wrap: wrap; }
+.effects-link { color: var(--theme-accent); text-decoration: none; }
 </style>

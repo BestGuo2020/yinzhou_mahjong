@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import YingzhouWinCinematic from './YingzhouWinCinematic.vue'
+import { warmWinArtwork } from './yingzhouCinematic'
 import MahjongTile from '../MahjongTile.vue'
 import TableControlIcon from './TableControlIcon.vue'
 import YaotongSeatMarker from '../yaotong/YaotongSeatMarker.vue'
@@ -264,6 +266,9 @@ const additionalWinActions = computed(() => {
 const presentedWinEffect = computed(() => props.winEffect && winWinnerIndices.value.length > 1
   ? { ...props.winEffect, winnerIndices: winWinnerIndices.value } : props.winEffect)
 const presentedWinPatterns = computed(() => props.winPatterns ?? props.yaotongView?.winPatterns)
+const cinematic = computed(() => props.winEffect && !props.winEffect.reducedMotion && props.winPatterns?.tableFocus
+  ? props.winPresentation?.yingzhou : null)
+onMounted(() => { if (props.rulesetId === 'yingzhou' && !prefersReducedMotion()) warmWinArtwork() })
 const presentedWinPresentation = computed(() => props.winPresentation && winWinnerIndices.value.length > 1
   ? { ...props.winPresentation, winnerIndices: winWinnerIndices.value } : props.winPresentation)
 const presentedLlmBubbles = computed(() => {
@@ -731,7 +736,9 @@ function onAvatarError(entry: GamePlayer) {
     <MultiWinIntro v-if="yaotongView?.multiWinIntro" :key="`multi-${yaotongView.multiWinIntro.id}`"
       :source-index="yaotongView.multiWinIntro.sourceIndex" :theme-name="themeName"
       :compact="compactBloodFlowEffects" :reduced="prefersReducedMotion()" />
-    <YaotongWinPatterns v-if="presentedWinPatterns" :key="`patterns-${presentedWinPatterns.id}`"
+    <YingzhouWinCinematic v-if="cinematic && winEffect && winPatterns" :key="winEffect.id"
+      :effect="winEffect" :kind="cinematic.kind" :label="winPatterns.winners[0].label" :winner="players[winEffect.winnerIndex].name" />
+    <YaotongWinPatterns v-else-if="presentedWinPatterns" :key="`patterns-${presentedWinPatterns.id}`"
       :cue="presentedWinPatterns" :theme-name="themeName" :compact="compactBloodFlowEffects" />
     <TransitionGroup name="table-action">
       <TableActionCue v-for="cue in yaotongView?.declarationCues ?? []" :key="`declaration-${cue.id}`"

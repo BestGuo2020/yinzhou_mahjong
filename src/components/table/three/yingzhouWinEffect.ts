@@ -102,23 +102,24 @@ export function createYingzhouWinEffect(options: Resources, group: THREE.Group, 
       })
     } else if (motion && isZha) {
       tiles.forEach((tile, index) => {
-        const t = stage(ms, index * 130, index * 130 + 250)
+        const t = stage(ms, impact * index / 4, impact * (index + 2) / 4)
         tile.position.y = anchor.y + Math.sin(t * Math.PI) * .6
         const spark = flecks[index]
         spark.position.copy(tile.position)
         spark.position.y += .32
-        spark.scale.setScalar(1.3)
-        spark.material.opacity = Math.sin(t * Math.PI) * .82
+        const impactGlow = stage(ms, impact - 60, impact) * (1 - stage(ms, impact, impact + 380))
+        spark.scale.setScalar(1.4 + .4 * impactGlow)
+        spark.material.opacity = Math.max(Math.sin(t * Math.PI) * .82, impactGlow * .36)
       })
       if (ring) {
-        ring.scale.setScalar(3.6 - 1.25 * stage(ms, 0, impact))
-        ring.material.opacity = stage(ms, 0, 150) * (1 - stage(ms, impact, impact + 300))
+        ring.scale.setScalar(4.35 - 1.3 * stage(ms, 0, impact))
+        ring.material.opacity = stage(ms, 0, 150) * (1 - stage(ms, impact + 160, impact + 520))
       }
     } else if (motion && kind === 'bloom') {
       const t = stage(ms, impact, impact + 480)
       tiles[0].position.y = anchor.y + .55 * Math.sin(stage(ms, 0, impact) * Math.PI)
       if (ring) {
-        ring.scale.setScalar(.85 + 2.8 * t)
+        ring.scale.setScalar(.85 + 3.7 * t)
         ring.material.opacity = stage(ms, impact - 50, impact) * (1 - t)
       }
       flecks.forEach((sprite, index) => {

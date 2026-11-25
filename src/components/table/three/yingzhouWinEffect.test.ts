@@ -32,7 +32,7 @@ describe('颍州胡牌的桌面动画', () => {
     expect(tile.position.toArray()).toEqual([source.x, source.y, source.z])
     sample(1170)
     expect(tile.position.y).toBeGreaterThan(anchor.y)
-    sample(1450)
+    sample(1640)
     expect(tile.position.distanceTo(new THREE.Vector3(anchor.x, anchor.y, anchor.z))).toBeLessThan(1e-10)
     expect(sample(2200)).toBeNull()
   })
@@ -46,7 +46,7 @@ describe('颍州胡牌的桌面动画', () => {
     expect(first.position.y).toBeGreaterThan(second.position.y)
     sample(1385)
     expect(third.position.y).toBeGreaterThan(first.position.y)
-    sample(1530)
+    sample(1660)
     for (const tile of [first, second, third]) expect(tile.position.y).toBeCloseTo(anchor.y, 10)
   })
 

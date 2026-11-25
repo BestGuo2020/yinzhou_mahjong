@@ -12,6 +12,7 @@ const props = defineProps<{
   motion: ReturnType<typeof bloodFlowTitleMotion>
   compact?: boolean
   main?: boolean
+  tableFocus?: boolean
 }>()
 const titleStyle = computed(() => {
   const m = props.motion, seat = props.seatIndex
@@ -19,8 +20,12 @@ const titleStyle = computed(() => {
   const anchor = seat === 0 ? { bottom: props.compact ? '22%' : '19%' }
     : { top: `${(props.compact ? [0, 42, 8, 42] : [0, 38, 12, 38])[seat]}%` }
   const unit = props.main ? (props.compact ? 52 : 110) : props.tier >= 2 ? (props.compact ? 36 : 66) : (props.compact ? 30 : 54)
-  return { left: `${left}%`, ...anchor,
-    width: `min(${(props.text.length * .92 + .4) * unit}px,${props.main ? 65 : 34}vw)`,
+  const position = props.tableFocus
+    ? { left: `${[54, 67, 47, 33][seat]}%`, top: `${[54, 39, 27, 39][seat]}%` }
+    : { left: `${left}%`, ...anchor }
+  return { ...position,
+    width: props.tableFocus ? `min(${props.text.length * 64}px, 36vw, ${props.text.length * 9}vh)`
+      : `min(${(props.text.length * .92 + .4) * unit}px,${props.main ? 65 : 34}vw)`,
     fontFamily: bloodFlowImpactProfile(props.themeName, props.tier).font,
     opacity: m.opacity,
     transform: `translate(-50%,${m.y}px) perspective(650px) rotateY(${m.tilt}deg) rotateX(${m.tilt * .3}deg) scale(${1 + (m.scale - 1) * .55}) rotate(${m.rotation}deg)`,

@@ -39,9 +39,10 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
   const winPatterns = computed<YaotongWinPatternCue | null>(() => {
     const effect = view.winEffect.value
     const win = current()?.result?.win
-    if (!effect || !win || win.kind === 'self') return null
+    if (!effect || !win) return null
     const impactMs = win.lastTileBloom ? 130 : YINGZHOU_WIN_MOTION[win.kind].impact
-    return { ...effect, startedAt: effect.id, impactMs, winners: [{ seat: effect.winnerIndex, label: win.label, tier: 1 }] }
+    return { ...effect, startedAt: effect.id, impactMs, tableFocus: !win.lastTileBloom,
+      winners: [{ seat: effect.winnerIndex, label: win.label, tier: 1 }] }
   })
 
   function reset() {
