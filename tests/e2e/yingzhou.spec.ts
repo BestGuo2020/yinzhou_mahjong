@@ -1,14 +1,20 @@
 import { expect, test, type Locator } from '@playwright/test'
 
 /** 只固定真实点击处理期间的洗牌和双骰，不向产品引擎添加调试入口。 */
-async function clickWithSeed(button: Locator, seed: number) {
+async function clickWithSeed(button: Locator, seed: number, openingLabel?: string) {
   await button.evaluate((element, initial) => element.addEventListener('click', () => {
     const original = Math.random
     let state = initial
     Math.random = () => ((state = (Math.imul(state,1664525) + 1013904223) >>> 0) / 2 ** 32)
     setTimeout(() => { Math.random = original }, 0)
   }, { capture: true, once: true }), seed)
-  await button.click()
+  if (openingLabel) {
+    // 冷启动要先编译 3D 资源，开场字样则只停留一段语音。点击前就开始等它。
+    await Promise.all([
+      expect(button.page().locator('.start-cue span')).toHaveText(openingLabel, { timeout: 35_000 }),
+      button.click(),
+    ])
+  } else await button.click()
 }
 
 test('实桌逆时针发牌，摸到亮牌前一张仍可手选弃牌并报完牌名再流局', async ({ page }, info) => {
@@ -130,9 +136,8 @@ test('死九报扎、付分、按开场配置续局和本地回放', async ({ pa
   await page.getByRole('checkbox', { name: /小牌禁胡/ }).check()
   await page.getByRole('button', { name: '确定', exact: true }).click()
   const start = page.getByRole('button', { name: /开始对局/ })
-  await clickWithSeed(start, 9890) // 庄家起手三张六筒。
+  await clickWithSeed(start, 9890, '全庄场 · 东1局 · 死九') // 庄家起手三张六筒。
   await expect(page.locator('.round-info')).toHaveText('全庄场 · 东1局')
-  await expect(page.locator('.start-cue span')).toHaveText('全庄场 · 东1局 · 死九')
   const hud = page.locator('.game-table-hud')
   await expect(hud).toHaveAttribute('data-concealed-counts', '14,13,13,13', { timeout: 35_000 })
   const indicator = page.getByRole('status', { name: '本局亮牌' })
@@ -146,9 +151,8 @@ test('死九报扎、付分、按开场配置续局和本地回放', async ({ pa
   await expect(page.getByRole('button', { name: /玩法/ })).toHaveCount(0)
   await expect(page.getByRole('dialog', { name: /玩法/ })).toHaveCount(0)
   await page.getByRole('button', { name: '查看结算', exact: true }).click()
-  await clickWithSeed(result.getByRole('button', { name: '继续' }), 1)
+  await clickWithSeed(result.getByRole('button', { name: '继续' }), 1, '全庄场 · 东1局 · 死九')
   await expect(page.locator('.round-info')).toHaveText('全庄场 · 东1局 · 1本场')
-  await expect(page.locator('.start-cue span')).toHaveText('全庄场 · 东1局 · 死九')
   await expect(page.locator('.user-identity .dealer-badge')).toBeVisible()
   await expect(page.locator('.hand-rack.playable')).toBeVisible({ timeout: 35_000 })
   await expect(indicator).toHaveText(/^亮牌\s*四条$/)
@@ -341,11 +345,10 @@ test.describe('手机完整场次', () => {
     await page.getByRole('button', { name: '确定', exact: true }).click()
     await clickWithSeed(page.getByRole('button', { name: /开始对局/ }), 9890)
     await page.getByRole('button', { name: '扎亮牌 ×3' }).click({ timeout: 30_000 })
-    await clickWithSeed(page.getByRole('button', { name: '继续', exact: true }), 1)
+    await clickWithSeed(page.getByRole('button', { name: '继续', exact: true }), 1, '东风场 · 东1局 · 死九')
     const label = page.locator('.round-info')
     const seat = page.locator('.seat-top .avatar-wrap')
     await expect(label).toHaveText('东风场 · 东1局 · 1本场')
-    await expect(page.locator('.start-cue span')).toHaveText('东风场 · 东1局 · 死九')
     await expect(seat).toContainText('−900万')
     for (const width of [740, 568, 786, 892]) {
       await page.setViewportSize({ width, height: width === 568 ? 320 : 381 })
@@ -537,7 +540,7 @@ for (const mobile of [false, true]) {
         await page.getByRole('button', { name: '退出对局' }).click()
         await page.getByRole('button', { name: /对局回放/ }).click()
         await page.getByRole('button', { name: '查看', exact: true }).click()
-        await expect(page.locator('.replay-timeline')).toBeInViewport({ ratio: 1 })
+        await expect(page.locator('.replay-timeline')).toBeInViewport({ ratio: 1, timeout: 35_000 })
         await page.keyboard.press('End')
         await page.getByRole('button', { name: '结算明细', exact: true }).click()
         await expect(page.getByRole('dialog', { name: '回放结算明细' })).toBeInViewport({ ratio: 1 })

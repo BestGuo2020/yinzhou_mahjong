@@ -80,7 +80,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm exec playwright test --shard=${{ matrix.shard }}/3 --reporter=list
+      - name: Run Chromium browser regressions on Mesa
+        env:
+          E2E_MESA: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GALLIUM_DRIVER: llvmpipe
+        run: xvfb-run -a pnpm exec playwright test --shard=${{ matrix.shard }}/3 --reporter=list
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

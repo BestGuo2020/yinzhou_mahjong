@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test'
 const port = Number(process.env.E2E_PORT || 4173)
 const baseURL = `http://127.0.0.1:${port}`
 const reuseExistingOnly = process.env.E2E_REUSE_ONLY === '1'
+const mesa = process.env.E2E_MESA === '1'
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -18,9 +19,12 @@ export default defineConfig({
   reporter: process.env.CI ? 'dot' : 'list',
   use: {
     baseURL,
-    // Use full Chromium headless with hardware GPU, not headless-shell SwiftShader.
     channel: 'chromium',
-    launchOptions: { args: ['--enable-gpu'] },
+    // Linux CI runs a full Chromium window on Xvfb with Mesa's OpenGL driver.
+    headless: !mesa,
+    launchOptions: { args: mesa
+      ? ['--enable-gpu', '--use-gl=angle', '--use-angle=gl', '--ignore-gpu-blocklist']
+      : ['--enable-gpu'] },
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     viewport: { width: 1280, height: 720 },
