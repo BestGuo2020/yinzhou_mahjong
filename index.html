@@ -2,6 +2,20 @@
 <html lang="zh-CN" prefix="og: https://ogp.me/ns#">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      if ('%PROD%' === 'true') {
+        const measurementId = 'G-2PMNQJPWBM';
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = function () { window.dataLayer.push(arguments); };
+        window.gtag('js', new Date());
+        window.gtag('config', measurementId);
+
+        const tag = document.createElement('script');
+        tag.async = true;
+        tag.src = 'https://www.googletagmanager.com/gtag/js?id=' + measurementId;
+        document.head.appendChild(tag);
+      }
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#1c4937" />
     <meta name="description" content="136 张牌，一位玩家与三位本地 AI 同桌。可选活杠、死杠、死九和小牌禁胡，底分 10 分。" />
