@@ -25,7 +25,11 @@ pnpm test:e2e
 
 ## 网站和 Android 同步发布
 
-正式站点为 [yinzhoumahjong.guoguo-labs.online](https://yinzhoumahjong.guoguo-labs.online/)。在本机安装 JDK 17、Android SDK Platform 36、Build Tools 36.0.0 和 Python 3.9+，将 `ANDROID_HOME` 指向 SDK。项目内的 Gradle 包装器负责 Android 构建。
+正式站点 [yinzhoumahjong.guoguo-labs.online](https://yinzhoumahjong.guoguo-labs.online/) 使用 EdgeOne Pages 的 Git 集成，生产分支为 `master`。推送源码后，GitHub Actions 使用仓库 Secrets 中的固定签名构建独立 APK，校验网页、下载和更新包。测试通过后，Actions 将 APK 和版本清单写回 `master` 的 `mobile-release/`。EdgeOne 自动读取这个发布提交。CI 运行期间，网页、下载入口和更新接口继续提供上一份完整版本。后续本地开发前用 `git pull --ff-only` 同步发布提交。
+
+根目录的 `edgeone.json` 指定平台运行 `node scripts/edgeone-release.mjs build`，输出目录为 `edgeone-dist`。构建从已签名 APK 提取同版网页资源并校验更新包。APK 和更新 ZIP 以最大 12 MiB 的静态分片保存，边缘函数通过固定下载地址流式返回原文件。浏览器和已安装的 APK 都沿用原地址。
+
+本地生成正式 APK 时，安装 JDK 17、Android SDK Platform 36、Build Tools 36.0.0 和 Python 3.9+，将 `ANDROID_HOME` 指向 SDK。项目内的 Gradle 包装器负责 Android 构建。
 
 首次建立应用签名时执行一次 `pnpm android:signing-init`。妥善备份仓库根目录下的 `.android-signing/`（Git 已忽略）。更换构建机时恢复整个目录，或通过 `YINZHOU_KEYSTORE` 和 `YINZHOU_KEY_PASSWORD` 提供同一份 PKCS12 密钥，别名为 `yinzhou`。保留签名才能覆盖安装新版 APK。
 
@@ -39,9 +43,7 @@ pnpm test:e2e
 | `dist/updates/latest.json` | 客户端检测版本、长度和 SHA-256 的清单 |
 | `artifacts/android/<版本号>/yinzhou-mahjong-<版本号>.apk` | 本次独立构建的签名 APK 留档 |
 
-将整个 `dist/` 原子发布到 HTTPS 站点，或先上传网页资源、版本 ZIP 和 APK，最后替换 `updates/latest.json`。固定 APK 和版本清单应配置 `Cache-Control: no-cache`，版本 ZIP 可以长期缓存；滚动发布时保留旧 ZIP 以便已开始的下载完成。多机构建时使用递增的 `YINZHOU_VERSION_CODE`，默认使用自 2020 年起的 UTC 秒数。仅调试网页时使用 `pnpm build:web`，其单独输出不包含 APK 和更新清单。
-
-需要在 GitHub Actions 归档正式发布包时，在仓库 Secrets 中配置 `YINZHOU_KEYSTORE_BASE64`（同一份 PKCS12 的 Base64 编码）和 `YINZHOU_KEY_PASSWORD`。之后每次推送到 `master` 且 CI 通过，均可从该次运行下载含独立 APK 的发布产物。未配置签名的 CI 会使用临时密钥验证构建。
+GitHub Actions 读取仓库 Secrets 中的 `YINZHOU_KEYSTORE_BASE64`（同一份 PKCS12 的 Base64 编码）和 `YINZHOU_KEY_PASSWORD`。每次成功的生产构建均可从对应运行下载签名 APK，也可在 Git 发布提交中找回历史版本。本地核对已提交的 EdgeOne 发布文件时运行 `pnpm build:edgeone` 和 `node --test scripts/edgeone-download.test.mjs`。仅调试网页时使用 `pnpm build:web`。
 
 APK 内置本次发布的全部游戏资源。断网也能首次开局。客户端启动或返回前台时检查更新（同一次运行最多每 15 分钟检查一次）。玩家确认后才下载，校验和解包完成后可选择立即重启或下次启动使用。更新沿用相同的本地网页来源，保留金币和牌谱。网页下载入口仅在浏览器大厅显示。修改 Android 容器、权限或其他原生功能时，用户需要安装新 APK。
 

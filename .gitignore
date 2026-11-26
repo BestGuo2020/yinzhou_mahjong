@@ -173,4 +173,5 @@ artifacts/
 /android/.gradle/
 /android/build/
 /android/local.properties
+/edgeone-dist/
 /.android-signing/

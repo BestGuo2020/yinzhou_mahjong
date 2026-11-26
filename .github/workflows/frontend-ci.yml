@@ -2,12 +2,17 @@ name: Frontend CI
 
 on:
   push:
+    paths-ignore:
+      - 'mobile-release/**'
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -25,7 +30,9 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: android-actions/setup-android@v3
-      - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+          log-accepted-android-sdk-licenses: false
       - name: Build website, offline APK and update package
         id: mobile
         env:
@@ -39,16 +46,22 @@ jobs:
             unset KEY_BASE64
             echo 'distribution=true' >> "$GITHUB_OUTPUT"
           else
-            # Build verification only. Never distribute an APK signed with a temporary identity.
+            if [ "$GITHUB_EVENT_NAME" = push ] && [ "$GITHUB_REF" = refs/heads/master ]; then
+              echo "The release signing secret is missing" >&2
+              exit 1
+            fi
             pnpm android:signing-init
           fi
           pnpm build
+          node scripts/edgeone-release.mjs record
+          pnpm build:edgeone
+          node --test scripts/edgeone-download.test.mjs
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v4
         if: steps.mobile.outputs.distribution == 'true'
         with:
-          name: yinzhou-site-and-apk-${{ github.run_id }}-${{ github.run_attempt }}
-          path: dist/
+          name: signed-android-${{ github.run_id }}-${{ github.run_attempt }}
+          path: mobile-release/
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -59,3 +72,29 @@ jobs:
             test-results/
           if-no-files-found: ignore
           retention-days: 7
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: signed-android-${{ github.run_id }}-${{ github.run_attempt }}
+          path: mobile-release/
+      - name: Publish the signed build for EdgeOne Git deployment
+        run: |
+          git fetch origin master
+          if [ "$(git rev-parse FETCH_HEAD)" != "$GITHUB_SHA" ]; then
+            echo "A newer commit supersedes this release"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- mobile-release/
+          git diff --cached --quiet && exit 0
+          git commit -m "发布 Android 和 EdgeOne 网页版本 ${GITHUB_SHA:0:7}"
+          git push origin HEAD:master

@@ -1,0 +1,20 @@
+{
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "node scripts/edgeone-release.mjs build",
+  "outputDirectory": "edgeone-dist",
+  "nodeVersion": "22.21.1",
+  "headers": [
+    {
+      "source": "/release-files/*.bin",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/release-files/current.json",
+      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+    },
+    {
+      "source": "/updates/latest.json",
+      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+    }
+  ]
+}

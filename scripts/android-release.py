@@ -9,7 +9,6 @@ import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
-from zipfile import ZIP_DEFLATED, ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
 ANDROID = ROOT / "android"
@@ -74,17 +73,15 @@ def release():
         if len(files) > 10000 or sum(f.stat().st_size for f in files) > (256 << 20):
             sys.exit("Web content exceeds the Android updater limits")
         update = stage / f"web-{code}.zip"
-        with ZipFile(update, "w", compression=ZIP_DEFLATED) as archive:
-            for file in files:
-                archive.write(file, file.relative_to(web).as_posix())
-        if update.stat().st_size > (128 << 20):
-            sys.exit("Update package exceeds the Android download limit")
         gradle = [str(ANDROID / "gradlew.bat")] if os.name == "nt" else ["sh", "./gradlew"]
         subprocess.run([*gradle, "assembleRelease", f"-PreleaseCode={code}", f"-PreleaseName={name}",
                         f"-PwebAssetsDir={web}"], cwd=ANDROID, env=env, check=True)
         apk, = (ANDROID / "build/outputs/apk/release").glob("*.apk")
         if "unsigned" in apk.name:
             sys.exit("Gradle produced an unsigned APK")
+        subprocess.run(["node", str(ROOT / "scripts/edgeone-release.mjs"), "zip", str(apk), str(update)], check=True)
+        if update.stat().st_size > (128 << 20):
+            sys.exit("Update package exceeds the Android download limit")
 
         manifest = stage / "latest.json"
         manifest.write_text(json.dumps({
@@ -104,7 +101,7 @@ def release():
         publish_file(update, site / "updates" / update.name)
         publish_file(web / "index.html", site / "index.html")
         publish_file(manifest, site / "updates/latest.json")
-        print(f"APK: {saved_apk}\nUpload {site} to https://yinzhoumahjong.guoguo-labs.online/")
+        print(f"APK: {saved_apk}\nWebsite and update: {site}")
 
 
 if __name__ == "__main__":
