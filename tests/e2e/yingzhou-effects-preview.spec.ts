@@ -7,17 +7,32 @@ for (const { device, viewport, mobile } of [
   test.describe(device, () => {
     test.use({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: mobile ? 3 : 1 })
     test('三倍场抢补杠由被抢者独付，输赢数字从左滑入后金币飞向本家', async ({ page }, info) => {
+      test.setTimeout(90_000)
       await page.emulateMedia({ reducedMotion: 'no-preference' })
-      await page.addInitScript(() => {
+      await page.goto('/?preview=win-effects&effect=rob&coins=3&quality=low&theme=jade')
+      const controls = page.getByRole('navigation', { name: '特效预览' })
+      const layer = page.getByRole('status', { name: '三倍场金币收付' })
+      await expect(layer).toBeVisible({ timeout: 45_000 })
+      await expect(controls.getByRole('button', { name: '三倍场' })).toHaveAttribute('aria-pressed', 'true')
+      await expect(layer).toHaveCount(0, { timeout: 10_000 })
+      await page.clock.install()
+      const sounds = await page.evaluateHandle(() => {
+        const played: string[] = []
         const play = HTMLMediaElement.prototype.play
         HTMLMediaElement.prototype.play = function () {
-          if (this.dataset.effectName?.startsWith('coin_')) performance.mark(this.dataset.effectName)
+          if (this.dataset.effectName?.startsWith('coin_')) played.push(this.dataset.effectName)
           return play.call(this)
         }
+        return played
       })
-      await page.goto('/?preview=win-effects&effect=rob&coins=3&quality=low&theme=jade')
-      const layer = page.getByRole('status', { name: '三倍场金币收付' })
-      await expect(layer).toBeVisible({ timeout: 35_000 })
+      const now = await page.evaluate(() => Date.now())
+      await page.clock.pauseAt(new Date(now + 500))
+      await controls.getByRole('button', { name: '抢杠', exact: true }).click({ force: true })
+      // 通过实际预览按钮启动演出，让牌桌计时推进到金币层挂载。采样期间保留这一帧。
+      for (let elapsed = 0; elapsed < 8000 && !await layer.count(); elapsed += 250) {
+        await page.clock.fastForward(250)
+      }
+      await expect(layer).toBeVisible()
       await expect(layer.locator('.effect-number')).toHaveCount(2)
       await expect(layer.getByRole('img', { name: '+18000000' })).toBeVisible()
       await expect(layer.getByRole('img', { name: '−18000000' })).toBeVisible()
@@ -31,23 +46,25 @@ for (const { device, viewport, mobile } of [
       }))
       expect(skews).toHaveLength(2)
       for (const skew of skews) expect(skew).toBeCloseTo(0)
-      const frames = await layer.locator('.coin-slide').first().evaluate(el =>
-        (el.getAnimations()[0].effect as KeyframeEffect).getKeyframes())
+      const frames = await layer.locator('.coin-slide').evaluateAll(slides => slides.map(el => {
+        const animation = el.getAnimations()[0]
+        const effect = animation.effect as KeyframeEffect
+        animation.pause()
+        animation.currentTime = Number(effect.getTiming().duration) / 2
+        return effect.getKeyframes()
+      })[0])
       expect(frames[0]).toMatchObject({ opacity: '0', transform: 'translateX(-28%)' })
-      await page.waitForFunction(() => {
-        const slide = document.querySelector('.coin-slide')
-        return slide && Number(getComputedStyle(slide).opacity) === 1
-      })
+      await expect(layer.locator('.coin-slide').first()).toHaveCSS('opacity', '1')
       await page.screenshot({ path: info.outputPath('payout-digits.png'), scale: 'css' })
-      await page.waitForFunction(() => {
-        const canvas = document.querySelector<HTMLCanvasElement>('.coin-payout canvas')
-        const ctx = canvas?.getContext('2d')
-        return !!canvas && !!ctx && ctx.getImageData(0, 0, canvas.width, canvas.height).data.some((v, i) => i % 4 === 3 && v > 128)
-      })
+      await page.clock.fastForward(850)
+      await page.clock.runFor(32)
+      expect(await layer.locator('canvas').evaluate(canvas =>
+        canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data.some((v, i) => i % 4 === 3 && v > 128)
+      )).toBe(true)
       await page.screenshot({ path: info.outputPath('coin-flight.png') })
+      await page.clock.fastForward(2000)
       await expect(layer).toHaveCount(0)
-      expect(await page.evaluate(() => performance.getEntriesByType('mark')
-        .map(entry => entry.name).filter(name => name.startsWith('coin_')))).toEqual(['coin_flight.ogg'])
+      expect(await sounds.jsonValue()).toEqual(['coin_flight.ogg'])
     })
   })
 }

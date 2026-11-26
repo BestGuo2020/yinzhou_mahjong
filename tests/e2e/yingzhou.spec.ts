@@ -18,7 +18,8 @@ async function clickWithSeed(button: Locator, seed: number, openingLabel?: strin
 }
 
 test('实桌逆时针发牌，摸到亮牌前一张仍可手选弃牌并报完牌名再流局', async ({ page }, info) => {
-  test.setTimeout(300_000)
+  // 整副牌走真实摸打和报牌录音。在 CI 的软件渲染器上实测接近五分钟。
+  test.setTimeout(420_000)
   await page.goto('/?theme=jade&quality=low')
   const start = page.getByRole('button', { name: /开始对局/ })
   await expect(start).toBeVisible({ timeout: 35_000 })
@@ -195,8 +196,11 @@ test('横屏在同面普通牌中识别并打出死九的标记补牌', async ({
   await expect(kong).toBeVisible({ timeout: 35_000 })
   const before = await hud.getAttribute('data-wall-count')
   await kong.click()
-  await expect(hud).toHaveAttribute('data-wall-count', before!)
+  await expect(hud).toHaveAttribute('data-meld-tile-counts', '4,0,0,0')
   const hand = page.locator('.hand-rack')
+  // 宣告暗杠时手里有 10 张，补牌到手后才检查普通九筒和标记九筒。
+  await expect(hand.locator('.mahjong-tile')).toHaveCount(11, { timeout: 20_000 })
+  await expect(hud).toHaveAttribute('data-wall-count', before!)
   await expect(hand.getByRole('button', { name: '九筒', exact: true })).toHaveCount(2)
   const marked = hand.getByRole('button', { name: '九筒，杠后标记牌' })
   await expect(marked).toBeInViewport()
@@ -233,6 +237,15 @@ function buttonStyle(button: Locator) {
   return button.evaluate(el => {
     const s = getComputedStyle(el)
     return [s.width, s.height, s.borderRadius, s.border, s.background, s.boxShadow, s.color]
+  })
+}
+
+async function waitForSettlementEntrance(card: Locator) {
+  await card.evaluate(async el => {
+    const backdrop = el.closest('.result-backdrop, .final-backdrop') ?? el
+    await Promise.all(backdrop.getAnimations({ subtree: true })
+      .filter(animation => animation.effect?.getTiming().iterations !== Infinity)
+      .map(animation => animation.finished.catch(() => {})))
   })
 }
 
@@ -404,12 +417,7 @@ test.describe('手机完整场次', () => {
     await expect(final.locator('> p')).toHaveText('东风场 · 对局结束')
     await expect(final.locator('.final-rankings article')).toHaveCount(4)
     await expect(final.locator('.final-rankings article').first()).toContainText('90')
-    await final.evaluate(async el => {
-      const layer = el.closest('.final-backdrop')!
-      await Promise.all(layer.getAnimations({ subtree: true })
-        .filter(animation => animation.effect?.getTiming().iterations !== Infinity)
-        .map(animation => animation.finished.catch(() => {})))
-    })
+    await waitForSettlementEntrance(final)
     await expect(final).toHaveCSS('opacity', '1')
     const bounds = (await final.boundingBox())!
     expect(bounds.width).toBeLessThanOrEqual(620)
@@ -518,6 +526,7 @@ for (const mobile of [false, true]) {
         await expect(card.locator('.result-actions button')).toHaveText(['查看牌桌', '继续'])
         const amounts = card.locator('.round-rankings article > :is(em, b)')
         await expect(amounts).toHaveCount(8)
+        await waitForSettlementEntrance(card)
         const sizes = mobile ? [
           { width: 480, height: 320 }, { width: 568, height: 320 },
           { width: 964, height: 360 }, page.viewportSize()!,
