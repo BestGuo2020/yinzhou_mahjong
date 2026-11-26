@@ -1,10 +1,10 @@
 {
-  "apkSha256": "991d9ed05511c8ac1ef04bbe5adbce92e6c605101eaa875f71fb1d41f8c7ae21",
+  "apkSha256": "27287f12c8732e7f7db9193a70193a501394616fc0344ab73a1060dcbd3232d3",
   "update": {
     "format": 1,
-    "versionCode": 217848937,
-    "versionName": "2026.11.26.093537",
-    "bytes": 35232943,
-    "sha256": "a35dcd7302a608935bf0e579d08471d11f9425d57d9139aabbac0e936a68c40c"
+    "versionCode": 217850459,
+    "versionName": "2026.11.26.100059",
+    "bytes": 35618666,
+    "sha256": "65288bfc21de78c957c8ceda8687be1231d31c9f3c3cb61d7e37128da77720b5"
   }
 }
