@@ -7,7 +7,7 @@ interface TileInstanceRendererOptions {
   ownDynamic<T>(resource: T): T
   dynamicGroups: THREE.Object3D[]
   getAtlasMaterial(): THREE.Material
-  getMarkedDiscardMaterial(face: TileType): THREE.Material
+  getMarkedDiscardSideMaterial(): THREE.Material
   getJokerAtlasMaterial?: () => THREE.Material
   getWildcardAtlasMaterial?: () => THREE.Material
   getLaiziAtlasMaterial?: () => THREE.Material
@@ -65,18 +65,17 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
   let wildcardAtlasCapCount = 0
   let laiziAtlasCapCount = 0
   let instanceCount = 0
-  const markedDiscardCaps = new Map<TileType, THREE.InstancedMesh>()
+  let markedDiscardCap: THREE.InstancedMesh | null = null
   const matrix = new THREE.Matrix4()
   const scaleVector = new THREE.Vector3()
   const shadowMatrix = new THREE.Matrix4()
   const shadowPosition = new THREE.Vector3()
   const shadowScale = new THREE.Vector3()
 
-  function createCap(topMaterial: THREE.Material, geometry: THREE.BufferGeometry) {
+  function createCap(topMaterial: THREE.Material, geometry: THREE.BufferGeometry, side: THREE.Material = options.scene.userData.tileSide) {
     const cap = options.ownDynamic(new THREE.InstancedMesh(
       geometry,
-      [options.scene.userData.tileSide, options.scene.userData.tileSide, topMaterial,
-        options.scene.userData.tileBottom, options.scene.userData.tileSide, options.scene.userData.tileSide],
+      [side, side, topMaterial, options.scene.userData.tileBottom, side, side],
       INSTANCE_CAPACITY,
     ))
     cap.castShadow = true
@@ -101,7 +100,7 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
 
   function begin(reuse = false) {
     if (!reuse || !canReuse()) {
-      markedDiscardCaps.clear()
+      markedDiscardCap = null
       baseMesh = options.ownDynamic(new THREE.InstancedMesh(
         options.scene.userData.tileBaseGeometry,
         [options.scene.userData.faceSide, options.scene.userData.faceSide, options.scene.userData.faceSide,
@@ -163,7 +162,7 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
     wildcardAtlasCapCount = 0
     laiziAtlasCapCount = 0
     instanceCount = 0
-    for (const mesh of markedDiscardCaps.values()) mesh.count = 0
+    if (markedDiscardCap) markedDiscardCap.count = 0
   }
 
   function set(baseIndex: number, capMesh: THREE.InstancedMesh, capIndex: number, position: THREE.Vector3, quaternion: THREE.Quaternion, scale: number) {
@@ -189,14 +188,18 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
     if (instanceCount >= INSTANCE_CAPACITY) throw new Error('Tile instance capacity exceeded')
     const baseIndex = instanceCount++
     if (markedDiscard && face) {
-      let capMesh = markedDiscardCaps.get(face)
-      if (!capMesh) {
-        capMesh = createCap(options.getMarkedDiscardMaterial(face), options.scene.userData.tileCapGeometry)
-        capMesh.name = 'marked-discard-' + face
-        capMesh.count = 0
-        markedDiscardCaps.set(face, capMesh)
+      if (!markedDiscardCap) {
+        const geometry = options.ownDynamic(options.scene.userData.tileCapGeometry.clone())
+        geometry.setAttribute('aUvOffset', new THREE.InstancedBufferAttribute(new Float32Array(INSTANCE_CAPACITY * 2), 2))
+        // 牌顶和普通弃牌共用同一格图集。只在四个侧面印“杠后”。
+        markedDiscardCap = createCap(options.getAtlasMaterial(), geometry, options.getMarkedDiscardSideMaterial())
+        markedDiscardCap.name = 'marked-discards'
+        markedDiscardCap.count = 0
       }
+      const capMesh = markedDiscardCap
       const capIndex = capMesh.count++
+      const uv = options.atlasCellUvFor(face)
+      capMesh.geometry.getAttribute('aUvOffset').setXY(capIndex, uv.u, uv.v)
       set(baseIndex, capMesh, capIndex, initialPosition ?? position, quaternion, initialScale ?? scale)
       return { baseIndex, capMesh, capIndex }
     }
@@ -242,6 +245,7 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
     laiziAtlasCapMesh!.instanceMatrix.needsUpdate = true
     if (shadowMesh) shadowMesh.instanceMatrix.needsUpdate = true
     if (atlasUvAttribute) atlasUvAttribute.needsUpdate = true
+    if (markedDiscardCap) markedDiscardCap.geometry.getAttribute('aUvOffset').needsUpdate = true
     if (jokerAtlasUvAttribute) jokerAtlasUvAttribute.needsUpdate = true
     if (wildcardAtlasUvAttribute) wildcardAtlasUvAttribute.needsUpdate = true
     if (laiziAtlasUvAttribute) laiziAtlasUvAttribute.needsUpdate = true

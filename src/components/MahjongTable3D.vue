@@ -524,7 +524,7 @@ onMounted(async () => {
     ownDynamic,
     dynamicGroups,
     getAtlasMaterial: tableScene.getAtlasMaterial,
-    getMarkedDiscardMaterial: face => tableScene.makeFaceMaterial(face, 'kong-marked'),
+    getMarkedDiscardSideMaterial: tableScene.getMarkedDiscardSideMaterial,
     getAtlasCapGeometry: tableScene.getAtlasCapGeometry,
     atlasCellUvFor: tableScene.atlasCellUvFor,
     getJokerAtlasMaterial: tableScene.getJokerAtlasMaterial,

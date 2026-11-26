@@ -389,7 +389,7 @@ function makeBackTexture() {
   return texture
 }
 
-type FaceMarker = 'joker' | 'wildcard' | 'laizi' | 'kong-marked' | false
+type FaceMarker = 'joker' | 'wildcard' | 'laizi' | false
 // 在 ctx 上以 (x,y,w,h) 画一张牌的牌面：浅色底 + 牌面图 + 投影，单张纹理与图集共用。
 function drawTileFace(ctx: CanvasRenderingContext2D, tile: TileType, x: number, y: number, w: number, h: number, marker: FaceMarker = false) {
   const image = scene.userData.tileImages.get(tile) || scene.userData.tileImages.get('white')
@@ -414,26 +414,10 @@ function drawTileFace(ctx: CanvasRenderingContext2D, tile: TileType, x: number, 
     ctx.shadowOffsetY = 1.2
     const insetX = w * 20 / 384
     const insetY = h * 20 / 512
-    // 标记弃牌在侧边留出窄栏，图案与标记都避开牌端的圆角。
-    const markedDiscard = marker === 'kong-marked'
-    const scale = markedDiscard ? .86 : 1
-    const imageWidth = (w - insetX * 2) * scale
-    const imageHeight = (h - insetY * 2) * scale
-    ctx.drawImage(image, x + (markedDiscard ? w * .012 : insetX), y + (h - imageHeight) / 2, imageWidth, imageHeight)
+    ctx.drawImage(image, x + insetX, y + insetY, w - 2 * insetX, h - 2 * insetY)
     ctx.restore()
   }
-  if (marker === 'kong-marked') {
-    ctx.save()
-    ctx.fillStyle = '#73321c'
-    ctx.fillRect(x + w * .79, y + h * .32, w * .19, h * .36)
-    ctx.fillStyle = '#fff5cd'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.font = `bold ${w * .17}px sans-serif`
-    ctx.fillText('杠', x + w * .885, y + h * .43)
-    ctx.fillText('后', x + w * .885, y + h * .57)
-    ctx.restore()
-  } else if (marker) {
+  if (marker) {
     // 按身份区分标记：精=真精牌/白板翻精（白板即精）；替=莲花麻将白板替身（可代本局精牌）；癞=广麻白板癞子。
     const markerLabel = marker === 'wildcard' ? '\u66ff' : marker === 'laizi' ? '\u764d' : '\u7cbe'
     const markerColor = marker === 'wildcard' ? '#b88220' : marker === 'laizi' ? '#c0342e' : '#08a9dc'
@@ -460,6 +444,27 @@ function drawTileFace(ctx: CanvasRenderingContext2D, tile: TileType, x: number, 
     ctx.fillStyle = 'rgba(255,255,255,.8)'
     ctx.fillRect(x, y, w, h * .05)
   }
+}
+
+let markedDiscardSide: TileMaterial | null = null
+function getMarkedDiscardSideMaterial() {
+  if (markedDiscardSide) return markedDiscardSide
+  const surface = document.createElement('canvas')
+  surface.width = 256
+  surface.height = 112
+  const ctx = surface.getContext('2d')!
+  ctx.fillStyle = '#73321c'
+  ctx.fillRect(0, 0, surface.width, surface.height)
+  ctx.fillStyle = '#fff5cd'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.font = 'bold 76px sans-serif'
+  ctx.fillText('杠后', surface.width / 2, surface.height / 2)
+  const map = own(new THREE.CanvasTexture(surface))
+  map.colorSpace = THREE.SRGBColorSpace
+  map.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8)
+  markedDiscardSide = trackTileMaterial(own(tileMaterial({ ...theme.tile.side, color: 0xffffff, map })))
+  return markedDiscardSide
 }
 
 function makeFaceMaterial(tile: TileType, marker: FaceMarker = false) {
@@ -1050,6 +1055,7 @@ function addTable() {
     addTable,
     updateMachineTexture,
     makeFaceMaterial,
+    getMarkedDiscardSideMaterial,
     makeDimmedHorseTile,
     makeGoldGlow,
     makeGoldVerticalGlow,
