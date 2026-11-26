@@ -16,6 +16,10 @@ const length = defineModel<MatchLength>('length', { required: true })
 const emit = defineEmits<{ start: []; openReplay: []; openRules: []; openStats: [] }>()
 const picker = ref<'length' | 'rules' | null>(null)
 const showEffectsPreview = import.meta.env.DEV
+const showAndroidDownload = window.location.origin !== 'https://appassets.androidplatform.net'
+const androidDownloadUrl = import.meta.env.DEV
+  ? '/dist/downloads/yinzhou-mahjong.apk'
+  : import.meta.env.BASE_URL + 'downloads/yinzhou-mahjong.apk'
 </script>
 
 <template>
@@ -42,6 +46,7 @@ const showEffectsPreview = import.meta.env.DEV
           <button type="button" class="text-button" data-action-role="light" @click="emit('openStats')">我的战绩 →</button>
           <button type="button" class="text-button" data-action-role="light" data-testid="open-replay" @click="emit('openReplay')">对局回放 →</button>
           <button type="button" class="text-button" data-action-role="light" @click="emit('openRules')">游戏规则 →</button>
+          <a v-if="showAndroidDownload" class="text-button apk-download" :href="androidDownloadUrl" download>下载安卓版</a>
         </div>
       </section>
     </div>
@@ -63,4 +68,5 @@ const showEffectsPreview = import.meta.env.DEV
 .coin-room button[aria-pressed="true"] { background: var(--theme-button); color: var(--theme-button-text); font-weight: 700; }
 .lobby-links { flex-wrap: wrap; }
 .effects-link { color: var(--theme-accent); text-decoration: none; }
+.apk-download { text-decoration: none; }
 </style>

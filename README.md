@@ -15,13 +15,35 @@ pnpm install --frozen-lockfile
 pnpm dev
 pnpm test:yingzhou
 pnpm test
-pnpm build
+pnpm build:web
 pnpm test:e2e
 ```
 
 颍州规则与 AI 在 `src/game/variants/yingzhou/`。浏览器本地完成对局，结算后可在大厅回放牌谱。默认墨玉、欢乐麻将、红木金丝和 LLM 主题可在右上角切换。
 
 项目基于 [yaotongmahjong](https://github.com/BestGuo2020/yaotongmahjong)。上游的玩法引擎、联机底层、研究脚本和历史牌谱兼容模块保留在仓库中。
+
+## 网站和 Android 同步发布
+
+正式站点为 [yinzhoumahjong.guoguo-labs.online](https://yinzhoumahjong.guoguo-labs.online/)。在本机安装 JDK 17、Android SDK Platform 36、Build Tools 36.0.0 和 Python 3.9+，将 `ANDROID_HOME` 指向 SDK。项目内的 Gradle 包装器负责 Android 构建。
+
+首次建立应用签名时执行一次 `pnpm android:signing-init`。妥善备份仓库根目录下的 `.android-signing/`（Git 已忽略）。更换构建机时恢复整个目录，或通过 `YINZHOU_KEYSTORE` 和 `YINZHOU_KEY_PASSWORD` 提供同一份 PKCS12 密钥，别名为 `yinzhou`。保留签名才能覆盖安装新版 APK。
+
+每次正式发布运行 `pnpm build`。这条命令从同一份网页构建生成以下文件：
+
+| 文件 | 用途 |
+| --- | --- |
+| `dist/` | 可直接部署到站点根目录的完整静态网站 |
+| `dist/downloads/yinzhou-mahjong.apk` | 网页大厅「下载安卓版」的固定下载地址 |
+| `dist/updates/web-<版本号>.zip` | 已安装客户端按需下载的 HTML、JS、CSS、图片和音频 |
+| `dist/updates/latest.json` | 客户端检测版本、长度和 SHA-256 的清单 |
+| `artifacts/android/<版本号>/yinzhou-mahjong-<版本号>.apk` | 本次独立构建的签名 APK 留档 |
+
+将整个 `dist/` 原子发布到 HTTPS 站点，或先上传网页资源、版本 ZIP 和 APK，最后替换 `updates/latest.json`。固定 APK 和版本清单应配置 `Cache-Control: no-cache`，版本 ZIP 可以长期缓存；滚动发布时保留旧 ZIP 以便已开始的下载完成。多机构建时使用递增的 `YINZHOU_VERSION_CODE`，默认使用自 2020 年起的 UTC 秒数。仅调试网页时使用 `pnpm build:web`，其单独输出不包含 APK 和更新清单。
+
+需要在 GitHub Actions 归档正式发布包时，在仓库 Secrets 中配置 `YINZHOU_KEYSTORE_BASE64`（同一份 PKCS12 的 Base64 编码）和 `YINZHOU_KEY_PASSWORD`。之后每次推送到 `master` 且 CI 通过，均可从该次运行下载含独立 APK 的发布产物。未配置签名的 CI 会使用临时密钥验证构建。
+
+APK 内置本次发布的全部游戏资源。断网也能首次开局。客户端启动或返回前台时检查更新（同一次运行最多每 15 分钟检查一次）。玩家确认后才下载，校验和解包完成后可选择立即重启或下次启动使用。更新沿用相同的本地网页来源，保留金币和牌谱。网页下载入口仅在浏览器大厅显示。修改 Android 容器、权限或其他原生功能时，用户需要安装新 APK。
 
 ## 保留的 LLM / TTS 环境说明
 

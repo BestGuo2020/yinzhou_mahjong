@@ -20,8 +20,36 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test
-      - run: pnpm build
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Build website, offline APK and update package
+        id: mobile
+        env:
+          KEY_BASE64: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && secrets.YINZHOU_KEYSTORE_BASE64 || '' }}
+          YINZHOU_KEY_PASSWORD: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && secrets.YINZHOU_KEY_PASSWORD || '' }}
+        run: |
+          if [ -n "$KEY_BASE64" ]; then
+            export YINZHOU_KEYSTORE="$RUNNER_TEMP/yinzhou.p12"
+            install -m 600 /dev/null "$YINZHOU_KEYSTORE"
+            printf '%s' "$KEY_BASE64" | base64 --decode > "$YINZHOU_KEYSTORE"
+            unset KEY_BASE64
+            echo 'distribution=true' >> "$GITHUB_OUTPUT"
+          else
+            # Build verification only. Never distribute an APK signed with a temporary identity.
+            pnpm android:signing-init
+          fi
+          pnpm build
       - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: steps.mobile.outputs.distribution == 'true'
+        with:
+          name: yinzhou-site-and-apk-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist/
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

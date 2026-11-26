@@ -1,0 +1,39 @@
+plugins {
+    id 'com.android.application' version '9.2.1'
+}
+
+def webAssets = tasks.register('prepareGameAssets', Sync) {
+    from providers.gradleProperty('webAssetsDir').getOrElse('../dist')
+    exclude 'downloads/**', 'updates/**'
+    into layout.buildDirectory.dir('generated/gameAssets')
+}
+
+android {
+    namespace 'online.guoguo_labs.yinzhoumahjong'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'online.guoguo_labs.yinzhoumahjong'
+        minSdk 26
+        targetSdk 35
+        versionCode providers.gradleProperty('releaseCode').getOrElse('1').toInteger()
+        versionName providers.gradleProperty('releaseName').getOrElse('dev')
+        testInstrumentationRunner 'online.guoguo_labs.yinzhoumahjong.UpdateSmokeTest'
+    }
+    buildFeatures { buildConfig = true }
+    sourceSets.main.assets.srcDir(layout.buildDirectory.dir('generated/gameAssets').get().asFile)
+    buildTypes.debug.applicationIdSuffix = '.qa'
+    if (System.getenv('YINZHOU_KEYSTORE')) {
+        signingConfigs {
+            distribution {
+                storeFile file(System.getenv('YINZHOU_KEYSTORE'))
+                storePassword System.getenv('YINZHOU_KEY_PASSWORD')
+                keyAlias 'yinzhou'
+                keyPassword System.getenv('YINZHOU_KEY_PASSWORD')
+            }
+        }
+        buildTypes.release.signingConfig = signingConfigs.distribution
+    }
+}
+
+tasks.named('preBuild') { dependsOn webAssets }

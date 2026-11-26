@@ -170,3 +170,7 @@ tests/*
 tests/e2e/*
 !tests/e2e/yingzhou*.spec.ts
 artifacts/
+/android/.gradle/
+/android/build/
+/android/local.properties
+/.android-signing/
