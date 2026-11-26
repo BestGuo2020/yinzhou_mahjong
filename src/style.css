@@ -4241,34 +4241,55 @@ button { font: inherit; }
     left: 50%;
     transform: translateX(-50%);
   }
-  /* 颍州对家与顶栏同排，给桌面上的副露、牌河留出完整视野。 */
+  /* 顶栏由左到右是局况、对家和工具按钮。局况可在自己的区域内换行。 */
+  .game-app .has-three-scene {
+    --yingzhou-seat-width: 128px;
+    --yingzhou-toolbar-buttons: 4;
+  }
+  :root:not(:fullscreen) .has-three-scene:has(.edge-fullscreen-entry) { --yingzhou-toolbar-buttons: 5; }
   .game-app:has([data-ruleset="yingzhou"]) .top-bar nav { anchor-name: --yingzhou-toolbar; }
   .game-app [data-ruleset="yingzhou"].yaotong-table .player-seat.seat-top {
     top: calc(var(--safe-top) + 8px);
     left: auto;
-    right: max(26%, calc(var(--safe-right) + 5 * (var(--control-hit-target) + 2px) + 14px));
-    right: max(26%, calc(anchor(--yingzhou-toolbar left, 26%) + 8px));
+    /* 8px 顶栏内边距、2px 按钮间距、8px 头像间距。旧 WebView 也按按钮数避让。 */
+    --toolbar-start: calc(var(--safe-right) + 8px + var(--yingzhou-toolbar-buttons, 4) * (var(--control-hit-target) + 2px) - 2px);
+    right: calc(var(--toolbar-start) + 8px);
+    right: calc(anchor(--yingzhou-toolbar left, var(--toolbar-start)) + 8px);
     transform: none;
     z-index: 21;
   }
-  @container game (max-width: 720px) {
-    .game-app:has([data-ruleset="yingzhou"][data-reveal-hands="0"]) .table-meta {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .game-app:has([data-ruleset="yingzhou"][data-reveal-hands="0"]) .table-meta .round-info {
-      position: static;
-      order: 1;
-      max-width: 26cqw;
-      transform: none;
-    }
+  .game-app:has([data-ruleset="yingzhou"][data-reveal-hands="0"]) .table-meta {
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 8px;
+    min-width: 0;
+    margin-right: calc(var(--yingzhou-seat-width) + 20px);
+  }
+  .game-app:has([data-ruleset="yingzhou"][data-reveal-hands="0"]) .table-meta .base-score-badge {
+    margin: 0;
+    padding-block: 0;
+    line-height: 16px;
+    white-space: nowrap;
+  }
+  .game-app:has([data-ruleset="yingzhou"][data-reveal-hands="0"]) .table-meta .round-info {
+    position: static;
+    order: 1;
+    max-width: 100%;
+    margin-inline: auto;
+    padding-block: 1px;
+    line-height: 16px;
+    transform: none;
   }
   /* A shallow identity strip fits between the far hand and its discard river. */
   .game-app .yaotong-table .player-seat.seat-top .avatar-wrap {
     grid-template-columns: auto minmax(0, auto) auto;
     max-width: min(320px, 64cqw);
     padding: 3px 6px;
+  }
+  .game-app [data-ruleset="yingzhou"].yaotong-table .player-seat.seat-top .avatar-wrap {
+    max-width: var(--yingzhou-seat-width, 128px);
   }
   .game-app .yaotong-table .player-seat.seat-top .player-info {
     flex-direction: row;

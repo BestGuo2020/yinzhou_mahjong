@@ -329,6 +329,35 @@ test('普通弃牌应牌的碰和杠使用原版高亮，隐藏工具不占横�
 
 test.describe('手机完整场次', () => {
   test.use({ isMobile: true, hasTouch: true, reducedMotion: 'reduce', viewport: { width: 390, height: 844 } })
+  test('横屏连庄时局数、本场、对家负分和工具栏互不遮挡', async ({ page }, info) => {
+    test.setTimeout(75_000)
+    await page.setViewportSize({ width: 786, height: 381 })
+    await page.goto('/?theme=jade&quality=low')
+    await page.getByRole('button', { name: '三倍场', exact: true }).click()
+    await page.getByRole('button', { name: /玩法 活杠/ }).click()
+    await page.getByRole('button', { name: /死九/ }).click()
+    await page.getByRole('button', { name: '确定', exact: true }).click()
+    await clickWithSeed(page.getByRole('button', { name: /开始对局/ }), 9890)
+    await page.getByRole('button', { name: '扎亮牌 ×3' }).click({ timeout: 30_000 })
+    await clickWithSeed(page.getByRole('button', { name: '继续', exact: true }), 1)
+    const label = page.locator('.round-info')
+    const seat = page.locator('.seat-top .avatar-wrap')
+    await expect(label).toHaveText('东风场 · 东1局 · 1本场')
+    await expect(seat).toContainText('−900万')
+    for (const width of [740, 568, 786, 892]) {
+      await page.setViewportSize({ width, height: width === 568 ? 320 : 381 })
+      await page.locator('.game-app').evaluate(el => el.style.setProperty('--safe-left', '38px'))
+      const round = (await label.boundingBox())!
+      const opponent = (await seat.boundingBox())!
+      const toolbar = (await page.locator('.top-bar nav').boundingBox())!
+      expect(round.x + round.width, `局数与对家 · ${width}px`).toBeLessThanOrEqual(opponent.x - 4)
+      expect(opponent.x + opponent.width, `对家与按钮 · ${width}px`).toBeLessThanOrEqual(toolbar.x - 4)
+      expect(await label.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+    }
+    await page.screenshot({ path: info.outputPath('repeat-round-header.png') })
+    await seat.getByRole('button', { name: '查看对家的昵称' }).click()
+    await expect(seat.locator('.nickname-popover')).toHaveText('对家')
+  })
   test('竖屏指引、东风场连庄后打到东四局才显示最终排名', async ({ page }, info) => {
     test.setTimeout(110_000)
     await page.goto('/?theme=rosewood&quality=low')
