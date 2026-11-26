@@ -47,9 +47,10 @@ function changeTheme(value: TableThemeName) {
 }
 if (requestedTheme !== null && requestedTheme !== theme.value) changeTheme(theme.value)
 const presentation = computed(() => themePresentationByName(theme.value))
-const { playEffect, playEffectAndWait, startBgm, preloadAudioAsset } = useAudio({
+const { playEffect, playEffectAndWait, scheduleBufferedEffect, startBgm, preloadAudioAsset } = useAudio({
   preloadEffects: false, bufferEffects: inAndroidApp() || /Android/i.test(navigator.userAgent),
 })
+const tableAudio = { play: playEffect, playAndWait: playEffectAndWait, schedule: scheduleBufferedEffect }
 const load = createStartupLoader(gameStartupTasks(theme.value, preloadAudioAsset), startupScreen.update)
 async function prepare() {
   try {
@@ -100,7 +101,7 @@ const {
   round, ready, settings, length, matchLength, players, phase, result, finished, actor, selectedIndex, opening, openingStage,
   dealAnimation, headDrawn, wall, controls, mayDiscard, actionCue, waits, selectedWaits,
   winEffect, winPatterns, winPresentation, revealHands, winningPlayerIndex, weather, play, start, next, leave,
-} = useYingzhouGame(replay, rulesOpen, { play: playEffect, playAndWait: playEffectAndWait })
+} = useYingzhouGame(replay, rulesOpen, tableAudio)
 const { balance, saveFailed, record } = useCoinBalance()
 const coinRate = computed(() => round.value?.settings.coinMultiplier ?? 1)
 watch(coinRate, rate => { if (rate === 3) warmCoinPayout() })
@@ -168,7 +169,7 @@ function quit() {
     :data-table-theme="theme" :data-theme-player-frame="presentation.hud.playerFrame"
     :data-theme-particle="presentation.shell.particle" :data-theme-loading="presentation.presentation.loading"
     :style="themePresentationCssVariables(presentation)">
-    <EffectsPreview v-if="EffectsPreview" :theme-name="theme" :audio="{ play: playEffect, playAndWait: playEffectAndWait }" />
+    <EffectsPreview v-if="EffectsPreview" :theme-name="theme" :audio="tableAudio" />
     <div v-else-if="!replayView" :class="{ 'has-three-scene': round, 'yingzhou-playing': round && !revealHands }">
       <GameShellHeader game-mode="local" :phase="phase" :has-players="!!round" :match-name="matchName"
         :round-label="handLabel" :honba="round?.honba ?? 0" :stake-label="(coinRate === 3 ? '三倍场' : '普通场') + ' · 底金' + seatGold(BASE_POINTS)" room-id="" :signal-quality="3" :theme-name="theme"

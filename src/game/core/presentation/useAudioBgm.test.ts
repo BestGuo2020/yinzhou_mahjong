@@ -118,15 +118,18 @@ describe('Android 预解码音效', () => {
       getChannelData: () => samples } as unknown as AudioBuffer)
     await Promise.all(['zimo.mp3', 'zimo.ogg', 'hu_effect_sound.mp3'].map(audio.preloadAudioAsset))
     const finished = vi.fn()
+    ctx.currentTime = 10
     const waitForVoice = audio.playEffectAndWait('zimo.mp3').then(finished)
-    audio.playEffect('hu_effect_sound.mp3', .72)
+    const cancelImpact = audio.scheduleBufferedEffect('hu_effect_sound.mp3', .72, 538)
     audio.playEffect('zimo.mp3')
     const [voice, impact, repeat] = ctx.sources
     expect(ctx.decodeAudioData).toHaveBeenCalledTimes(2)
     expect(repeat.buffer).toBe(voice.buffer)
     expect(voice.started.mock.calls[0][1]).toBeCloseTo(.1)
-    expect(impact.started).toHaveBeenCalledWith(0, 0)
+    expect(impact.started).toHaveBeenCalledWith(10.538, 0)
     impact.onended!()
+    cancelImpact!()
+    expect(impact.stopped).not.toHaveBeenCalled()
     audio.bgmOn.value = false
     await nextTick()
     expect(finished).not.toHaveBeenCalled()

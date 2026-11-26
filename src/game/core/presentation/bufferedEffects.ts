@@ -17,7 +17,7 @@ export function createBufferedEffects(context: AudioContext) {
     if (!closed && context.state !== 'running') void context.resume().catch(() => {})
   }
 
-  function play(file: string, volume: number, onFinish?: () => void) {
+  function play(file: string, volume: number, onFinish?: () => void, delayMs = 0) {
     const clip = clips.get(file)
     if (!clip || closed) return null
     if (context.state !== 'running') {
@@ -42,7 +42,7 @@ export function createBufferedEffects(context: AudioContext) {
     }
     source.onended = finish
     try {
-      source.start(0, clip.offset)
+      source.start(delayMs ? context.currentTime + delayMs / 1000 : 0, clip.offset)
     } catch {
       disconnect()
       return null
@@ -51,11 +51,15 @@ export function createBufferedEffects(context: AudioContext) {
     return source
   }
 
+  function stop(source: AudioBufferSourceNode) {
+    const item = playing.get(source)
+    if (!item) return
+    source.stop()
+    item.finish()
+  }
+
   function stopAll() {
-    for (const [source, { finish }] of playing) {
-      source.stop()
-      finish()
-    }
+    for (const source of playing.keys()) stop(source)
   }
 
   function close() {
@@ -69,7 +73,7 @@ export function createBufferedEffects(context: AudioContext) {
     return [...playing.values()].some(item => item.file === file)
   }
 
-  return { preload, play, resume, stopAll, close, isPlaying }
+  return { preload, play, resume, stop, stopAll, close, isPlaying }
 }
 
 function voiceOffset(file: string, buffer: AudioBuffer) {

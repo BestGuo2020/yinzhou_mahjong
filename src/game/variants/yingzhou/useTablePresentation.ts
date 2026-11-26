@@ -19,6 +19,7 @@ import { tablePlayers, tableResult } from './presentation'
 export interface TableAudio {
   play(name: string, volume?: number): unknown
   playAndWait(name: string, volume?: number): Promise<void>
+  schedule?(name: string, volume: number, delayMs: number): (() => void) | null
 }
 
 export function useTablePresentation(audio: TableAudio, current: () => Round | null) {
@@ -26,6 +27,7 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
   const scheduler = createPresentationScheduler({ controllers: [], stopCountdown() {}, cancelOpening() {} })
   const transient = createLocalTransientEventPresenter({ state: view, later: scheduler.later })
   const weather = ref<KongWeatherCue[]>([])
+  let cancelWinImpact: (() => void) | null = null
   const scoresReleased = ref(false)
   const revealAt = ref<number | null>(null)
   const winPresentation = computed(() => {
@@ -45,6 +47,8 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
   })
 
   function reset() {
+    cancelWinImpact?.()
+    cancelWinImpact = null
     scheduler.clear()
     weather.value = []
     scoresReleased.value = false
@@ -95,6 +99,10 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
       winTiming: win ? winPlaybackTiming(win.kind) : undefined,
       state: { ...view, get players() { return visiblePlayers(round) } },
       clearTimers: scheduler.clear, later: scheduler.later, playSound: audio.play,
+      scheduleSound(name, volume, delayMs) {
+        cancelWinImpact = audio.schedule?.(name, volume, delayMs) ?? null
+        return cancelWinImpact !== null
+      },
       getRoundLabel: () => windRoundLabel(round.dealerRound), finalizeWin: finalize, endDraw: finalize,
       showTableAction: (...args) => transient.showTableAction(...args, win?.label),
       getSourceIndex: ({ winnerIndex, winTile }) => {

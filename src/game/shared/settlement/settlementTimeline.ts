@@ -78,6 +78,7 @@ export interface SettlementTimelineOptions<E extends SettlementEndOptions, S ext
   clearTimers(): void
   later(callback: () => void, delay: number): number
   playSound(name: string, volume?: number): unknown
+  scheduleSound?(name: string, volume: number, delayMs: number): boolean
   playSoundAndWait?(name: string, volume?: number): Promise<void>
   settleWinningDiscard?(from: number | undefined, tile: TileType, winnerIndex: number): void
   showTableAction(
@@ -216,7 +217,7 @@ export function createSettlementTimeline<E extends SettlementEndOptions, S exten
         reducedMotion,
         id: Date.now(),
       }
-      if (!reducedMotion && impactDelay !== null) {
+      if (!reducedMotion && impactDelay !== null && !options.scheduleSound?.('hu_effect_sound.mp3', 0.72, impactDelay)) {
         options.later(() => {
           if (serial === currentSerial) options.playSound('hu_effect_sound.mp3', 0.72)
         }, impactDelay)

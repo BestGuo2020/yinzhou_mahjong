@@ -249,6 +249,13 @@ export function useAudio({ preloadEffects = true, bufferEffects = false } = {}) 
     return audio
   }
 
+  function scheduleBufferedEffect(name: string, volume: number, delayMs: number) {
+    if (!mixer || !soundOn.value || !effectsOn.value) return null
+    const file = resolveAudioAsset(name)
+    const source = file && mixer.play(file, volume, undefined, delayMs)
+    return source ? () => mixer.stop(source) : null
+  }
+
   function playEffectAndWait(name: string, volume = 1): Promise<void> {
     if (!soundOn.value || !effectsOn.value || !name) return Promise.resolve()
     return new Promise<void>((resolve) => {
@@ -866,6 +873,7 @@ export function useAudio({ preloadEffects = true, bufferEffects = false } = {}) 
     bgmOn,
     effectsOn,
     playEffect,
+    scheduleBufferedEffect,
     playEffectAndWait,
     effectsReady,
     playLlmAudio,
