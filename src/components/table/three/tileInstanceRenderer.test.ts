@@ -23,6 +23,7 @@ describe('tileInstanceRenderer', () => {
       ownDynamic: (resource) => resource,
       getAtlasMaterial: () => material,
       getMarkedDiscardSideMaterial: () => material,
+      getMarkedDiscardStickerMaterial: () => material,
       getAtlasCapGeometry: () => atlasGeometry,
       atlasCellUvFor: () => ({ u: 0, v: 0 }),
     })
@@ -66,10 +67,11 @@ describe('tileInstanceRenderer', () => {
   it('reuses meshes between batches and keeps marked discard faces identical to ordinary tiles', () => {
     const scene = new THREE.Scene()
     const dynamicGroups: THREE.Object3D[] = []
-    const geometry = new THREE.BoxGeometry(1, 1, 1)
+    const geometry = new THREE.BoxGeometry(.69, .34, .95)
     const atlasGeometry = geometry.clone()
     const material = new THREE.MeshBasicMaterial()
     const markedSide = new THREE.MeshBasicMaterial()
+    const stickerMaterial = new THREE.MeshBasicMaterial({ transparent: true })
     scene.userData.tileBaseGeometry = geometry
     scene.userData.tileCapGeometry = geometry
     scene.userData.faceSide = material
@@ -83,6 +85,7 @@ describe('tileInstanceRenderer', () => {
       ownDynamic: (resource) => resource,
       getAtlasMaterial: () => material,
       getMarkedDiscardSideMaterial: () => markedSide,
+      getMarkedDiscardStickerMaterial: () => stickerMaterial,
       getAtlasCapGeometry: () => atlasGeometry,
       atlasCellUvFor: face => ({ u: face === 'm3' ? .25 : .5, v: .75 }),
     })
@@ -126,11 +129,31 @@ describe('tileInstanceRenderer', () => {
     const ordinaryMatrix = new THREE.Matrix4()
     ordinary.capMesh.getMatrixAt(ordinary.capIndex, ordinaryMatrix)
     expect(matrix).toEqual(ordinaryMatrix)
+    const stickers = scene.getObjectByName('marked-discard-stickers') as THREE.InstancedMesh
+    expect(stickers.material).toBe(stickerMaterial)
+    expect(stickers.count).toBe(2)
+    stickers.geometry.computeBoundingBox()
+    const halfSticker = stickers.geometry.boundingBox!.getSize(new THREE.Vector3()).multiplyScalar(.5)
+    const inFlight = new THREE.Vector3(3, 2, 4)
+    for (const turn of [0, 1, 2, 3]) {
+      const yaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), turn * Math.PI / 2)
+      renderer.set(marked.baseIndex, marked.capMesh, marked.capIndex, inFlight, yaw, .8)
+      stickers.getMatrixAt(marked.capIndex, matrix)
+      const offset = new THREE.Vector3().setFromMatrixPosition(matrix).sub(inFlight).divideScalar(.8)
+      expect(offset.y).toBeCloseTo(.301)
+      expect(offset.x).toBeGreaterThan(0)
+      expect(offset.z).toBeGreaterThan(0)
+      expect(offset.x + halfSticker.x).toBeLessThan((turn % 2 ? .95 : .69) / 2)
+      expect(offset.z + halfSticker.z).toBeLessThan((turn % 2 ? .69 : .95) / 2)
+      expect(new THREE.Vector3(1, 0, 0).transformDirection(matrix).x).toBeCloseTo(1)
+    }
     renderer.begin(true)
     renderer.add(position, rotation, 'p9')
     renderer.finish()
     expect(marked.capMesh.count).toBe(0)
+    expect(stickers.count).toBe(0)
 
+    stickerMaterial.dispose()
     markedSide.dispose()
     geometry.dispose()
     atlasGeometry.dispose()

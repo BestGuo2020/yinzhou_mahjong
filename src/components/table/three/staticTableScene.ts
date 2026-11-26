@@ -447,24 +447,43 @@ function drawTileFace(ctx: CanvasRenderingContext2D, tile: TileType, x: number, 
 }
 
 let markedDiscardSide: TileMaterial | null = null
-function getMarkedDiscardSideMaterial() {
-  if (markedDiscardSide) return markedDiscardSide
+let markedDiscardLabelMap: THREE.CanvasTexture | null = null
+let markedDiscardSticker: THREE.MeshBasicMaterial | null = null
+function getMarkedDiscardLabelMap() {
+  if (markedDiscardLabelMap) return markedDiscardLabelMap
   const surface = document.createElement('canvas')
   surface.width = 256
   surface.height = 112
   const ctx = surface.getContext('2d')!
-  ctx.fillStyle = '#73321c'
+  // 侧面材质不混合透明度；牌顶贴纸用同一张纹理，仅底色透出下方的牌面。
+  ctx.fillStyle = 'rgba(115,50,28,.64)'
   ctx.fillRect(0, 0, surface.width, surface.height)
   ctx.fillStyle = '#fff5cd'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.font = 'bold 76px sans-serif'
-  ctx.fillText('杠后', surface.width / 2, surface.height / 2)
+  ctx.font = 'bold 86px sans-serif'
+  ctx.translate(surface.width / 2, surface.height / 2)
+  ctx.scale(1.15, 1)
+  ctx.fillText('杠后', 0, 0)
   const map = own(new THREE.CanvasTexture(surface))
   map.colorSpace = THREE.SRGBColorSpace
   map.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8)
-  markedDiscardSide = trackTileMaterial(own(tileMaterial({ ...theme.tile.side, color: 0xffffff, map })))
+  markedDiscardLabelMap = map
+  return map
+}
+function getMarkedDiscardSideMaterial() {
+  if (markedDiscardSide) return markedDiscardSide
+  markedDiscardSide = trackTileMaterial(own(tileMaterial({ ...theme.tile.side, color: 0xffffff, map: getMarkedDiscardLabelMap() })))
   return markedDiscardSide
+}
+function getMarkedDiscardStickerMaterial() {
+  if (!markedDiscardSticker) {
+    markedDiscardSticker = own(new THREE.MeshBasicMaterial({
+      map: getMarkedDiscardLabelMap(), transparent: true, depthWrite: false,
+      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+    }))
+  }
+  return markedDiscardSticker
 }
 
 function makeFaceMaterial(tile: TileType, marker: FaceMarker = false) {
@@ -1056,6 +1075,7 @@ function addTable() {
     updateMachineTexture,
     makeFaceMaterial,
     getMarkedDiscardSideMaterial,
+    getMarkedDiscardStickerMaterial,
     makeDimmedHorseTile,
     makeGoldGlow,
     makeGoldVerticalGlow,

@@ -8,6 +8,7 @@ interface TileInstanceRendererOptions {
   dynamicGroups: THREE.Object3D[]
   getAtlasMaterial(): THREE.Material
   getMarkedDiscardSideMaterial(): THREE.Material
+  getMarkedDiscardStickerMaterial(): THREE.Material
   getJokerAtlasMaterial?: () => THREE.Material
   getWildcardAtlasMaterial?: () => THREE.Material
   getLaiziAtlasMaterial?: () => THREE.Material
@@ -22,6 +23,8 @@ interface TileInstanceRendererOptions {
 
 const TILE_BASE_OFFSET = new THREE.Matrix4().makeTranslation(0, -.06, 0)
 const TILE_CAP_OFFSET = new THREE.Matrix4().makeTranslation(0, .13, 0)
+const STICKER_WIDTH = .43
+const STICKER_DEPTH = .24
 export const CONTACT_SHADOW_QUAT = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0))
 // 主光在左上（[-4,22,6]），接触阴影应偏向右后（+x、-z），而不是正中心对称的一圈。
 export const CONTACT_SHADOW_OFFSET_X = 0.18
@@ -66,6 +69,9 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
   let laiziAtlasCapCount = 0
   let instanceCount = 0
   let markedDiscardCap: THREE.InstancedMesh | null = null
+  let markedStickers: THREE.InstancedMesh | null = null
+  const capHalfSize = new THREE.Vector3()
+  const stickerPosition = new THREE.Vector3()
   const matrix = new THREE.Matrix4()
   const scaleVector = new THREE.Vector3()
   const shadowMatrix = new THREE.Matrix4()
@@ -101,6 +107,7 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
   function begin(reuse = false) {
     if (!reuse || !canReuse()) {
       markedDiscardCap = null
+      markedStickers = null
       baseMesh = options.ownDynamic(new THREE.InstancedMesh(
         options.scene.userData.tileBaseGeometry,
         [options.scene.userData.faceSide, options.scene.userData.faceSide, options.scene.userData.faceSide,
@@ -175,6 +182,18 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
     // deal/discard/meld tween matrices are uploaded on the next render frame.
     baseMesh!.instanceMatrix.needsUpdate = true
     capMesh.instanceMatrix.needsUpdate = true
+    if (markedStickers && capMesh === markedDiscardCap) {
+      // 牌河的牌只绕 Y 轴转。贴纸一律正对本家，位于牌面可见的右下角。
+      const sideways = Math.abs(matrix.elements[2]) > Math.abs(matrix.elements[0])
+      const halfWidth = sideways ? capHalfSize.z : capHalfSize.x
+      const halfDepth = sideways ? capHalfSize.x : capHalfSize.z
+      stickerPosition.setFromMatrixPosition(matrix)
+      stickerPosition.x += (halfWidth - STICKER_WIDTH / 2 - .075) * scale
+      stickerPosition.z += (halfDepth - STICKER_DEPTH / 2 - .075) * scale
+      stickerPosition.y += (capHalfSize.y + .001) * scale
+      markedStickers.setMatrixAt(capIndex, matrix.makeScale(scale, scale, scale).setPosition(stickerPosition))
+      markedStickers.instanceMatrix.needsUpdate = true
+    }
     if (shadowMesh && options.contactShadowY != null) {
       shadowPosition.set(position.x + CONTACT_SHADOW_OFFSET_X, options.contactShadowY, position.z + CONTACT_SHADOW_OFFSET_Z)
       shadowScale.setScalar(scale)
@@ -190,11 +209,22 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
     if (markedDiscard && face) {
       if (!markedDiscardCap) {
         const geometry = options.ownDynamic(options.scene.userData.tileCapGeometry.clone())
+        geometry.computeBoundingBox()
+        geometry.boundingBox.getSize(capHalfSize).multiplyScalar(.5)
         geometry.setAttribute('aUvOffset', new THREE.InstancedBufferAttribute(new Float32Array(INSTANCE_CAPACITY * 2), 2))
-        // 牌顶和普通弃牌共用同一格图集。只在四个侧面印“杠后”。
+        // 牌面仍与普通弃牌共用同一格图集，贴纸作为独立的一层。
         markedDiscardCap = createCap(options.getAtlasMaterial(), geometry, options.getMarkedDiscardSideMaterial())
         markedDiscardCap.name = 'marked-discards'
         markedDiscardCap.count = 0
+        markedStickers = options.ownDynamic(new THREE.InstancedMesh(
+          options.ownDynamic(new THREE.PlaneGeometry(STICKER_WIDTH, STICKER_DEPTH).rotateX(-Math.PI / 2)),
+          options.getMarkedDiscardStickerMaterial(), INSTANCE_CAPACITY,
+        ))
+        markedStickers.name = 'marked-discard-stickers'
+        markedStickers.count = 0
+        markedStickers.frustumCulled = false
+        options.scene.add(markedStickers)
+        options.dynamicGroups.push(markedStickers)
       }
       const capMesh = markedDiscardCap
       const capIndex = capMesh.count++
@@ -246,6 +276,7 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
     if (shadowMesh) shadowMesh.instanceMatrix.needsUpdate = true
     if (atlasUvAttribute) atlasUvAttribute.needsUpdate = true
     if (markedDiscardCap) markedDiscardCap.geometry.getAttribute('aUvOffset').needsUpdate = true
+    if (markedStickers) markedStickers.count = markedDiscardCap!.count
     if (jokerAtlasUvAttribute) jokerAtlasUvAttribute.needsUpdate = true
     if (wildcardAtlasUvAttribute) wildcardAtlasUvAttribute.needsUpdate = true
     if (laiziAtlasUvAttribute) laiziAtlasUvAttribute.needsUpdate = true
