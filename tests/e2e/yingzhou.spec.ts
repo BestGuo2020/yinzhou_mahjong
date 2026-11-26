@@ -329,7 +329,7 @@ test('普通弃牌应牌的碰和杠使用原版高亮，隐藏工具不占横�
 
 test.describe('手机完整场次', () => {
   test.use({ isMobile: true, hasTouch: true, reducedMotion: 'reduce', viewport: { width: 390, height: 844 } })
-  test('横屏连庄时局数、本场、对家负分和工具栏互不遮挡', async ({ page }, info) => {
+  test('横屏连庄时局数尽量居中，并避开对家负分和工具栏', async ({ page }, info) => {
     test.setTimeout(75_000)
     await page.setViewportSize({ width: 786, height: 381 })
     await page.goto('/?theme=jade&quality=low')
@@ -350,6 +350,8 @@ test.describe('手机完整场次', () => {
       const round = (await label.boundingBox())!
       const opponent = (await seat.boundingBox())!
       const toolbar = (await page.locator('.top-bar nav').boundingBox())!
+      const nearestCenter = Math.min(width / 2, opponent.x - 8 - round.width / 2)
+      expect(Math.abs(round.x + round.width / 2 - nearestCenter), `尽量居中 · ${width}px`).toBeLessThan(1)
       expect(round.x + round.width, `局数与对家 · ${width}px`).toBeLessThanOrEqual(opponent.x - 4)
       expect(opponent.x + opponent.width, `对家与按钮 · ${width}px`).toBeLessThanOrEqual(toolbar.x - 4)
       expect(await label.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)

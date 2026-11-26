@@ -485,6 +485,22 @@ watch([tableHudElement, usesYaotongLayout], ([hud, enabled], _, onCleanup) => {
   })
 }, { flush: 'post' })
 
+// Let the header reserve the rendered avatar and score, including changes after a payout.
+watch([tableHudElement, () => props.rulesetId === 'yingzhou' ? props.players[2]?.seat : undefined], ([hud, seat], _, onCleanup) => {
+  if (!hud || seat == null) return
+  const scene = hud.closest<HTMLElement>('.has-three-scene')
+  const card = hud.querySelector('.seat-top .avatar-wrap')
+  if (!scene || !card) return
+  const observer = new ResizeObserver(() => {
+    scene.style.setProperty('--yingzhou-opponent-width', `${card.getBoundingClientRect().width}px`)
+  })
+  observer.observe(card, { box: 'border-box' })
+  onCleanup(() => {
+    observer.disconnect()
+    scene.style.removeProperty('--yingzhou-opponent-width')
+  })
+}, { flush: 'post' })
+
 watch(() => props.userDiscardWaits, (value) => { waitsOpen.value = Boolean(value) })
 watch(() => props.isUserTurn, (value) => { if (!value) waitsOpen.value = false })
 watch(() => props.userKongs, (kongs) => { if (!kongs.length) kongPickerOpen.value = false })

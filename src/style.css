@@ -4259,13 +4259,15 @@ button { font: inherit; }
     z-index: 21;
   }
   .game-app:has([data-ruleset="yingzhou"][data-reveal-hands="0"]) .table-meta {
+    container-type: inline-size;
     display: flex;
     flex: 1;
     flex-wrap: wrap;
     align-items: center;
     gap: 2px 8px;
     min-width: 0;
-    margin-right: calc(var(--yingzhou-seat-width) + 20px);
+    /* Keep 8px on either side of the opponent. */
+    margin-right: calc(var(--yingzhou-opponent-width, var(--yingzhou-seat-width)) + 16px);
   }
   .game-app:has([data-ruleset="yingzhou"][data-reveal-hands="0"]) .table-meta .base-score-badge {
     margin: 0;
@@ -4277,10 +4279,12 @@ button { font: inherit; }
     position: static;
     order: 1;
     max-width: 100%;
-    margin-inline: auto;
+    margin-inline: auto 0;
     padding-block: 1px;
     line-height: 16px;
-    transform: none;
+    /* Start at the last unobstructed position. Move left only to reach the table center.
+       100cqw is the width of .table-meta and 50% is half this label's own width. */
+    transform: translateX(min(0px, calc(50vw - var(--safe-left) - 8px - 100cqw + 50%)));
   }
   /* A shallow identity strip fits between the far hand and its discard river. */
   .game-app .yaotong-table .player-seat.seat-top .avatar-wrap {
