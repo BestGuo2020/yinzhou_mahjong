@@ -1,5 +1,5 @@
 // 牌谱导出：把一场回放（场次 + 各局事件流）打包成 JSON，供玩家自行留存/分享。
-// 纯函数部分可测；只有 downloadReplayExport 触碰 DOM（浏览器专用）。
+import { inAndroidApp, saveAndroidJson, type AndroidSaveResult } from './androidExport'
 import { REPLAY_SCHEMA_VERSION, type ReplayMatch, type ReplayRound } from './types'
 import { replayMatchWithCurrentSummary } from './format'
 
@@ -37,10 +37,13 @@ export function replayExportFilename(match: ReplayMatch, exportedAt = Date.now()
   return `replay-${match.rulesetId}-${stamp}-${shortId}.json`
 }
 
-/** 触发浏览器下载；无 DOM 环境（测试/SSR）时静默跳过。 */
-export function downloadJsonFile(payload: unknown, filename: string): boolean {
-  if (typeof document === 'undefined' || typeof URL === 'undefined' || typeof Blob === 'undefined') return false
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+export type ExportResult = AndroidSaveResult | 'download' | 'unsupported'
+
+export async function downloadJsonFile(payload: unknown, filename: string): Promise<ExportResult> {
+  if (typeof document === 'undefined' || typeof URL === 'undefined' || typeof Blob === 'undefined') return 'unsupported'
+  const json = JSON.stringify(payload, null, 2)
+  if (inAndroidApp()) return saveAndroidJson(filename, json)
+  const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
@@ -51,10 +54,10 @@ export function downloadJsonFile(payload: unknown, filename: string): boolean {
   anchor.remove()
   // 交给下一轮事件循环再回收，避免部分浏览器下载未开始就失效。
   globalThis.setTimeout(() => URL.revokeObjectURL(url), 0)
-  return true
+  return 'download'
 }
 
 /** 触发展示回放（牌谱）下载；分析包导出复用同一实现（`downloadJsonFile`）。 */
-export function downloadReplayExport(payload: ReplayExportPayload, filename: string): boolean {
+export function downloadReplayExport(payload: ReplayExportPayload, filename: string): Promise<ExportResult> {
   return downloadJsonFile(payload, filename)
 }

@@ -5,7 +5,8 @@
 // 并提供「导出分析包」与「只删分析、保留牌谱」两个独立入口 —— 两者互不影响。
 import { computed, ref, watch } from 'vue'
 import { formatMatchDate, formatRank, gameModeLabel, matchSubtitle, replayMatchName, replayModeLabel, replayVersionNotice } from '../../game/replay/format'
-import { buildReplayExport, downloadReplayExport, replayExportFilename } from '../../game/replay/export'
+import { buildReplayExport, downloadReplayExport, replayExportFilename, type ExportResult } from '../../game/replay/export'
+import { inAndroidApp } from '../../game/replay/androidExport'
 import { importReplayFile } from '../../game/replay/importReplay'
 import { REPLAY_KEEP_OPTIONS, readReplayKeepCount, saveReplayKeepCount } from '../../game/replay/preferences'
 import {
@@ -125,6 +126,17 @@ async function clearAll() {
   busy.value = false
 }
 
+function showExportResult(result: ExportResult, description: string) {
+  switch (result) {
+    case 'saved': return flashHint(`已将${description}保存到所选文件夹`)
+    case 'download': return flashHint(`已导出${description}，可在浏览器下载记录中查看`)
+    case 'upgrade': return flashHint('请覆盖安装新版 APK，再从对局回放导出')
+    case 'cancelled': return flashHint('已取消保存')
+    case 'failed': return flashHint('文件保存失败，请重新导出')
+    case 'unsupported': return flashHint('当前环境不支持下载')
+  }
+}
+
 /** 导出该场牌谱（场次 + 各局事件流）为 JSON 文件。 */
 async function exportMatch(match: ReplayMatch) {
   busy.value = true
@@ -135,8 +147,10 @@ async function exportMatch(match: ReplayMatch) {
       return
     }
     const payload = buildReplayExport(match, rounds)
-    const written = downloadReplayExport(payload, replayExportFilename(match, payload.exportedAt))
-    flashHint(written ? `已导出 ${rounds.length} 局牌谱` : '当前环境不支持下载')
+    const result = await downloadReplayExport(payload, replayExportFilename(match, payload.exportedAt))
+    showExportResult(result, `${rounds.length} 局牌谱`)
+  } catch {
+    showExportResult('failed', '')
   } finally {
     busy.value = false
   }
@@ -172,10 +186,10 @@ async function exportAnalysis(match: ReplayMatch) {
       match, rounds, parts: read.parts, configurations, status,
       ...(meta?.gaps ? { gaps: meta.gaps } : {}),
     })
-    const written = downloadAnalysisExport(payload, analysisExportFilename(match, payload.exportedAt))
-    flashHint(written
-      ? `已导出分析包（${payload.manifest.recordsTotal} 条记录${payload.reproductionCapable ? '，可精确复现' : '，不完整／不可精确复现'}）`
-      : '当前环境不支持下载')
+    const result = await downloadAnalysisExport(payload, analysisExportFilename(match, payload.exportedAt))
+    showExportResult(result, `分析包（${payload.manifest.recordsTotal} 条记录${payload.reproductionCapable ? '，可精确复现' : '，不完整／不可精确复现'}）`)
+  } catch {
+    showExportResult('failed', '')
   } finally {
     busy.value = false
   }
@@ -276,7 +290,8 @@ const analysisImportInput = ref<HTMLInputElement | null>(null)
       <section class="result-card settlement-card replay-list-card">
         <h2>对局回放</h2>
         <p class="replay-list-note">
-          每局结束后自动保存在本机浏览器，可逐步回看。不上传服务器。
+          每局结束后自动保存在本机，可逐步回看。不上传服务器。
+          <template v-if="inAndroidApp()">导出时选择“下载”，以后可在文件管理器的“下载”里找到牌谱。</template>
         </p>
 
         <p v-if="!available" class="replay-list-empty" data-testid="replay-unavailable">

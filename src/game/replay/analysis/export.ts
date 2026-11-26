@@ -157,7 +157,7 @@ function localAnalysisIssues(input: BuildAnalysisExportInput): string[] {
 
 /**
  * 打包分析包。`available` 之外的一切都如实反映输入：缺记录就是缺记录，不补造。
- * 纯函数，便于单测；下载由 `downloadAnalysisExport` 负责（浏览器专用）。
+ * 纯函数，便于单测；下载由 `downloadAnalysisExport` 负责。
  */
 export function buildAnalysisExport(input: BuildAnalysisExportInput): AnalysisExportPayload {
   const records = [...input.parts]
@@ -248,7 +248,7 @@ export function analysisExportFilename(match: ReplayMatch, exportedAt = Date.now
   return `analysis-${match.rulesetId}-${stamp}-${shortId}.json`
 }
 
-/** 触发浏览器下载（复用牌谱导出的同一实现；无 DOM 环境返回 false）。 */
-export function downloadAnalysisExport(payload: AnalysisExportPayload, filename: string): boolean {
+/** 与牌谱共用同一个文件保存入口。 */
+export function downloadAnalysisExport(payload: AnalysisExportPayload, filename: string) {
   return downloadJsonFile(payload, filename)
 }

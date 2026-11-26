@@ -2,6 +2,7 @@ package online.guoguo_labs.yinzhoumahjong;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -25,6 +26,7 @@ public final class GameActivity extends Activity {
     private static final ExecutorService WORKER = Executors.newSingleThreadExecutor();
     private WebView game;
     private WebUpdates updates;
+    private ReplayExport replayExport;
     private int current;
     private long lastCheck;
     private boolean busy;
@@ -48,6 +50,7 @@ public final class GameActivity extends Activity {
             try { updates.clean(current); } catch (IOException ignored) {}
         });
         game = new WebView(this);
+        replayExport = new ReplayExport(this, state);
         WebSettings settings = game.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -64,6 +67,13 @@ public final class GameActivity extends Activity {
                 Uri uri = request.getUrl();
                 if (!local(uri)) return null;
                 String path = uri.getPath();
+                if ("/android/replay-export".equals(path) && !request.isForMainFrame()) {
+                    String id = uri.getQueryParameter("id");
+                    if (id == null || !id.matches("replay-export-[0-9]+")) return missing();
+                    view.post(() -> replayExport.connect(view, Uri.parse("https://" + HOST), id));
+                    return new WebResourceResponse("text/plain", "UTF-8", 204, "No Content",
+                            Collections.singletonMap("Cache-Control", "no-store"), null);
+                }
                 if (path == null || !path.startsWith("/") || path.contains("..") || path.contains("\\"))
                     return missing();
                 String name = path.equals("/") ? "index.html" : path.substring(1);
@@ -80,6 +90,16 @@ public final class GameActivity extends Activity {
 
     private static boolean local(Uri uri) {
         return "https".equals(uri.getScheme()) && HOST.equals(uri.getAuthority());
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        super.onSaveInstanceState(state);
+        replayExport.saveState(state);
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent result) {
+        super.onActivityResult(requestCode, resultCode, result);
+        if (requestCode == ReplayExport.CREATE_DOCUMENT) replayExport.onResult(resultCode, result);
     }
 
     private static String mime(String name) {

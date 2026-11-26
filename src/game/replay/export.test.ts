@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildReplayExport, downloadReplayExport, replayExportFilename } from './export'
 import { REPLAY_SCHEMA_VERSION, type ReplayMatch, type ReplayRound } from './types'
 
@@ -58,6 +58,8 @@ function round(roundIndex: number, label: string): ReplayRound {
 }
 
 describe('牌谱导出', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
   it('打包场次与各局，并按局号升序（文件内容可比对）', () => {
     const payload = buildReplayExport(MATCH, [round(2, '东2局'), round(1, '东1局')], 1_700_000_950_000)
     expect(payload.kind).toBe('lianhua-replay')
@@ -89,8 +91,40 @@ describe('牌谱导出', () => {
     expect(name).not.toMatch(/[\s:/\\?*"<>|]/)
   })
 
-  it('无 DOM 环境（测试/SSR）下导出返回 false 而不抛错', () => {
+  it('无 DOM 环境下报告不支持导出', async () => {
     const payload = buildReplayExport(MATCH, [round(1, '东1局')])
-    expect(downloadReplayExport(payload, 'x.json')).toBe(false)
+    expect(await downloadReplayExport(payload, 'x.json')).toBe('unsupported')
+  })
+
+  it('旧 APK 收到网页热更新后提示覆盖安装，不误报导出成功', async () => {
+    vi.stubGlobal('window', Object.assign(new EventTarget(), { location: { origin: 'https://appassets.androidplatform.net' } }))
+    vi.stubGlobal('document', {})
+    vi.stubGlobal('fetch', async () => new Response(null, { status: 404 }))
+    const payload = buildReplayExport(MATCH, [round(1, '东1局')])
+    expect(await downloadReplayExport(payload, replayExportFilename(MATCH))).toBe('upgrade')
+  })
+
+  it.each(['cancelled', 'failed', 'saved'] as const)('APK 导出采用系统实际返回的结果 %s', async (status) => {
+    const app = Object.assign(new EventTarget(), { location: { origin: 'https://appassets.androidplatform.net' } })
+    vi.stubGlobal('window', app)
+    vi.stubGlobal('document', {})
+    const channel = new MessageChannel()
+    vi.stubGlobal('fetch', async (path: string) => {
+      const id = new URL(path, app.location.origin).searchParams.get('id')
+      app.dispatchEvent(new MessageEvent('message', { data: id, ports: [channel.port2] }))
+      return new Response(null, { status: 204 })
+    })
+    const payload = buildReplayExport(MATCH, [round(1, '东1局')])
+    const filename = replayExportFilename(MATCH)
+    try {
+      const received = new Promise<string>((resolve) => { channel.port1.onmessage = ({ data }) => resolve(data) })
+      const result = downloadReplayExport(payload, filename)
+      expect(await received).toBe(filename + '\n' + JSON.stringify(payload, null, 2))
+      channel.port1.postMessage(status)
+      expect(await result).toBe(status)
+    } finally {
+      channel.port1.close()
+      channel.port2.close()
+    }
   })
 })
