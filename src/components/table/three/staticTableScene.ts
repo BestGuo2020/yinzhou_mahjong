@@ -414,20 +414,24 @@ function drawTileFace(ctx: CanvasRenderingContext2D, tile: TileType, x: number, 
     ctx.shadowOffsetY = 1.2
     const insetX = w * 20 / 384
     const insetY = h * 20 / 512
-    const scale = marker === 'kong-marked' ? .68 : 1
+    // 标记弃牌在侧边留出窄栏，图案与标记都避开牌端的圆角。
+    const markedDiscard = marker === 'kong-marked'
+    const scale = markedDiscard ? .86 : 1
     const imageWidth = (w - insetX * 2) * scale
-    ctx.drawImage(image, x + (w - imageWidth) / 2, y + insetY, imageWidth, (h - insetY * 2) * scale)
+    const imageHeight = (h - insetY * 2) * scale
+    ctx.drawImage(image, x + (markedDiscard ? w * .012 : insetX), y + (h - imageHeight) / 2, imageWidth, imageHeight)
     ctx.restore()
   }
   if (marker === 'kong-marked') {
     ctx.save()
     ctx.fillStyle = '#73321c'
-    ctx.fillRect(x + w * .05, y + h * .67, w * .9, h * .3)
+    ctx.fillRect(x + w * .79, y + h * .32, w * .19, h * .36)
     ctx.fillStyle = '#fff5cd'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.font = `bold ${h * .26}px sans-serif`
-    ctx.fillText('杠后', x + w * .5, y + h * .82)
+    ctx.font = `bold ${w * .17}px sans-serif`
+    ctx.fillText('杠', x + w * .885, y + h * .43)
+    ctx.fillText('后', x + w * .885, y + h * .57)
     ctx.restore()
   } else if (marker) {
     // 按身份区分标记：精=真精牌/白板翻精（白板即精）；替=莲花麻将白板替身（可代本局精牌）；癞=广麻白板癞子。
