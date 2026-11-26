@@ -6,6 +6,7 @@ import { OutlineEffect } from 'three/addons/effects/OutlineEffect.js'
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js'
 import { preloadTileImages, preloadedTileImages, tileBackUrl, type TileAssetTheme } from '../game/core/presentation/tileAssets'
 import { displayImageSrc, loadDecodedImage } from '../game/core/presentation/imagePreload'
+import { prefersReducedMotion } from '../game/core/presentation/winEffect'
 import type { TileType } from '../game/core/contracts/types'
 import { createAdaptiveQualityController, parseQualityOverride, QUALITY_LEVELS } from './table/three/adaptiveQuality'
 import { createDicePresenter } from './table/three/dicePresenter'
@@ -126,6 +127,7 @@ let lastFrameAt = 0
 // 静止停帧：只有「有动画在跑」或「状态变更（dirty）」时才重绘，否则停掉 RAF。
 let rendering = false
 let dirty = false
+let previousWeatherOnly = false
 let started = false
 let renderedFrames = 0
 // 静止停顿后重新开画时，帧间隔会被放大成一个假的大间隔，喂给 adaptiveQuality 会误判卡顿。
@@ -313,6 +315,8 @@ function render(time = 0) {
   animationFrame = 0
   if (!renderer) return
   rendering = true
+  const wasDirty = dirty
+  const autoUpdateShadows = renderer.shadowMap.autoUpdate
   dirty = false
   let keepGoing = false
   try {
@@ -379,12 +383,17 @@ function render(time = 0) {
       canvasElement.dataset.cameraDirection = camera.getWorldDirection(new THREE.Vector3()).toArray().join(',')
       canvasElement.dataset.handFaceRects = JSON.stringify(tableTiles.handFaceScreenRects(camera))
     }
+    // 风雨不投影。牌张、骰子和灯光都静止后，沿用最后一帧牌桌阴影。
+    const weatherOnly = isMobileLike && weatherActive && !wasDirty && !dirty && !tilesActive && !diceActive && !winFrame && !bloodFlowActive
+    if (weatherOnly && previousWeatherOnly) renderer.shadowMap.autoUpdate = false
+    previousWeatherOnly = weatherOnly
     if (outlineEffect) outlineEffect.render(scene, camera)
     else renderer.render(scene, camera)
     kongWeather?.renderOverlay(renderer)
     renderedFrames += 1
     keepGoing = diceActive || tilesActive || weatherActive || Boolean(winFrame) || bloodFlowActive || dirty
   } finally {
+    renderer.shadowMap.autoUpdate = autoUpdateShadows
     rendering = false
   }
   if (keepGoing) animationFrame = requestAnimationFrame(render)
@@ -586,7 +595,7 @@ onMounted(async () => {
     props.kongWeather ? preloadWeatherAssets().catch(error => { console.warn('开杠特效素材加载失败', error); return null }) : Promise.resolve(null),
   ])
   if (destroyed) return
-  kongWeather = createYaotongKongWeather({ scene, assets: weatherAssets, cues: () => props.kongWeather ?? [], localSeat: () => props.localSeat })
+  kongWeather = createYaotongKongWeather({ scene, assets: weatherAssets, mobile: isMobileLike, cues: () => props.kongWeather ?? [], localSeat: () => props.localSeat })
   scene.userData.tileImages = preloadedTileImages(activeThemeName)
   tableScene.addTable()
   tableTiles.rebuild()
@@ -608,7 +617,12 @@ onMounted(async () => {
   // compileAsync 等待着色器真正可用；随后提交首帧并跨过两个浏览器合成帧。
   if (destroyed) return
   // 记下这个 promise：卸载时要等它结束再 dispose（见 compilingShaders 的说明）。
-  compilingShaders = renderer.compileAsync(scene, camera)
+  compilingShaders = renderer.compileAsync(scene, camera).then(() => {
+    if (!destroyed && renderer) {
+      return kongWeather?.prewarm(renderer, camera, prefersReducedMotion())
+        .catch(error => console.warn('开杠特效预热失败', error))
+    }
+  })
   try {
     await compilingShaders
   } finally {

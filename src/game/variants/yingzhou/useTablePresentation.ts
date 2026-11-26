@@ -140,11 +140,11 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
       }
       if (event.kind !== 'peng') {
         const reducedMotion = prefersReducedMotion()
+        const onPlaybackEnd = () => { weather.value = weather.value.filter(c => c.onPlaybackEnd !== onPlaybackEnd) }
         const cue: KongWeatherCue = { id: round.serial, seat: event.seat, kind: concealed ? 'rain' : 'tornado',
-          startedAt: performance.now(), duration: reducedMotion ? REDUCED_KONG_WEATHER_DURATION : KONG_WEATHER_DURATION, reducedMotion }
-        weather.value = [...weather.value.filter(c => c.seat !== cue.seat), cue]
+          startedAt: performance.now(), duration: reducedMotion ? REDUCED_KONG_WEATHER_DURATION : KONG_WEATHER_DURATION, reducedMotion, onPlaybackEnd }
+        weather.value = [...weather.value.filter(c => c.seat !== cue.seat && !(concealed && c.kind === 'rain')), cue]
         audio.play(concealed ? 'angang_rainy.wav' : 'mingang_windy.wav', .28)
-        scheduler.later(() => { weather.value = weather.value.filter(c => c.id !== cue.id) }, cue.duration)
       }
     }
     if (round.result) {

@@ -14,11 +14,14 @@ export function kongWindPosition(seat: number, localSeat = 0, progress = .5) {
 interface WeatherEffect {
   cue: KongWeatherCue
   root: THREE.Group
+  begin(cue: KongWeatherCue, localSeat: number): void
+  elapsed: number
+  lastFrame: number | null
   frame(elapsed: number, progress: number): void
   dispose(): void
 }
 
-function buildWeather(scene: THREE.Scene, cue: KongWeatherCue, localSeat: number, assets: WeatherAssets, viewAspect: () => number): WeatherEffect {
+function buildWeather(cue: KongWeatherCue, localSeat: number, assets: WeatherAssets, viewAspect: () => number, mobile: boolean): WeatherEffect {
   const root = new THREE.Group()
   root.name = `yaotong-kong-${cue.kind}`
   root.userData.seat = cue.seat
@@ -103,8 +106,9 @@ function buildWeather(scene: THREE.Scene, cue: KongWeatherCue, localSeat: number
       mist.position.y = 1.35 + i * .45
       updates.push(seconds => { mist.material.rotation = Math.sin(seconds * 1.7 + i) * .3 })
     }
-    for (let i = 0; i < 12; i++) {
-      const star = sprite(texture('star'), 0xffdf9b, .8, true)
+    const starMap = texture('star')
+    for (let i = 0; i < (mobile ? 6 : 12); i++) {
+      const star = sprite(starMap, 0xffdf9b, .8, true)
       updates.push(seconds => {
         const phase = (seconds * .7 + i * .137) % 1, angle = i * 2.4 - seconds * 3.8
         star.position.set(Math.cos(angle) * (1.1 + phase * .65), .2 + phase * 2.6, Math.sin(angle) * (1.1 + phase * .65))
@@ -121,7 +125,7 @@ function buildWeather(scene: THREE.Scene, cue: KongWeatherCue, localSeat: number
     })
   } else {
     // Camera-facing foreground rain: no perspective ground planes or local puddle patch.
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < (mobile ? 3 : 5); i++) {
       const map = texture('smoke')
       setWeatherFrame(map, i % 4, 2, 2)
       const cloud = sprite(map, 0x4d95b5, .23)
@@ -133,14 +137,15 @@ function buildWeather(scene: THREE.Scene, cue: KongWeatherCue, localSeat: number
       })
     }
     const drops = new THREE.InstancedMesh(own(new THREE.PlaneGeometry(1, 1)),
-      material(new THREE.MeshBasicMaterial({ map: texture('rain'), color: 0xb6dcf4, opacity: .5, side: THREE.DoubleSide })), 160)
+      material(new THREE.MeshBasicMaterial({ map: texture('rain'), color: 0xb6dcf4, opacity: .5 })), mobile ? 80 : 160)
     own(drops)
     drops.frustumCulled = false
     drops.renderOrder = 2
     root.add(drops)
     updates.push(seconds => {
       for (let i = 0; i < drops.count; i++) {
-        const fall = (i * .173 + seconds / .65) % 1
+        const phase = (i * .173) % 1
+        const fall = cue.reducedMotion ? (phase + seconds / .65) % 1 : Math.max(0, seconds / .65 - phase) % 1
         const across = (i * .61803398875) % 1
         dummy.position.set((across * 2 - 1) * (viewAspect() + .13) - fall * .12, 1.15 - fall * 2.3, 0)
         dummy.rotation.set(0, 0, Math.PI / 2 - .06)
@@ -150,14 +155,15 @@ function buildWeather(scene: THREE.Scene, cue: KongWeatherCue, localSeat: number
       }
       drops.instanceMatrix.needsUpdate = true
     })
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < (mobile ? 6 : 12); i++) {
       const map = texture('splash')
       const splash = sprite(map, 0xb3d9ed, .36)
       splash.renderOrder = 3
       splash.center.set(.5, .12)
       updates.push(seconds => {
-        const cycle = (seconds + i * .137) % .75, age = cycle / .32
-        splash.visible = age < 1
+        const time = cue.reducedMotion ? seconds + i * .137 : seconds - .5 - (i * .137) % .75
+        const cycle = time % .75, age = cycle / .32
+        splash.visible = time >= 0 && age < 1
         splash.position.set(((i * .61803) % 1 * 2 - 1) * viewAspect() * .85, -.66 + (i % 3) * .18 - cycle * .06, 0)
         splash.scale.setScalar(.1 + (i % 3) * .025)
         setWeatherFrame(map, Math.min(15, age * 16), 4, 4)
@@ -166,14 +172,16 @@ function buildWeather(scene: THREE.Scene, cue: KongWeatherCue, localSeat: number
   }
   // Both supplied 2×1 atlases are decorative tokens; they never generate score transfers.
   const wind = cue.kind === 'tornado'
-  for (let i = 0; i < (cue.reducedMotion ? 4 : 16); i++) {
+  const tokenCount = cue.reducedMotion ? 4 : mobile ? 8 : 16
+  for (let i = 0; i < tokenCount; i++) {
     const coin = wind ? i % 3 === 0 : i % 3 !== 0
     const map = texture(coin ? 'coin' : 'goldenTile')
     setWeatherFrame(map, i % 2, 2, 1)
     const token = sprite(map, 0xffd18a, .9, true)
     token.name = 'kong-gold-particle'
     token.renderOrder = 4
-    const delay = .16 + (i >= 8 ? .32 : 0) + (i % 8) * .018
+    const burstSize = cue.reducedMotion ? 8 : tokenCount / 2
+    const delay = .16 + (i >= burstSize ? .32 : 0) + (i % burstSize) * .018
     const lifetime = 1.05 + (i % 4) * .12
     const angle = i * 2.39996
     updates.push(seconds => {
@@ -200,11 +208,17 @@ function buildWeather(scene: THREE.Scene, cue: KongWeatherCue, localSeat: number
       token.material.opacity *= Math.min(1, progress / .12, (1 - progress) / .3)
     })
   }
-  scene.add(root)
   return {
-    cue, root,
+    get cue() { return cue }, root, elapsed: 0, lastFrame: null,
+    begin(next, seat) {
+      cue = next
+      localSeat = seat
+      root.userData.seat = next.seat
+      this.elapsed = 0
+      this.lastFrame = null
+    },
     frame(elapsed, progress) {
-      const fade = cue.reducedMotion ? 1 : Math.min(1, progress / .12, (1 - progress) / .24)
+      const fade = Math.min(1, progress / .12, (1 - progress) / .24)
       if (cue.kind === 'tornado') {
         const position = kongWindPosition(cue.seat, localSeat, cue.reducedMotion ? .5 : progress)
         root.position.set(position.x, position.y, position.z)
@@ -222,27 +236,80 @@ export function createYaotongKongWeather(options: {
   cues(): readonly KongWeatherCue[]
   localSeat(): number
   assets: WeatherAssets | null
+  mobile?: boolean
 }) {
   const active = new Map<number, WeatherEffect>()
+  const idle = new Map<KongWeatherCue['kind'], WeatherEffect>()
   const screenScene = new THREE.Scene()
   const screenCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 10)
   screenCamera.position.z = 5
   let aspect = 1
   let localSeat = options.localSeat()
-  function dispose() { active.forEach(effect => effect.dispose()); active.clear() }
+  function release(effect: WeatherEffect) {
+    active.delete(effect.cue.id)
+    if (options.mobile && !idle.has(effect.cue.kind)) {
+      effect.root.removeFromParent()
+      idle.set(effect.cue.kind, effect)
+    } else effect.dispose()
+  }
+  function dispose() {
+    for (const effect of active.values()) {
+      effect.dispose()
+      effect.cue.onPlaybackEnd?.()
+    }
+    active.clear()
+    idle.forEach(effect => effect.dispose())
+    idle.clear()
+  }
+  async function prewarm(renderer: THREE.WebGLRenderer, camera: THREE.Camera, reducedMotion: boolean) {
+    if (!options.mobile || !options.assets) return
+    for (const kind of ['tornado', 'rain'] as const) {
+      const effect = buildWeather({ kind, id: -1, seat: 0, startedAt: 0, duration: 1, reducedMotion },
+        localSeat, options.assets, () => aspect, true)
+      idle.set(kind, effect)
+      effect.root.traverse(object => {
+        if (!(object instanceof THREE.Mesh || object instanceof THREE.Sprite)) return
+        const mat = object.material as THREE.MeshBasicMaterial
+        if (mat.map) renderer.initTexture(mat.map)
+        if (mat.alphaMap) renderer.initTexture(mat.alphaMap)
+      })
+      await renderer.compileAsync(effect.root, kind === 'rain' ? screenCamera : camera, kind === 'rain' ? screenScene : options.scene)
+    }
+  }
   function animate(now: number) {
-    if (!options.assets) return false
+    const cues = options.cues()
+    if (!options.assets) {
+      cues.forEach(cue => cue.onPlaybackEnd?.())
+      return false
+    }
     if (options.localSeat() !== localSeat) { dispose(); localSeat = options.localSeat() }
-    const live = options.cues().filter(cue => now >= cue.startedAt && now < cue.startedAt + cue.duration).slice(-4)
+    const live = cues.filter(cue => cue.onPlaybackEnd || (now >= cue.startedAt && now < cue.startedAt + cue.duration)).slice(-4)
     // Consecutive concealed kongs refresh one rain curtain instead of darkening the screen repeatedly.
     const latestRain = live.filter(cue => cue.kind === 'rain').at(-1)
     const current = live.filter(cue => cue.kind !== 'rain' || cue === latestRain)
-    const ids = new Set(current.map(cue => cue.id))
-    for (const [id, effect] of active) if (!ids.has(id)) { effect.dispose(); active.delete(id) }
+    for (const [id, effect] of active) {
+      if (!current.some(cue => cue.id === id && cue.kind === effect.cue.kind && cue.onPlaybackEnd === effect.cue.onPlaybackEnd)) release(effect)
+    }
     for (const cue of current) {
       let effect = active.get(cue.id)
-      if (!effect) { effect = buildWeather(cue.kind === 'rain' ? screenScene : options.scene, cue, localSeat, options.assets, () => aspect); active.set(cue.id, effect) }
-      effect.frame(now - cue.startedAt, (now - cue.startedAt) / cue.duration)
+      if (!effect) {
+        effect = idle.get(cue.kind)
+        idle.delete(cue.kind)
+        if (effect && effect.cue.reducedMotion !== cue.reducedMotion) { effect.dispose(); effect = undefined }
+        effect ??= buildWeather(cue, localSeat, options.assets, () => aspect, !!options.mobile)
+        effect.begin(cue, localSeat)
+        const layer = cue.kind === 'rain' ? screenScene : options.scene
+        layer.add(effect.root)
+        active.set(cue.id, effect)
+      }
+      if (cue.onPlaybackEnd) {
+        // 跳过加载或单次长帧消耗的墙钟时间，避免风跨过半张桌子、雨幕突然铺满。
+        const delta = effect.lastFrame === null ? 0 : Math.max(0, now - effect.lastFrame)
+        effect.elapsed += cue.reducedMotion ? delta : Math.min(delta, 80)
+        effect.lastFrame = now
+        if (effect.elapsed >= cue.duration) { release(effect); cue.onPlaybackEnd(); continue }
+      } else effect.elapsed = now - cue.startedAt
+      effect.frame(effect.elapsed, effect.elapsed / cue.duration)
     }
     return active.size > 0
   }
@@ -267,8 +334,9 @@ export function createYaotongKongWeather(options: {
       if (renderer.info && autoReset !== undefined) renderer.info.autoReset = autoReset
     }
   }
-  return { animate, dispose, setAspect, renderOverlay, screenScene,
+  return { animate, dispose, prewarm, setAspect, renderOverlay, screenScene,
     get visibleCues() { return [...active.values()].map(effect => ({ seat: effect.cue.seat, kind: effect.cue.kind })) },
-    get visibleLayouts() { return [...active.values()].map(effect => ({ seat: effect.cue.seat, kind: effect.cue.kind, layer: effect.root.userData.layer, x: effect.root.position.x, z: effect.root.position.z })) },
+    get visibleLayouts() { return [...active.values()].map(effect => ({ seat: effect.cue.seat, kind: effect.cue.kind, layer: effect.root.userData.layer,
+      elapsed: effect.elapsed, x: effect.root.position.x, z: effect.root.position.z })) },
   }
 }

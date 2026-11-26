@@ -18,6 +18,44 @@ const assets: WeatherAssets = {
 
 const cue = (kind: KongWeatherCue['kind'], seat = 0): KongWeatherCue => ({ id: seat + 1, seat, kind, startedAt: 100, duration: 2200, reducedMotion: false })
 describe('3D开杠天气', () => {
+  it.each(['rain', 'tornado'] as const)('%s 实桌延迟首帧从头播放，卡帧后渐进，结束后复用手机特效', async kind => {
+    const scene = new THREE.Scene()
+    let input: KongWeatherCue[] = []
+    const finish = vi.fn(() => { input = [] })
+    const weather = createYaotongKongWeather({ scene, assets, mobile: true, cues: () => input, localSeat: () => 0 })
+    const renderer = { compileAsync: vi.fn(async (object: THREE.Object3D) => object), initTexture: vi.fn() }
+    await weather.prewarm(renderer as unknown as THREE.WebGLRenderer, new THREE.PerspectiveCamera(), false)
+    expect(renderer.compileAsync).toHaveBeenCalledTimes(2)
+    expect(renderer.initTexture).toHaveBeenCalled()
+    const layer = kind === 'rain' ? weather.screenScene : scene
+    expect(layer.children).toHaveLength(0)
+    input = [{ ...cue(kind), onPlaybackEnd: finish }]
+    expect(weather.animate(3500)).toBe(true) // 连整段效果的墙钟时长都已过去。
+    const root = layer.children[0]
+    expect(root).toBe(renderer.compileAsync.mock.calls[kind === 'rain' ? 1 : 0][0])
+    expect(weather.visibleLayouts[0].elapsed).toBe(0)
+    expect(root.children.filter(o => o.name === 'kong-gold-particle')).toHaveLength(8)
+    expect(root.children.filter(o => o.name === 'kong-gold-particle').some(o => o.visible)).toBe(false)
+    if (kind === 'tornado') expect(root.position.x).toBe(kongWindPosition(0, 0, 0).x)
+    else {
+      const drops = root.children.find(o => o instanceof THREE.InstancedMesh) as THREE.InstancedMesh
+      const matrix = new THREE.Matrix4()
+      for (let i = 0; i < drops.count; i++) { drops.getMatrixAt(i, matrix); expect(matrix.elements[13]).toBeGreaterThan(1) }
+    }
+    weather.animate(4500)
+    expect(weather.visibleLayouts[0].elapsed).toBe(80)
+    for (let now = 4520; now <= 6700; now += 20) weather.animate(now)
+    expect(finish).toHaveBeenCalledOnce()
+    expect(layer.children).toHaveLength(0)
+    input = [{ ...cue(kind, 1), onPlaybackEnd: finish }]
+    weather.animate(6800)
+    expect(layer.children[0]).toBe(root)
+    expect(weather.visibleLayouts[0]).toMatchObject({ seat: 1, elapsed: 0 })
+    input = []
+    expect(weather.animate(6900)).toBe(false)
+    expect(layer.children).toHaveLength(0)
+    weather.dispose()
+  })
   it.each(['tornado', 'rain'] as const)('%s使用两款金色粒子，分批飞散后淡出，不改变原始事件', kind => {
     const input = [cue(kind)], before = structuredClone(input), scene = new THREE.Scene()
     const weather = createYaotongKongWeather({ scene, assets, cues: () => input, localSeat: () => 0 })

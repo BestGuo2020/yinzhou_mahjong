@@ -12,6 +12,8 @@ export interface KongWeatherCue {
   startedAt: number
   duration: number
   reducedMotion: boolean
+  /** 实桌从首个绘制帧起播，播完归还提示；回放和预览可按 startedAt 定位。 */
+  onPlaybackEnd?: () => void
 }
 
 export function eventKongKind(event: Pick<GameEvent, 'kind' | 'text' | 'kongKind'>): KongKind | null {
