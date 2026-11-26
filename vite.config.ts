@@ -9,6 +9,30 @@ const apiTarget = process.env.VITE_API_TARGET ?? 'http://127.0.0.1:8000'
 
 export default defineConfig({
   plugins: [vue()],
+  css: {
+    postcss: {
+      plugins: [{
+        postcssPlugin: 'webview-theme-colors',
+        Once(root, { list }) {
+          // WebView 114 直接解析复合属性里的动态 color-mix() 时会误用文字色。
+          // 先在同一选择器解析颜色，再交给边框或阴影。每层阴影保留自己的颜色。
+          root.walkDecls(/^(border|box-shadow|text-shadow)$/, decl => {
+            if (!decl.value.includes('color-mix(') || !decl.value.includes('var(')) return
+            const layers = list.comma(decl.value).map((layer, index) => {
+              const tokens = list.space(layer)
+              const i = tokens.findIndex(token => token.startsWith('color-mix(') && token.includes('var('))
+              if (i < 0) return layer
+              const color = `--webview-${decl.prop}-color-${index}`
+              decl.cloneBefore({ prop: color, value: tokens[i] })
+              tokens[i] = `var(${color})`
+              return tokens.join(' ')
+            })
+            decl.value = layers.join(', ')
+          })
+        },
+      }],
+    },
+  },
   // 完整规则按需加载，提前优化解析器以免首次打开时开发页面重载。
   optimizeDeps: { include: ['markdown-it'] },
   test: {
