@@ -4,6 +4,7 @@ import { isHorseForSeat, sortTilesWithJokers } from '../../../game/core/rules/ti
 import { meldDisplayTiles, meldSourceTileIndex } from '../../../game/core/rules/rules'
 import { addedKongTileOffset, TABLE_LAYOUT, OPPOSITE_HAND_Z, meldTileCenter, discardTileLayout, meldTrackTransform, concealedMeldClear, concealedSideX, pointFromSeat } from '../../../game/core/presentation/tableLayout'
 import { wallBreakIndexForDealer, wallStackSlot, wallTilePlacement, WALL_TOTAL } from '../../../game/core/rules/wallLayout'
+import { PACE_MS } from '../../../game/core/local/localGameConfig'
 import { HAND_REVEAL_MS } from '../../../game/variants/yingzhou/winMotion'
 import { splitWinningTile } from '../../../game/core/presentation/winEffect'
 import type { TableActionEvent, TileType } from '../../../game/core/contracts/types'
@@ -301,7 +302,7 @@ function addDiscards(playerIndex) {
         target: pos.clone(),
         quat,
         startedAt: continuing?.startedAt ?? performance.now(),
-        duration: 360,
+        duration: PACE_MS.discardFlight,
       })
     }
     if (highlighted) {

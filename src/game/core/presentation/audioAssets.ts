@@ -18,6 +18,7 @@ export const EFFECT_AUDIO_ASSETS = [
     'chihu',
     'ting',
     'fapai',
+    'dapai',
     'touzi',
     'tuidao',
     'hu_effecct_sound',

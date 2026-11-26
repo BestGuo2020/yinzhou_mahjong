@@ -1,7 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import { createLocalGameState } from '../../core/local/localGameState'
 import { createLocalTransientEventPresenter } from '../../core/local/localTransientEventPresenter'
-import { LOCAL_TABLE_PACE } from '../../core/local/localGameConfig'
+import { LOCAL_TABLE_PACE, PACE_MS } from '../../core/local/localGameConfig'
 import { windRoundLabel } from '../../core/rules/matchFormats'
 import { prefersReducedMotion } from '../../core/presentation/winEffect'
 import { createPresentationScheduler } from '../../shared/runtime/presentationScheduler'
@@ -116,7 +116,7 @@ export function useTablePresentation(audio: TableAudio, current: () => Round | n
     if (!event) return
     let discardName: Promise<void> | undefined
     if (event.t === 'discard' && event.tile) {
-      audio.play('dapai.mp3', .8)
+      scheduler.later(() => audio.play('dapai.ogg', .8), PACE_MS.discardFlight)
       discardName = playDiscardName(event.tile, { playSound: audio.play, playSoundAndWait: audio.playAndWait, current: () => current() === round })
     } else if (event.t === 'draw') audio.play('give.mp3', .7)
     else if (round.window.kind === 'check-rob') {
