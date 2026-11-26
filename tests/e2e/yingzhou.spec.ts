@@ -131,7 +131,7 @@ test('死九报扎、付分、按开场配置续局和本地回放', async ({ pa
   await page.getByRole('button', { name: '确定', exact: true }).click()
   const start = page.getByRole('button', { name: /开始对局/ })
   await clickWithSeed(start, 9890) // 庄家起手三张六筒。
-  await expect(page.locator('.round-info')).toHaveText('全庄场 · 东1局')
+  await expect(page.locator('.round-info')).toHaveText('全庄场 · 东1局 · 死九')
   const hud = page.locator('.game-table-hud')
   await expect(hud).toHaveAttribute('data-concealed-counts', '14,13,13,13', { timeout: 35_000 })
   const indicator = page.getByRole('status', { name: '本局亮牌' })
@@ -146,7 +146,7 @@ test('死九报扎、付分、按开场配置续局和本地回放', async ({ pa
   await expect(page.getByRole('dialog', { name: /玩法/ })).toHaveCount(0)
   await page.getByRole('button', { name: '查看结算', exact: true }).click()
   await clickWithSeed(result.getByRole('button', { name: '继续' }), 1)
-  await expect(page.locator('.round-info')).toHaveText('全庄场 · 东1局 · 1本场')
+  await expect(page.locator('.round-info')).toHaveText('全庄场 · 东1局 · 死九')
   await expect(page.locator('.user-identity .dealer-badge')).toBeVisible()
   await expect(page.locator('.hand-rack.playable')).toBeVisible({ timeout: 35_000 })
   await expect(indicator).toHaveText(/^亮牌\s*四条$/)
@@ -265,7 +265,7 @@ test('自摸结算显示倍率与三家付款明细，并按名次显示四家�
   await format.getByRole('button', { name: /半庄场/ }).click()
   await format.getByRole('button', { name: '确定', exact: true }).click()
   await clickWithSeed(page.getByRole('button', { name: /开始对局/ }), 2311394)
-  await expect(page.locator('.round-info')).toHaveText('半庄场 · 东1局')
+  await expect(page.locator('.round-info')).toHaveText('半庄场 · 东1局 · 活杠')
   const discard = page.locator('.hand-rack.playable').getByRole('button', { name: '七万', exact: true }).first()
   await expect(discard).toBeVisible({ timeout: 30_000 })
   await discard.click()
@@ -284,7 +284,7 @@ test('自摸结算显示倍率与三家付款明细，并按名次显示四家�
   await card.getByRole('button', { name: '查看牌桌' }).click()
   await page.getByRole('button', { name: '查看结算', exact: true }).click()
   await card.getByRole('button', { name: '继续', exact: true }).click()
-  await expect(page.locator('.round-info')).toHaveText('半庄场 · 东2局')
+  await expect(page.locator('.round-info')).toHaveText('半庄场 · 东2局 · 活杠')
   await expect(page.locator('.base-score-badge')).toContainText('三倍场')
   page.once('dialog', dialog => dialog.accept())
   await page.getByRole('button', { name: '退出对局' }).click()
@@ -342,7 +342,7 @@ test.describe('手机完整场次', () => {
     await clickWithSeed(page.getByRole('button', { name: '继续', exact: true }), 1)
     const label = page.locator('.round-info')
     const seat = page.locator('.seat-top .avatar-wrap')
-    await expect(label).toHaveText('东风场 · 东1局 · 1本场')
+    await expect(label).toHaveText('东风场 · 东1局 · 死九')
     await expect(seat).toContainText('−900万')
     for (const width of [740, 568, 786, 892]) {
       await page.setViewportSize({ width, height: width === 568 ? 320 : 381 })
@@ -353,7 +353,7 @@ test.describe('手机完整场次', () => {
       const nearestCenter = Math.min(width / 2, opponent.x - 8 - round.width / 2)
       expect(Math.abs(round.x + round.width / 2 - nearestCenter), `尽量居中 · ${width}px`).toBeLessThan(1)
       expect(round.x + round.width, `局数与对家 · ${width}px`).toBeLessThanOrEqual(opponent.x - 4)
-      expect(opponent.x + opponent.width, `对家与按钮 · ${width}px`).toBeLessThanOrEqual(toolbar.x - 4)
+      expect(Math.abs(toolbar.x - opponent.x - opponent.width - 8), `对家紧邻工具栏 · ${width}px`).toBeLessThan(1)
       expect(await label.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
     }
     await page.screenshot({ path: info.outputPath('repeat-round-header.png') })
@@ -374,17 +374,17 @@ test.describe('手机完整场次', () => {
     const firstCanvas = await table.evaluateHandle(canvas => canvas)
     // 首把本家连庄，随后下家、对家、上家、本家依次起手扎亮牌换庄。
     const nextSeeds = [2207, 1411, 1422, 3386]
-    const labels = ['东1局', '东1局 · 1本场', '东2局', '东3局', '东4局']
+    const labels = ['东1局', '东1局', '东2局', '东3局', '东4局']
     for (const [index, label] of labels.entries()) {
       const badge = page.locator('.round-info')
-      await expect(badge).toHaveText(`东风场 · ${label}`)
+      await expect(badge).toHaveText(`东风场 · ${label} · 死九`)
       if (index === 1) await badge.screenshot({ path: info.outputPath('repeat-round-label.png') })
       if (index === 0 || index === 4) {
         const win = page.getByRole('button', { name: '扎亮牌 ×3' })
         await expect(win).toBeVisible({ timeout: 30_000 })
         await win.click()
       }
-      const dialog = page.getByRole('dialog', { name: `${label.split(' · ')[0]} · 扎亮牌`, exact: true })
+      const dialog = page.getByRole('dialog', { name: `${label} · 扎亮牌`, exact: true })
       await expect(dialog).toBeVisible({ timeout: 30_000 })
       if (index < nextSeeds.length) {
         await expect(dialog.getByRole('button', { name: '查看最终排名' })).toHaveCount(0)
@@ -405,11 +405,17 @@ test.describe('手机完整场次', () => {
         .map(animation => animation.finished.catch(() => {})))
     })
     await expect(final).toHaveCSS('opacity', '1')
+    const bounds = (await final.boundingBox())!
+    expect(bounds.width).toBeLessThanOrEqual(620)
+    expect(bounds.height).toBeLessThan(page.viewportSize()!.height * .88)
+    const rows = await final.locator('.final-rankings article').all()
+    for (const row of rows) await expect(row).toBeInViewport({ ratio: 1 })
+    expect((await rows[1].boundingBox())!.y).toBeGreaterThan((await rows[0].boundingBox())!.y)
     await expect(final.getByRole('button', { name: '返回大厅' })).toBeInViewport({ ratio: 1 })
     await page.screenshot({ path: info.outputPath('final-ranking.png'), animations: 'disabled' })
     await final.getByRole('button', { name: '返回大厅' }).click()
     await page.getByRole('button', { name: /开始对局/ }).click()
-    await expect(page.locator('.round-info')).toHaveText('东风场 · 东1局')
+    await expect(page.locator('.round-info')).toHaveText('东风场 · 东1局 · 死九')
   })
 })
 

@@ -166,9 +166,9 @@ function quit() {
     :data-theme-particle="presentation.shell.particle" :data-theme-loading="presentation.presentation.loading"
     :style="themePresentationCssVariables(presentation)">
     <EffectsPreview v-if="EffectsPreview" :theme-name="theme" :audio="{ play: playEffect, playAndWait: playEffectAndWait }" />
-    <div v-else-if="!replayView" :class="{ 'has-three-scene': round }">
+    <div v-else-if="!replayView" :class="{ 'has-three-scene': round, 'yingzhou-playing': round && !revealHands }">
       <GameShellHeader game-mode="local" :phase="phase" :has-players="!!round" :match-name="matchName"
-        :round-label="handLabel" :honba="round?.honba ?? 0" :stake-label="(coinRate === 3 ? '三倍场' : '普通场') + ' · 底金' + seatGold(BASE_POINTS)" room-id="" :signal-quality="3" :theme-name="theme"
+        :round-label="label" :stake-label="(coinRate === 3 ? '三倍场' : '普通场') + ' · 底金' + seatGold(BASE_POINTS)" room-id="" :signal-quality="3" :theme-name="theme"
         @quit="quit" @open-rules="rulesOpen = true" @change-theme="changeTheme" />
       <LobbyView v-if="!round" v-model:settings="settings" v-model:length="length" :theme-name="theme" :balance="balance" :save-failed="saveFailed"
         @start="startBgm(); start()" @open-rules="rulesOpen = true" @open-stats="statsOpen = true" @open-replay="replayNotice = ''; replayOpen = true" />

@@ -479,7 +479,7 @@ describe('完整对局', () => {
     r.window = { kind: 'reveal', tile: r.indicator, seats: [3] }
     win(r, 'indicator')
     expect(tableResult(r)).toMatchObject({ roundLabel: before, honba: 2 })
-    expect(replayFrame(r, 16)).toMatchObject({ round: dealerRound, roundLabel: `${before} · 2本场 · 活杠`, honba: 2 })
+    expect(replayFrame(r, 16)).toMatchObject({ round: dealerRound, roundLabel: `${before} · 活杠`, honba: 2 })
 
     const next = followingRound(r)
     expect(next).toMatchObject({ dealer: 3, handNumber: r.handNumber + 1 })

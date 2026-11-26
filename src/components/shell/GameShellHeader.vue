@@ -17,7 +17,7 @@ interface Props {
   hasPlayers: boolean
   matchName: string
   roundLabel: string
-  honba: number
+  honba?: number
   baseScore?: number
   stakeLabel?: string
   roomId: string

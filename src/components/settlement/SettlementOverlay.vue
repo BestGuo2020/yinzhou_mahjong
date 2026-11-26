@@ -260,7 +260,7 @@ const relativeSeat = computed<0 | 1 | 2 | 3>(() => {
       </section>
     </div>
     <div v-else-if="showRanking && (resultVisible || finalRankingLab)" key="ranking" class="result-backdrop final-backdrop" data-result-kind="final" data-result-strength="climax">
-      <section class="final-board" role="dialog" aria-modal="true" :aria-labelledby="`${tabId}-ranking-title`"
+      <section class="final-board" :data-ruleset="rulesetId" role="dialog" aria-modal="true" :aria-labelledby="`${tabId}-ranking-title`"
         data-result-kind="final" data-result-strength="climax" :data-result-source="finalRankingLab ? 'lab' : 'game'">
         <p>{{ matchName }} · 对局结束</p>
         <h2 :id="`${tabId}-ranking-title`">最终排名</h2>
@@ -323,6 +323,17 @@ const relativeSeat = computed<0 | 1 | 2 | 3>(() => {
 .settlement-card[data-ruleset="yingzhou"] .result-actions { margin: 0; }
 .settlement-card[data-ruleset="yingzhou"] .result-actions button { flex: 0 1 170px; min-width: 0; }
 .settlement-card[data-ruleset="yingzhou"] .result-disclaimer-note { margin: 10px 0 0; }
+@media (orientation: landscape) and (max-height: 600px) {
+  .final-board[data-ruleset="yingzhou"] {
+    width: min(620px, 92%);
+    height: auto;
+    max-height: calc(100% - 8px);
+    padding: 10px 16px 0;
+    scrollbar-gutter: auto;
+  }
+  .final-board[data-ruleset="yingzhou"] .final-ranking-panel { flex: 0 1 auto; justify-content: flex-start; }
+  .final-board[data-ruleset="yingzhou"] .final-rankings { grid-template-columns: 1fr; }
+}
 @container game (max-width: 540px) {
   .settlement-card[data-ruleset="yingzhou"] .round-rankings { grid-template-columns: 1fr; }
 }

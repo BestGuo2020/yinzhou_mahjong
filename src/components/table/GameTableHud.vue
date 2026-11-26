@@ -485,19 +485,25 @@ watch([tableHudElement, usesYaotongLayout], ([hud, enabled], _, onCleanup) => {
   })
 }, { flush: 'post' })
 
-// Let the header reserve the rendered avatar and score, including changes after a payout.
+// 横屏顶栏按工具按钮与积分卡的实际宽度留位，切全屏或结算后重新测量。
 watch([tableHudElement, () => props.rulesetId === 'yingzhou' ? props.players[2]?.seat : undefined], ([hud, seat], _, onCleanup) => {
   if (!hud || seat == null) return
   const scene = hud.closest<HTMLElement>('.has-three-scene')
   const card = hud.querySelector('.seat-top .avatar-wrap')
-  if (!scene || !card) return
-  const observer = new ResizeObserver(() => {
+  const toolbar = scene?.querySelector('.top-bar nav')
+  if (!scene || !card || !toolbar) return
+  const measure = () => {
     scene.style.setProperty('--yingzhou-opponent-width', `${card.getBoundingClientRect().width}px`)
-  })
+    scene.style.setProperty('--yingzhou-toolbar-width', `${toolbar.getBoundingClientRect().width}px`)
+  }
+  measure()
+  const observer = new ResizeObserver(measure)
   observer.observe(card, { box: 'border-box' })
+  observer.observe(toolbar)
   onCleanup(() => {
     observer.disconnect()
     scene.style.removeProperty('--yingzhou-opponent-width')
+    scene.style.removeProperty('--yingzhou-toolbar-width')
   })
 }, { flush: 'post' })
 

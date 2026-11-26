@@ -4244,22 +4244,17 @@ button { font: inherit; }
   /* 顶栏由左到右是局况、对家和工具按钮。局况可在自己的区域内换行。 */
   .game-app .has-three-scene {
     --yingzhou-seat-width: 128px;
-    --yingzhou-toolbar-buttons: 4;
+    /* 8px 顶栏右内边距，头像与按钮之间再留 8px。 */
+    --yingzhou-opponent-right: calc(var(--safe-right) + 16px + var(--yingzhou-toolbar-width, 182px));
   }
-  :root:not(:fullscreen) .has-three-scene:has(.edge-fullscreen-entry) { --yingzhou-toolbar-buttons: 5; }
-  .game-app:has([data-ruleset="yingzhou"]) .top-bar nav { anchor-name: --yingzhou-toolbar; }
   .game-app [data-ruleset="yingzhou"].yaotong-table .player-seat.seat-top {
     top: calc(var(--safe-top) + 8px);
     left: auto;
-    /* 8px 顶栏内边距、2px 按钮间距、8px 头像间距。旧 WebView 也按按钮数避让。 */
-    --toolbar-start: calc(var(--safe-right) + 8px + var(--yingzhou-toolbar-buttons, 4) * (var(--control-hit-target) + 2px) - 2px);
-    right: calc(var(--toolbar-start) + 8px);
-    right: calc(anchor(--yingzhou-toolbar left, var(--toolbar-start)) + 8px);
+    right: var(--yingzhou-opponent-right);
     transform: none;
     z-index: 21;
   }
-  .game-app:has([data-ruleset="yingzhou"][data-reveal-hands="0"]) .table-meta {
-    container-type: inline-size;
+  .game-app .yingzhou-playing .table-meta {
     display: flex;
     flex: 1;
     flex-wrap: wrap;
@@ -4269,22 +4264,21 @@ button { font: inherit; }
     /* Keep 8px on either side of the opponent. */
     margin-right: calc(var(--yingzhou-opponent-width, var(--yingzhou-seat-width)) + 16px);
   }
-  .game-app:has([data-ruleset="yingzhou"][data-reveal-hands="0"]) .table-meta .base-score-badge {
+  .game-app .yingzhou-playing .table-meta .base-score-badge {
     margin: 0;
     padding-block: 0;
     line-height: 16px;
     white-space: nowrap;
   }
-  .game-app:has([data-ruleset="yingzhou"][data-reveal-hands="0"]) .table-meta .round-info {
+  .game-app .has-three-scene.yingzhou-playing .table-meta .round-info {
     position: static;
     order: 1;
     max-width: 100%;
     margin-inline: auto 0;
     padding-block: 1px;
     line-height: 16px;
-    /* Start at the last unobstructed position. Move left only to reach the table center.
-       100cqw is the width of .table-meta and 50% is half this label's own width. */
-    transform: translateX(min(0px, calc(50vw - var(--safe-left) - 8px - 100cqw + 50%)));
+    /* 从头像左侧 8px 起，空间足够时将局名移到牌桌中央。 */
+    transform: translateX(min(0px, calc(var(--yingzhou-opponent-right) + var(--yingzhou-opponent-width, 128px) + 8px - 50vw + 50%)));
   }
   /* A shallow identity strip fits between the far hand and its discard river. */
   .game-app .yaotong-table .player-seat.seat-top .avatar-wrap {

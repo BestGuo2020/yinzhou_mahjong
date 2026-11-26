@@ -9,8 +9,7 @@ import { BASE_POINTS, KONG_NAMES, MODES } from './rules'
 
 export const NAMES = ['你', '下家', '对家', '上家']
 export function roundLabel(round: Round) {
-  const repeat = round.honba ? ` · ${round.honba}本场` : ''
-  return `${windRoundLabel(round.dealerRound)}${repeat} · ${MODES[round.settings.mode].name}`
+  return `${windRoundLabel(round.dealerRound)} · ${MODES[round.settings.mode].name}`
 }
 
 export const markedIndices = (round: Round) =>
