@@ -887,6 +887,7 @@ function addTable() {
     ...theme.tile.back,
   })))
   scene.userData.highlightMaterial = own(new THREE.MeshStandardMaterial({ ...theme.highlight }))
+  scene.userData.discardHighlightGeometry = own(new RoundedBoxGeometry(.76, .045, 1.02, 2, .02))
   // 牌体几何由整桌共享，避免每次手牌、牌河更新时重复构建和销毁圆角网格。
   // 绿色牌背层略微内收，白色正面层形成完整外轮廓。
   const tileGeometry = theme.tileGeometry ?? { segments: 6, baseRadius: .07, capRadius: .072 }

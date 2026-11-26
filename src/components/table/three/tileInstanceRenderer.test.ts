@@ -5,7 +5,6 @@ import { createTileInstanceRenderer } from './tileInstanceRenderer'
 describe('tileInstanceRenderer', () => {
   it.each([260, 512])('updates tile matrices through capacity %i without silently truncating a tower', (capacity) => {
     const scene = new THREE.Scene()
-    const dynamicGroups: THREE.Object3D[] = []
     const geometry = new THREE.BoxGeometry(1, 1, 1)
     const atlasGeometry = geometry.clone()
     const material = new THREE.MeshBasicMaterial()
@@ -19,8 +18,7 @@ describe('tileInstanceRenderer', () => {
     const renderer = createTileInstanceRenderer({
       capacity,
       scene,
-      dynamicGroups,
-      ownDynamic: (resource) => resource,
+      own: (resource) => resource,
       getAtlasMaterial: () => material,
       getMarkedDiscardStickerMaterial: () => material,
       getAtlasCapGeometry: () => atlasGeometry,
@@ -35,7 +33,7 @@ describe('tileInstanceRenderer', () => {
     )
     renderer.finish()
 
-    const baseMesh = dynamicGroups[0] as THREE.InstancedMesh
+    const baseMesh = scene.children[0] as THREE.InstancedMesh
     const baseVersion = baseMesh.instanceMatrix.version
     const capVersion = tile.capMesh.instanceMatrix.version
 
@@ -65,7 +63,6 @@ describe('tileInstanceRenderer', () => {
 
   it('reuses meshes between batches and keeps marked discard faces identical to ordinary tiles', () => {
     const scene = new THREE.Scene()
-    const dynamicGroups: THREE.Object3D[] = []
     const geometry = new THREE.BoxGeometry(.69, .34, .95)
     const atlasGeometry = geometry.clone()
     const material = new THREE.MeshBasicMaterial()
@@ -80,8 +77,7 @@ describe('tileInstanceRenderer', () => {
 
     const renderer = createTileInstanceRenderer({
       scene,
-      dynamicGroups,
-      ownDynamic: (resource) => resource,
+      own: (resource) => resource,
       getAtlasMaterial: () => material,
       getMarkedDiscardStickerMaterial: () => stickerMaterial,
       getAtlasCapGeometry: () => atlasGeometry,
@@ -91,15 +87,14 @@ describe('tileInstanceRenderer', () => {
     renderer.begin()
     renderer.add(new THREE.Vector3(), new THREE.Quaternion(), null)
     renderer.finish()
-    const firstMeshes = [...dynamicGroups]
+    const firstMeshes = [...scene.children]
     const firstAtlasUv = atlasGeometry.getAttribute('aUvOffset')
 
     expect(renderer.canReuse()).toBe(true)
-    renderer.begin(true)
+    renderer.begin()
     renderer.add(new THREE.Vector3(1, 0, 0), new THREE.Quaternion(), null)
     renderer.finish()
 
-    expect(dynamicGroups).toEqual(firstMeshes)
     expect(scene.children).toEqual(firstMeshes)
     expect(atlasGeometry.getAttribute('aUvOffset')).toBe(firstAtlasUv)
 
@@ -145,7 +140,7 @@ describe('tileInstanceRenderer', () => {
       expect(offset.z + halfSticker.z).toBeLessThan((turn % 2 ? .69 : .95) / 2)
       expect(new THREE.Vector3(1, 0, 0).transformDirection(matrix).x).toBeCloseTo(1)
     }
-    renderer.begin(true)
+    renderer.begin()
     renderer.add(position, rotation, 'p9')
     renderer.finish()
     expect(marked.capMesh.count).toBe(0)

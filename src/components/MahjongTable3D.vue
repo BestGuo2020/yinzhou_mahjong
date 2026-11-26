@@ -530,8 +530,7 @@ onMounted(async () => {
   tileInstances = createTileInstanceRenderer({
     capacity: props.bloodFlowBatches ? 512 : undefined,
     scene,
-    ownDynamic,
-    dynamicGroups,
+    own,
     getAtlasMaterial: tableScene.getAtlasMaterial,
     getMarkedDiscardStickerMaterial: tableScene.getMarkedDiscardStickerMaterial,
     getAtlasCapGeometry: tableScene.getAtlasCapGeometry,
@@ -687,10 +686,9 @@ watch(
     props.bloodFlowOwnDraw?.y,
     props.localSeat,
   ),
-  // 发牌批次只刷新已有实例的 count / matrix / UV，避免每 150-260ms
-  // 销毁并重建整套 InstancedMesh 与 GPU buffer。
+  // 摸打、碰杠和发牌都更新同一批实例；每次只清理临时标记和演出。
   () => {
-    tableTiles?.rebuild({ reuseInstances: props.openingStage === 'deal' })
+    tableTiles?.rebuild()
     bloodFlowWinEffects?.sync()
     invalidate()
   },

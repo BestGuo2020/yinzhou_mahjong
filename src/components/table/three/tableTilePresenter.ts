@@ -1,5 +1,4 @@
 import * as THREE from 'three'
-import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { isHorseForSeat, sortTilesWithJokers } from '../../../game/core/rules/tiles'
 import { meldDisplayTiles, meldSourceTileIndex } from '../../../game/core/rules/rules'
 import { addedKongTileOffset, TABLE_LAYOUT, OPPOSITE_HAND_Z, meldTileCenter, discardTileLayout, meldTrackTransform, concealedMeldClear, concealedSideX, pointFromSeat } from '../../../game/core/presentation/tableLayout'
@@ -308,7 +307,7 @@ function addDiscards(playerIndex) {
     if (highlighted) {
       // 最新一张弃牌的高亮垫片保持独立 mesh（仅 1 张，无需合批）。
       const marker = new THREE.Mesh(
-        ownDynamic(new RoundedBoxGeometry(.76, .045, 1.02, 2, .02)),
+        scene.userData.discardHighlightGeometry,
         scene.userData.highlightMaterial,
       )
       marker.position.set(transform.x, y - .205, transform.z + PLAY_AREA_OFFSET_Z)
@@ -699,9 +698,8 @@ function sourcePose(source:SourceTileEvent):FlightPose {
   const p=discardSourcePos(seat)
   return {x:seat===0?5.8:p.x,y:p.y,z:p.z,rotation:seat*Math.PI/2,tilt:seat===0?0:-Math.PI/2}
 }
-function rebuildTableTiles({ reuseInstances = false }: { reuseInstances?: boolean } = {}) {
+function rebuildTableTiles() {
   if (!scene || !props.players.length || !scene.userData.tileImages) return
-  const reuse = reuseInstances && tileInstances.canReuse()
   const epoch=`${props.bloodFlowPresentationKey}/${props.localSeat}`
   // Rebind active motions to the newly built instances. Refreshing a snapshot
   // or a blood-flow overlay must not erase a normal discard/meld mid-flight.
@@ -725,14 +723,14 @@ function rebuildTableTiles({ reuseInstances = false }: { reuseInstances?: boolea
   handFaceInstances.length = 0
   winHandOrigins.clear()
   tippingTiles.length = 0
-  if (!reuse) clearDynamicScene()
+  clearDynamicScene()
   dealTweens.length = 0
   meldTweens.length = 0
   discardTweens.length = 0
   pendingTableActionAnimation = props.tableActionEvent?.id !== animatedTableActionId
     ? props.tableActionEvent
     : null
-  beginTableInstances(reuse)
+  beginTableInstances()
   for (let playerIndex = 0; playerIndex < 4; playerIndex += 1) {
     addConcealedHand(playerIndex)
     addDiscards(playerIndex)

@@ -4,8 +4,8 @@ import type { TileType } from '../../../game/core/contracts/types'
 interface TileInstanceRendererOptions {
   capacity?: number
   scene: THREE.Scene
-  ownDynamic<T>(resource: T): T
-  dynamicGroups: THREE.Object3D[]
+  /** 实例和缓冲区随整张牌桌释放，跨回合复用。 */
+  own<T>(resource: T): T
   getAtlasMaterial(): THREE.Material
   getMarkedDiscardStickerMaterial(): THREE.Material
   getJokerAtlasMaterial?: () => THREE.Material
@@ -79,7 +79,7 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
 
   function createCap(topMaterial: THREE.Material, geometry: THREE.BufferGeometry) {
     const side = options.scene.userData.tileSide
-    const cap = options.ownDynamic(new THREE.InstancedMesh(
+    const cap = options.own(new THREE.InstancedMesh(
       geometry,
       [side, side, topMaterial, options.scene.userData.tileBottom, side, side],
       INSTANCE_CAPACITY,
@@ -88,7 +88,6 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
     cap.receiveShadow = true
     cap.frustumCulled = false
     options.scene.add(cap)
-    options.dynamicGroups.push(cap)
     return cap
   }
 
@@ -104,11 +103,11 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
     )
   }
 
-  function begin(reuse = false) {
-    if (!reuse || !canReuse()) {
+  function begin() {
+    if (!canReuse()) {
       markedDiscardCap = null
       markedStickers = null
-      baseMesh = options.ownDynamic(new THREE.InstancedMesh(
+      baseMesh = options.own(new THREE.InstancedMesh(
         options.scene.userData.tileBaseGeometry,
         [options.scene.userData.faceSide, options.scene.userData.faceSide, options.scene.userData.faceSide,
           options.scene.userData.backMaterial, options.scene.userData.faceSide, options.scene.userData.faceSide],
@@ -118,37 +117,35 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
       baseMesh.receiveShadow = true
       baseMesh.frustumCulled = false
       options.scene.add(baseMesh)
-      options.dynamicGroups.push(baseMesh)
       backCapMesh = createCap(options.scene.userData.tileBottom, options.scene.userData.tileCapGeometry)
       atlasCapMesh = createCap(options.getAtlasMaterial(), options.getAtlasCapGeometry())
       jokerAtlasCapMesh = createCap(
         options.getJokerAtlasMaterial?.() ?? options.getAtlasMaterial(),
-        options.ownDynamic(options.getAtlasCapGeometry().clone()),
+        options.own(options.getAtlasCapGeometry().clone()),
       )
       wildcardAtlasCapMesh = createCap(
         options.getWildcardAtlasMaterial?.() ?? options.getAtlasMaterial(),
-        options.ownDynamic(options.getAtlasCapGeometry().clone()),
+        options.own(options.getAtlasCapGeometry().clone()),
       )
       laiziAtlasCapMesh = createCap(
         options.getLaiziAtlasMaterial?.() ?? options.getAtlasMaterial(),
-        options.ownDynamic(options.getAtlasCapGeometry().clone()),
+        options.own(options.getAtlasCapGeometry().clone()),
       )
       if (options.contactShadowY != null) {
-        const shadowTexture = options.ownDynamic(makeContactShadowTexture())
-        const shadowMaterial = options.ownDynamic(new THREE.MeshBasicMaterial({
+        const shadowTexture = options.own(makeContactShadowTexture())
+        const shadowMaterial = options.own(new THREE.MeshBasicMaterial({
           map: shadowTexture,
           transparent: true,
           depthWrite: false,
         }))
-        shadowMesh = options.ownDynamic(new THREE.InstancedMesh(
-          options.ownDynamic(new THREE.PlaneGeometry(1.15, 1.45)),
+        shadowMesh = options.own(new THREE.InstancedMesh(
+          options.own(new THREE.PlaneGeometry(1.15, 1.45)),
           shadowMaterial,
           INSTANCE_CAPACITY,
         ))
         shadowMesh.frustumCulled = false
         shadowMesh.renderOrder = 1
         options.scene.add(shadowMesh)
-        options.dynamicGroups.push(shadowMesh)
       }
       atlasUvData = new Float32Array(INSTANCE_CAPACITY * 2)
       atlasUvAttribute = new THREE.InstancedBufferAttribute(atlasUvData, 2)
@@ -208,7 +205,7 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
     const baseIndex = instanceCount++
     if (markedDiscard && face) {
       if (!markedDiscardCap) {
-        const geometry = options.ownDynamic(options.scene.userData.tileCapGeometry.clone())
+        const geometry = options.own(options.scene.userData.tileCapGeometry.clone())
         geometry.computeBoundingBox()
         geometry.boundingBox.getSize(capHalfSize).multiplyScalar(.5)
         geometry.setAttribute('aUvOffset', new THREE.InstancedBufferAttribute(new Float32Array(INSTANCE_CAPACITY * 2), 2))
@@ -216,15 +213,14 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
         markedDiscardCap = createCap(options.getAtlasMaterial(), geometry)
         markedDiscardCap.name = 'marked-discards'
         markedDiscardCap.count = 0
-        markedStickers = options.ownDynamic(new THREE.InstancedMesh(
-          options.ownDynamic(new THREE.PlaneGeometry(STICKER_WIDTH, STICKER_DEPTH).rotateX(-Math.PI / 2)),
+        markedStickers = options.own(new THREE.InstancedMesh(
+          options.own(new THREE.PlaneGeometry(STICKER_WIDTH, STICKER_DEPTH).rotateX(-Math.PI / 2)),
           options.getMarkedDiscardStickerMaterial(), INSTANCE_CAPACITY,
         ))
         markedStickers.name = 'marked-discard-stickers'
         markedStickers.count = 0
         markedStickers.frustumCulled = false
         options.scene.add(markedStickers)
-        options.dynamicGroups.push(markedStickers)
       }
       const capMesh = markedDiscardCap
       const capIndex = capMesh.count++

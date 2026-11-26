@@ -15,6 +15,7 @@ function setup(meld?: Meld, action?: TableActionType) {
   const scene = new THREE.Scene()
   scene.userData.tileImages = {}
   scene.userData.highlightMaterial = new THREE.MeshBasicMaterial()
+  scene.userData.discardHighlightGeometry = new THREE.BoxGeometry()
   const rendered: { face: TileType | null; position: THREE.Vector3; rotation: THREE.Quaternion; scale: number }[] = []
   const instances = {
     begin: () => { rendered.length = 0 }, finish: () => {}, canReuse: () => false,
@@ -49,6 +50,25 @@ function setup(meld?: Meld, action?: TableActionType) {
 }
 
 afterEach(() => vi.restoreAllMocks())
+
+it('换一张弃牌时复用高亮几何体，碰走弃牌后清除高亮', () => {
+  const s = setup()
+  s.props.players[0].discards.push('m1')
+  s.props.lastDiscard = { from: 0, tile: 'm1', id: 1 }
+  s.presenter.rebuild()
+  const first = s.dynamicGroups[0] as THREE.Mesh
+  expect(first).toBeInstanceOf(THREE.Mesh)
+  s.props.players[1].discards.push('p2')
+  s.props.lastDiscard = { from: 1, tile: 'p2', id: 2 }
+  s.presenter.rebuild()
+  expect(first.parent).toBeNull()
+  expect(s.dynamicGroups).toHaveLength(1)
+  expect((s.dynamicGroups[0] as THREE.Mesh).geometry).toBe(first.geometry)
+  s.props.players[1].discards.pop()
+  s.props.lastDiscard = null
+  s.presenter.rebuild()
+  expect(s.dynamicGroups).toHaveLength(0)
+})
 
 describe('颍州 AI 赢家摊牌', () => {
   it.each([1, 2, 3])('座位 %s 从原来的立牌向桌心倾倒，整段共用同一条底边', seat => {
