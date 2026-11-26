@@ -1,118 +1,36 @@
-name: Frontend CI
-
-on:
-  push:
-    paths-ignore:
-      - 'mobile-release/**'
-  pull_request:
-
+name: Browser renderer comparison
+on: [push]
 permissions:
   contents: read
-
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-      - uses: android-actions/setup-android@v3
-        with:
-          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
-          log-accepted-android-sdk-licenses: false
-      - name: Build website, offline APK and update package
-        id: mobile
-        env:
-          KEY_BASE64: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && secrets.YINZHOU_KEYSTORE_BASE64 || '' }}
-          YINZHOU_KEY_PASSWORD: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && secrets.YINZHOU_KEY_PASSWORD || '' }}
-        run: |
-          if [ -n "$KEY_BASE64" ]; then
-            export YINZHOU_KEYSTORE="$RUNNER_TEMP/yinzhou.p12"
-            install -m 600 /dev/null "$YINZHOU_KEYSTORE"
-            printf '%s' "$KEY_BASE64" | base64 --decode > "$YINZHOU_KEYSTORE"
-            unset KEY_BASE64
-            echo 'distribution=true' >> "$GITHUB_OUTPUT"
-          else
-            if [ "$GITHUB_EVENT_NAME" = push ] && [ "$GITHUB_REF" = refs/heads/master ]; then
-              echo "The release signing secret is missing" >&2
-              exit 1
-            fi
-            pnpm android:signing-init
-          fi
-          pnpm build
-          node scripts/edgeone-release.mjs record
-          pnpm build:edgeone
-          node --test scripts/edgeone-download.test.mjs
-      - uses: actions/upload-artifact@v4
-        if: steps.mobile.outputs.distribution == 'true'
-        with:
-          name: signed-android-${{ github.run_id }}-${{ github.run_attempt }}
-          path: mobile-release/
-          if-no-files-found: error
-
-  browser:
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
+  measure:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        include:
+          - { os: ubuntu-latest, backend: chromium }
+          - { os: ubuntu-latest, backend: mesa }
+          - { os: windows-latest, backend: warp }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
+        with: {version: 10}
       - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
+        with: {node-version: 22, cache: pnpm}
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm exec playwright test --shard=${{ matrix.shard }}/3 --reporter=list
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: playwright-report-${{ matrix.shard }}
-          path: |
-            playwright-report/
-            test-results/
-          if-no-files-found: ignore
-          retention-days: 7
-
-  publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    needs: test
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: signed-android-${{ github.run_id }}-${{ github.run_attempt }}
-          path: mobile-release/
-      - name: Publish the signed build for EdgeOne Git deployment
+      - name: Measure actual table
+        shell: bash
+        env:
+          BACKEND: ${{ matrix.backend }}
         run: |
-          git fetch origin master
-          if [ "$(git rev-parse FETCH_HEAD)" != "$GITHUB_SHA" ]; then
-            echo "A newer commit supersedes this release"
-            exit 0
+          pnpm dev > vite.log 2>&1 &
+          for i in {1..40}; do curl -fsS http://localhost:4173/ >/dev/null && break; sleep 1; done
+          if [ "$BACKEND" = mesa ]; then
+            export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe
+            xvfb-run -a node scripts/ci-renderer-comparison.mjs
+          else
+            node scripts/ci-renderer-comparison.mjs
           fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- mobile-release/
-          git diff --cached --quiet && exit 0
-          git commit -m "发布 Android 和 EdgeOne 网页版本 ${GITHUB_SHA:0:7}"
-          git push origin HEAD:master
