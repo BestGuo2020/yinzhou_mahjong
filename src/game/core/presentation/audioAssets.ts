@@ -18,7 +18,6 @@ export const EFFECT_AUDIO_ASSETS = [
     'chihu',
     'ting',
     'fapai',
-    'deal_batch',
     'give',
     'dapai',
     'touzi',

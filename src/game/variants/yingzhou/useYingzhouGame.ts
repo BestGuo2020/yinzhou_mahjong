@@ -158,7 +158,7 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
       const step = dealStep.value
       const nextBatch = () => {
         dealStep.value++
-        if (state.openingBatches[dealStep.value - 1]) audio.play('deal_batch.ogg', .72)
+        if (state.openingBatches[dealStep.value - 1]?.tiles.length === 4) audio.play('deal.mp3', .72)
         if (!opening.value) defer(OPENING_PACE_MS.firstTurn, () => {})
       }
       if (step <= 0) {
