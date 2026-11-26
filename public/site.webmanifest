@@ -11,19 +11,13 @@
   "theme_color": "#1c4937",
   "icons": [
     {
-      "src": "./favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
-      "src": "./icons/yaotong-192.png",
+      "src": "./icons/yingzhou-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icons/yaotong-512.png",
+      "src": "./icons/yingzhou-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"

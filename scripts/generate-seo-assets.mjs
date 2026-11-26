@@ -1,16 +1,14 @@
 #!/usr/bin/env node
-// Regenerate the share cover from game tile assets and install icons from the Yaotong SVG.
+// Regenerate the legacy Yaotong share cover from game tile assets.
 // Requires the project's Playwright Chromium and a Chinese system font.
 // Run: node scripts/generate-seo-assets.mjs
-import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from '@playwright/test'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const publicDir = join(root, 'public')
-const logo = (await readFile(join(publicDir, 'yaotong.svg'), 'utf8')).trim()
-const logoBody = logo.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '')
 const tileImages = Object.fromEntries(await Promise.all(
   ['1p', '1s', '8p', '1m'].map(async (tile) => [
     tile, `data:image/png;base64,${(await readFile(join(publicDir, 'tiles', `${tile}.png`))).toString('base64')}`,
@@ -77,13 +75,6 @@ const cover = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"
   </g>
 </svg>`
 
-const installIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
-  <rect width="80" height="80" fill="#1c4937"/>
-  <g transform="translate(8 8)">${logoBody}</g>
-</svg>`
-
-await mkdir(join(publicDir, 'icons'), { recursive: true })
-await copyFile(join(publicDir, 'yaotong.svg'), join(publicDir, 'favicon.svg'))
 await writeFile(join(publicDir, 'social-preview.svg'), `${cover}\n`)
 
 const browser = await chromium.launch({ channel: 'chromium', headless: true })
@@ -102,9 +93,6 @@ try {
     }
   }
   await render(cover, 'social-preview.png', 1200, 630)
-  await render(installIcon, 'icons/yaotong-192.png', 192)
-  await render(installIcon, 'icons/yaotong-512.png', 512)
-  await render(installIcon, 'apple-touch-icon.png', 180)
 } finally {
   await browser.close()
 }

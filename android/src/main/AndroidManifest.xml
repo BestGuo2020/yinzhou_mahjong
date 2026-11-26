@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
-    <application android:label="颍州扎杠麻将" android:icon="@drawable/game_icon"
+    <application android:label="颍州扎杠麻将" android:icon="@drawable/game_launcher"
+        android:enableOnBackInvokedCallback="true"
         android:allowBackup="false" android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.NoActionBar" android:hardwareAccelerated="true">
         <activity android:name=".GameActivity" android:exported="true"

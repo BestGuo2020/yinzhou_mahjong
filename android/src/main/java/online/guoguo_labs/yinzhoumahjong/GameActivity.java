@@ -3,11 +3,15 @@ package online.guoguo_labs.yinzhoumahjong;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.*;
 import android.widget.Toast;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 import java.io.*;
 import java.util.Collections;
 import java.util.Locale;
@@ -17,6 +21,7 @@ import java.util.concurrent.Executors;
 public final class GameActivity extends Activity {
     private static final String HOST = "appassets.androidplatform.net";
     private static final String ENTRY = "https://" + HOST + "/index.html";
+    private static final long EXIT_WINDOW_MS = 2000;
     private static final ExecutorService WORKER = Executors.newSingleThreadExecutor();
     private WebView game;
     private WebUpdates updates;
@@ -24,9 +29,18 @@ public final class GameActivity extends Activity {
     private long lastCheck;
     private boolean busy;
     private boolean resumed;
+    private long exitDeadline;
+    private Toast exitHint;
+    private boolean exitRequested;
+    private OnBackInvokedCallback backCallback;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            backCallback = this::handleBack;
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                    OnBackInvokedDispatcher.PRIORITY_DEFAULT, backCallback);
+        }
         updates = new WebUpdates(getDir("web_updates", MODE_PRIVATE));
         current = updates.installedVersion(BuildConfig.VERSION_CODE);
         File web = current > BuildConfig.VERSION_CODE ? updates.directory(current) : null;
@@ -140,10 +154,41 @@ public final class GameActivity extends Activity {
                 }).show();
     }
 
-    @Override protected void onPause() { resumed = false; super.onPause(); }
+    // Hardware Back and the system back gesture use the same confirmation window.
+    @Override public void onBackPressed() { handleBack(); }
+
+    private void handleBack() {
+        if (isFinishing() || exitRequested) return;
+        long now = SystemClock.elapsedRealtime();
+        if (now < exitDeadline) {
+            exitRequested = true;
+            finishAndRemoveTask();
+            return;
+        }
+        exitDeadline = now + EXIT_WINDOW_MS;
+        if (exitHint != null) exitHint.cancel();
+        exitHint = Toast.makeText(this, "再按一次退出游戏", Toast.LENGTH_SHORT);
+        exitHint.show();
+    }
+
+    @Override protected void onPause() {
+        resumed = false;
+        exitDeadline = 0;
+        if (exitHint != null) {
+            exitHint.cancel();
+            exitHint = null;
+        }
+        super.onPause();
+    }
 
     @Override protected void onDestroy() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(backCallback);
+        }
+        if (game.getParent() instanceof ViewGroup) ((ViewGroup) game.getParent()).removeView(game);
         game.destroy();
         super.onDestroy();
+        // Only the explicit double-Back exit terminates the process, after task removal.
+        if (exitRequested) android.os.Process.killProcess(android.os.Process.myPid());
     }
 }
