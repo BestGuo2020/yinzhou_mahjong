@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import { DEFAULT_BGM_FILE, activeBgmTrackPort, useAudio } from './useAudio'
 
 /** 换曲过渡只在 BGM 层，这里独立桩出可观测的音量与增益曲线。 */
@@ -48,6 +49,7 @@ class MockGainNode {
 }
 class MockBufferSource {
   buffer: unknown = null
+  onended: (() => void) | null = null
   loop = false
   readonly started = vi.fn()
   readonly stopped = vi.fn()
@@ -97,6 +99,60 @@ function stubGlobals(withWebAudio: boolean) {
 }
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+describe('Android 预解码音效', () => {
+  beforeEach(() => {
+    stubGlobals(true)
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true, blob: async () => ({ arrayBuffer: async () => new ArrayBuffer(8) }),
+    })))
+  })
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
+
+  it('报胡与特效独立播完，同一种声音重复播放复用解码数据；关闭音乐不打断报胡', async () => {
+    const audio = useAudio({ preloadEffects: false, bufferEffects: true })
+    const ctx = MockAudioContext.created[0]
+    const samples = new Float32Array(1000)
+    samples[120] = .001
+    ctx.decodeAudioData.mockResolvedValue({ length: 1000, sampleRate: 1000, numberOfChannels: 1,
+      getChannelData: () => samples } as unknown as AudioBuffer)
+    await Promise.all(['zimo.mp3', 'zimo.ogg', 'hu_effect_sound.mp3'].map(audio.preloadAudioAsset))
+    const finished = vi.fn()
+    const waitForVoice = audio.playEffectAndWait('zimo.mp3').then(finished)
+    audio.playEffect('hu_effect_sound.mp3', .72)
+    audio.playEffect('zimo.mp3')
+    const [voice, impact, repeat] = ctx.sources
+    expect(ctx.decodeAudioData).toHaveBeenCalledTimes(2)
+    expect(repeat.buffer).toBe(voice.buffer)
+    expect(voice.started.mock.calls[0][1]).toBeCloseTo(.1)
+    expect(impact.started).toHaveBeenCalledWith(0, 0)
+    impact.onended!()
+    audio.bgmOn.value = false
+    await nextTick()
+    expect(finished).not.toHaveBeenCalled()
+    expect(voice.stopped).not.toHaveBeenCalled()
+    voice.onended!()
+    await waitForVoice
+    expect(finished).toHaveBeenCalledOnce()
+    expect(voice.disconnect).toHaveBeenCalledOnce()
+    audio.effectsOn.value = false
+    await nextTick()
+    expect(repeat.stopped).toHaveBeenCalledOnce()
+    expect(audio.playEffect('zimo.mp3')).toBeNull()
+    expect(MockAudio.instances).toHaveLength(1) // 仅预留的背景音乐元素。
+  })
+
+  it('单段音效解码失败时仍从缓存播放', async () => {
+    const audio = useAudio({ preloadEffects: false, bufferEffects: true })
+    const ctx = MockAudioContext.created[0]
+    ctx.decodeAudioData.mockRejectedValue(new Error('codec unavailable'))
+    await audio.preloadAudioAsset('hu.mp3')
+    const fallback = audio.playEffect('hu.mp3') as unknown as MockAudio
+    expect(fallback.src).toMatch(/^blob:/)
+    expect(fallback.play).toHaveBeenCalledOnce()
+    expect(ctx.sources).toHaveLength(0)
+  })
+})
 
 describe('useAudio BGM 顺序切换（HTMLAudio 回退路径）', () => {
   beforeEach(() => stubGlobals(false))

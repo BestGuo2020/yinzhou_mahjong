@@ -260,7 +260,7 @@ describe('颍州实桌沿用幺筒节奏', () => {
     expect(game.dealAnimation.value.sourceOffsets).toEqual([48,52])
     expect(game.dealAnimation.value.remainingWallOffsets?.slice(0, 5)).toEqual([49,50,51,53,54])
     await vi.advanceTimersByTimeAsync(260 + 450 + 650)
-    expect(play.mock.calls.filter(([file]) => file === 'deal.mp3')).toHaveLength(12)
+    expect(play.mock.calls.filter(([file]) => file === 'deal_batch.ogg')).toHaveLength(16)
     expect(game.mayDiscard.value).toBe(true)
     expect(voice.mock.calls.map(([file]) => file)).toEqual(['game_start.mp3','dice.mp3'])
   })

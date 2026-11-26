@@ -17,6 +17,7 @@ import { resolveInitialTableTheme } from './components/table/three/tableThemePre
 import { playableTheme, type TableThemeName } from './theme/themeIdentity'
 import { themePresentationByName, themePresentationCssVariables } from './theme/themePresentation'
 import { useAudio } from './game/core/presentation/useAudio'
+import { inAndroidApp } from './game/replay/androidExport'
 import { MATCH_FORMATS, windRoundLabel } from './game/core/rules/matchFormats'
 import { useReplayRecorder } from './game/replay/useReplayRecorder'
 import type { ReplayMatch, ReplayRound } from './game/replay/types'
@@ -46,7 +47,9 @@ function changeTheme(value: TableThemeName) {
 }
 if (requestedTheme !== null && requestedTheme !== theme.value) changeTheme(theme.value)
 const presentation = computed(() => themePresentationByName(theme.value))
-const { playEffect, playEffectAndWait, startBgm, preloadAudioAsset } = useAudio({ preloadEffects: false })
+const { playEffect, playEffectAndWait, startBgm, preloadAudioAsset } = useAudio({
+  preloadEffects: false, bufferEffects: inAndroidApp() || /Android/i.test(navigator.userAgent),
+})
 const load = createStartupLoader(gameStartupTasks(theme.value, preloadAudioAsset), startupScreen.update)
 async function prepare() {
   try {

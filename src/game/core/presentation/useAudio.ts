@@ -9,6 +9,7 @@ import {
 } from './llmAudioBus'
 import type { LlmSpeechPriority } from '../../llm/speechPolicy'
 import { DEFAULT_BGM_ASSET, EFFECT_AUDIO_ASSETS, resolveAudioAsset, resolveBgmAsset } from './audioAssets'
+import { createBufferedEffects } from './bufferedEffects'
 
 const EFFECT_AUDIO_FILES = EFFECT_AUDIO_ASSETS
 const EFFECT_WAIT_TIMEOUT_MS = 4_000
@@ -46,7 +47,7 @@ export interface AudioControls {
 }
 
 const AUDIO_CONTROLS_KEY: InjectionKey<AudioControls> = Symbol('audio-controls')
-type EffectPlayer=(name:string,volume?:number)=>HTMLAudioElement|null
+type EffectPlayer=(name:string,volume?:number)=>HTMLAudioElement|AudioBufferSourceNode|null
 const EFFECT_PLAYER_KEY:InjectionKey<EffectPlayer>=Symbol('effect-player')
 /** Shared UI effects use the existing player and its sound/effects mute controls. */
 export function useEffectPlayer(){return getCurrentInstance()?inject(EFFECT_PLAYER_KEY,null):null}
@@ -123,7 +124,14 @@ interface LlmAudioItem {
   started?: boolean
 }
 
-export function useAudio({ preloadEffects = true } = {}) {
+function createAudioContext(options?: AudioContextOptions): AudioContext | null {
+  if (typeof window === 'undefined') return null
+  const Ctor = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  if (!Ctor) return null
+  try { return new Ctor(options) } catch { return null }
+}
+
+export function useAudio({ preloadEffects = true, bufferEffects = false } = {}) {
   const initialPreferences = readAudioPreferences()
   const soundOn = ref(initialPreferences.soundOn)
   const bgmOn = ref(initialPreferences.bgmOn)
@@ -135,6 +143,9 @@ export function useAudio({ preloadEffects = true } = {}) {
   if (getCurrentInstance()) provide(EFFECT_PLAYER_KEY, playEffect)
   const bgmStarted = ref(false)
   const activeEffects = new Set<EffectAudio>()
+  // BGM 单独开关时会挂起自己的上下文。短音效使用独立的低延迟上下文。
+  const effectContext = bufferEffects ? createAudioContext({ latencyHint: 'interactive' }) : null
+  const mixer = effectContext && createBufferedEffects(effectContext)
   const effectPreloads = new Map<string, Promise<void>>()
   const effectObjectUrls = new Map<string, string>()
   const llmAudioQueue: LlmAudioItem[] = []
@@ -184,6 +195,7 @@ export function useAudio({ preloadEffects = true } = {}) {
     if (pending) return pending
     const loading = (async () => {
       const blob = await (await fetchAudioAsset(name)).blob()
+      if (mixer && !disposed) await mixer.preload(name, blob)
       if (disposed) return
       // Keep the bytes ready without reserving a WebView media player for every tile.
       effectObjectUrls.set(name, URL.createObjectURL(blob))
@@ -206,12 +218,14 @@ export function useAudio({ preloadEffects = true } = {}) {
     }
   }
 
-  function playEffect(name: string, volume = 1, onFinish?: () => void): EffectAudio | null {
-    if (!soundOn.value || !effectsOn.value || !name) return null
+  function playEffect(name: string, volume = 1, onFinish?: () => void): EffectAudio | AudioBufferSourceNode | null {
+    if (disposed || !soundOn.value || !effectsOn.value || !name) return null
     const file = resolveAudioAsset(name)
     if (!file || !file.startsWith('sounds/')) return null
     // A full deal sample covers several batches; don't stack the same one-second clip four times.
-    if (file === 'sounds/fapai.ogg' && !onFinish && [...activeEffects].some((a) => a.dataset?.assetFile === file)) return null
+    if (file === 'sounds/fapai.ogg' && !onFinish && (mixer?.isPlaying(file) || [...activeEffects].some((a) => a.dataset?.assetFile === file))) return null
+    const source = mixer?.play(file, volume, onFinish)
+    if (source) return source
     const audio: EffectAudio = new Audio(effectObjectUrls.get(file) ?? audioAssetUrl(file))
     audio.preload = 'auto'
     audio.volume = volume
@@ -251,7 +265,7 @@ export function useAudio({ preloadEffects = true } = {}) {
       // Audio loading/decoding is decorative and must never block the game timeline.
       timeoutId = window.setTimeout(() => {
         // Release a stalled player, but let a cue that started late finish speaking.
-        if (audio.currentTime === 0) audio.__releaseEffect?.()
+        if ('currentTime' in audio && audio.currentTime === 0) audio.__releaseEffect?.()
         finish()
       }, EFFECT_WAIT_TIMEOUT_MS)
     })
@@ -500,17 +514,7 @@ export function useAudio({ preloadEffects = true } = {}) {
   const unsubscribeLocalLlmAudio = subscribeLocalLlmAudio((url, seat, id, priority) => playLlmAudio(url, seat, id, priority))
 
   function ensureAudioContext(): AudioContext | null {
-    if (typeof window === 'undefined') return null
-    if (!audioContext) {
-      const Ctor = window.AudioContext || (window as any).webkitAudioContext
-      if (!Ctor) return null
-      try {
-        audioContext = new Ctor()
-      } catch {
-        return null
-      }
-    }
-    return audioContext
+    return audioContext ??= createAudioContext()
   }
 
   /** 在用户手势内恢复 AudioContext，下载与解码可提前在大厅进行。 */
@@ -531,7 +535,20 @@ export function useAudio({ preloadEffects = true } = {}) {
     void preloadBgm()
   }
 
+  function resumeGameAudio() {
+    if (document.hidden || !soundOn.value) return
+    if (effectsOn.value) mixer?.resume()
+    if (bgmStarted.value && bgmOn.value && audioContext && audioContext.state !== 'running') {
+      void audioContext.resume().catch(() => {})
+    }
+  }
+
   onMounted(() => {
+    if (mixer) {
+      window.addEventListener('pointerup', resumeGameAudio, { passive: true })
+      window.addEventListener('keydown', resumeGameAudio)
+      document.addEventListener('visibilitychange', resumeGameAudio)
+    }
     window.addEventListener('pointerdown', primeBgm, { once: true, passive: true })
     window.addEventListener('keydown', primeBgm, { once: true })
     window.addEventListener('touchstart', primeBgm, { once: true, passive: true })
@@ -772,6 +789,7 @@ export function useAudio({ preloadEffects = true } = {}) {
   bgmTrackPort = bgmPort
 
   async function startBgm() {
+    if (soundOn.value && effectsOn.value) mixer?.resume()
     bgmStarted.value = true
     if (!soundOn.value || !bgmOn.value) return
     await preloadBgm()   // 确保 buffer 就绪，避免开局静音
@@ -783,6 +801,7 @@ export function useAudio({ preloadEffects = true } = {}) {
   }
 
   function stopEffects() {
+    mixer?.stopAll()
     activeEffects.forEach((audio) => {
       audio.pause()
       audio.currentTime = 0
@@ -821,6 +840,12 @@ export function useAudio({ preloadEffects = true } = {}) {
     unregisterLlmAudioGroupPlayer()
     unsubscribeLocalLlmAudio()
     removeBgmPrimeListeners()
+    if (mixer) {
+      window.removeEventListener('pointerup', resumeGameAudio)
+      window.removeEventListener('keydown', resumeGameAudio)
+      document.removeEventListener('visibilitychange', resumeGameAudio)
+      mixer.close()
+    }
     if (bgmTrackPort === bgmPort) bgmTrackPort = null
     stopAllWebBgmTracks()
     void audioContext?.close().catch(() => {})
