@@ -24,14 +24,18 @@ class MockAudio {
 
   load() {}
 
-  cloneNode() {
-    return new MockAudio(this.src)
+  removeAttribute(name: string) {
+    if (name === 'src') this.src = ''
   }
 
   addEventListener(type: string, listener: () => void) {
     const listeners = this.listeners.get(type) ?? []
     listeners.push(listener)
     this.listeners.set(type, listeners)
+  }
+
+  removeEventListener(type: string, listener: () => void) {
+    this.listeners.set(type, (this.listeners.get(type) ?? []).filter(item => item !== listener))
   }
 
   emit(type: string) {
@@ -48,7 +52,7 @@ beforeEach(() => {
     clearTimeout: globalThis.clearTimeout,
   })
   vi.stubGlobal('window', testWindow)
-  // 音效预加载与本测试无关；保持请求 pending，避免创建数十个模板 Audio。
+  // Keep preloads pending unless the test exercises the cached playback path.
   vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => {})))
   const stored = new Map<string, string>()
   vi.stubGlobal('localStorage', {
@@ -66,6 +70,22 @@ afterEach(() => {
 })
 
 describe('useAudio LLM 语音播放', () => {
+  it('preloads effect bytes without holding media players and releases each overlapping cue independently', async () => {
+    const audio = useAudio({ preloadEffects: false })
+    const initialPlayers = MockAudio.instances.length
+    vi.mocked(fetch).mockImplementation(async () => new Response(new Blob(['sound'], { type: 'audio/ogg' })))
+    await Promise.all(['bugang.ogg', '1m.mp3'].map(file => audio.preloadAudioAsset(file)))
+    expect(MockAudio.instances).toHaveLength(initialPlayers)
+    const kong = audio.playEffect('bugang.ogg') as unknown as MockAudio
+    const tile = audio.playEffect('1m.mp3') as unknown as MockAudio
+    expect(kong.src).toMatch(/^blob:/)
+    kong.emit('ended')
+    expect(kong.src).toBe('')
+    expect(tile.src).toMatch(/^blob:/)
+    audio.effectsOn.value = false
+    await nextTick()
+    expect(tile.src).toBe('')
+  })
   it('one deal clip spans consecutive batches without overlapping itself, then can restart after ending', () => {
     const audio = useAudio()
     const first = audio.playEffect('deal.mp3') as unknown as MockAudio
@@ -73,6 +93,20 @@ describe('useAudio LLM 语音播放', () => {
     expect(audio.playEffect('deal.mp3')).toBeNull()
     first.emit('ended')
     expect(audio.playEffect('deal.mp3')).not.toBeNull()
+  })
+  it('unblocks the turn at the wait timeout while a late-starting announcement finishes', async () => {
+    vi.useFakeTimers()
+    window.setTimeout = globalThis.setTimeout
+    window.clearTimeout = globalThis.clearTimeout
+    const audio = useAudio({ preloadEffects: false })
+    const waiting = audio.playEffectAndWait('1m.mp3')
+    const tile = MockAudio.instances.at(-1)!
+    tile.currentTime = 0.3
+    await vi.advanceTimersByTimeAsync(4000)
+    await waiting
+    expect(tile.src).toContain('/sounds/1m.ogg')
+    tile.emit('ended')
+    expect(tile.src).toBe('')
   })
   it.each([
     ['hu.mp3', 'chihu.ogg'],

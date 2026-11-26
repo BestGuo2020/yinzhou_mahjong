@@ -37,6 +37,8 @@ public final class GameActivity extends Activity {
         WebSettings settings = game.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
+        // AI turns, dice and delayed tile announcements run outside the player's tap.
+        settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
         game.setWebChromeClient(new WebChromeClient());

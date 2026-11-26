@@ -2958,7 +2958,7 @@ button { font: inherit; }
 .game-app[data-table-theme="jade"] .table-action-cue::after { border-radius: 8%; border-color: rgba(132,183,146,.4); }
 .game-app[data-table-theme="jade"] .result-backdrop { background: radial-gradient(circle at 50% 34%, rgba(53,104,77,.2), transparent 44%), rgba(2,10,7,.84); }
 .game-app[data-table-theme="jade"] .settlement-card,
-.game-app[data-table-theme="jade"] .final-board { border: 1px solid #b99145; border-radius: 4px; background: radial-gradient(circle at 50% 0, rgba(113,151,119,.12), transparent 38%), linear-gradient(145deg, #173b2d, #071b13 78%); box-shadow: inset 0 0 0 7px rgba(217,185,97,.05), 0 28px 76px #000; }
+.game-app[data-table-theme="jade"] .final-board { border: 1px solid #b99145; border-radius: 4px; background: radial-gradient(circle at 50% 0, rgba(113,151,119,.12), transparent 38%), linear-gradient(145deg, #173b2d, #071b13 78%); box-shadow: 0 28px 76px #000; }
 .game-app[data-table-theme="jade"] .settlement-card h2,
 .game-app[data-table-theme="jade"] .final-board > h2 { color: #f7e8bc; }
 .game-app[data-table-theme="jade"] .round-rankings article,
@@ -3070,7 +3070,7 @@ button { font: inherit; }
 .game-app[data-table-theme="llm"] .table-action-cue::after { border-radius: 3px; border-color: rgba(118,217,255,.72); }
 .game-app[data-table-theme="llm"] .table-action-cue span { color: #eef7ff; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; text-shadow: 0 0 18px #4f8fff; }
 .game-app[data-table-theme="llm"] .settlement-card,
-.game-app[data-table-theme="llm"] .final-board { border: 1px solid rgba(118,217,255,.66); border-radius: 5px; clip-path: polygon(15px 0,100% 0,100% calc(100% - 15px),calc(100% - 15px) 100%,0 100%,0 15px); background: radial-gradient(circle at 50% 0, rgba(79,143,255,.18), transparent 40%), linear-gradient(145deg, #0e2252, #050f2d 78%); box-shadow: inset 0 0 0 7px rgba(118,217,255,.035), 0 0 44px rgba(79,143,255,.22), 0 28px 76px rgba(0,0,0,.66); }
+.game-app[data-table-theme="llm"] .final-board { border: 1px solid rgba(118,217,255,.66); border-radius: 5px; clip-path: polygon(15px 0,100% 0,100% calc(100% - 15px),calc(100% - 15px) 100%,0 100%,0 15px); background: radial-gradient(circle at 50% 0, rgba(79,143,255,.18), transparent 40%), linear-gradient(145deg, #0e2252, #050f2d 78%); box-shadow: 0 0 44px rgba(79,143,255,.22), 0 28px 76px rgba(0,0,0,.66); }
 .game-app[data-table-theme="llm"] .round-rankings article,
 .game-app[data-table-theme="llm"] .final-rankings article { border-color: rgba(118,217,255,.24); background: linear-gradient(105deg, rgba(24,52,112,.94), rgba(8,24,67,.96)); }
 .game-app[data-table-theme="llm"] .round-rankings article.winner,
@@ -3186,16 +3186,12 @@ button { font: inherit; }
 .game-app:has(.game-table-hud[data-round-result-kind="draw"]) .settlement-card:not([data-result-kind]) { border-style: dashed; }
 .game-app .settlement-card[data-result-kind="draw"] h2,
 .game-app:has(.game-table-hud[data-round-result-kind="draw"]) .settlement-card:not([data-result-kind]) h2 { color: var(--theme-text-muted); }
-.game-app .settlement-card[data-result-kind="self-draw"],
-.game-app:has(.game-table-hud[data-round-result-kind="self-draw"]) .settlement-card:not([data-result-kind]) { box-shadow: inset 0 0 0 7px color-mix(in srgb, var(--theme-positive) 6%, transparent), 0 28px 76px rgba(0,0,0,.58); }
-.game-app .settlement-card[data-result-kind="discard"],
-.game-app:has(.game-table-hud[data-round-result-kind="discard"]) .settlement-card:not([data-result-kind]) { box-shadow: inset 0 0 0 7px color-mix(in srgb, var(--theme-accent-secondary) 8%, transparent), 0 28px 76px rgba(0,0,0,.58); }
 .game-app .settlement-card[data-result-kind="robbed-kong"],
-.game-app:has(.game-table-hud[data-round-result-kind="robbed-kong"]) .settlement-card:not([data-result-kind]) { border-color: var(--theme-negative); box-shadow: inset 0 0 0 7px color-mix(in srgb, var(--theme-negative) 9%, transparent), 0 0 34px color-mix(in srgb, var(--theme-negative) 22%, transparent), 0 28px 76px rgba(0,0,0,.62); }
+.game-app:has(.game-table-hud[data-round-result-kind="robbed-kong"]) .settlement-card:not([data-result-kind]) { border-color: var(--theme-negative); }
 .game-app .settlement-card[data-result-kind="tianhu"],
 .game-app .settlement-card[data-result-kind="dihu"],
 .game-app:has(.game-table-hud[data-round-result-kind="tianhu"]) .settlement-card:not([data-result-kind]),
-.game-app:has(.game-table-hud[data-round-result-kind="dihu"]) .settlement-card:not([data-result-kind]) { border-color: var(--theme-accent); box-shadow: inset 0 0 0 7px color-mix(in srgb, var(--theme-accent) 10%, transparent), 0 0 40px color-mix(in srgb, var(--theme-accent) 25%, transparent), 0 28px 76px rgba(0,0,0,.62); }
+.game-app:has(.game-table-hud[data-round-result-kind="dihu"]) .settlement-card:not([data-result-kind]) { border-color: var(--theme-accent); }
 .game-app .settlement-card[data-result-kind="robbed-kong"] h2,
 .game-app:has(.game-table-hud[data-round-result-kind="robbed-kong"]) .settlement-card:not([data-result-kind]) h2 { color: var(--theme-negative); }
 .game-app .settlement-card[data-result-kind="self-draw"] h2,

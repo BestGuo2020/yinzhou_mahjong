@@ -36,6 +36,7 @@ describe('Ogg Vorbis sound library', () => {
     ['angang.mp3', 'sounds/angang.ogg'],
     ['dice.mp3', 'sounds/touzi.ogg'],
     ['deal.mp3', 'sounds/fapai.ogg'],
+    ['give.mp3', 'sounds/give.ogg'],
     ['hu.mp3', 'sounds/chihu.ogg'],
     ['hu_effect_sound.mp3', 'sounds/hu_effecct_sound.ogg'],
     ['hufangmj.ogg', 'sounds/tuidao.ogg'],

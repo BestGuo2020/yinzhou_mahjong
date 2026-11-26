@@ -135,9 +135,8 @@ export function useAudio({ preloadEffects = true } = {}) {
   if (getCurrentInstance()) provide(EFFECT_PLAYER_KEY, playEffect)
   const bgmStarted = ref(false)
   const activeEffects = new Set<EffectAudio>()
-  const effectTemplates = new Map<string, HTMLAudioElement>()
   const effectPreloads = new Map<string, Promise<void>>()
-  const effectObjectUrls = new Set<string>()
+  const effectObjectUrls = new Map<string, string>()
   const llmAudioQueue: LlmAudioItem[] = []
   let activeLlmAudio: HTMLAudioElement | null = null
   let activeLlmItem: LlmAudioItem | null = null
@@ -171,13 +170,6 @@ export function useAudio({ preloadEffects = true } = {}) {
   /** 回退路径的换曲斜坡：同一时刻只有一条，暂停/卸载时立刻结算到目标状态。 */
   let fallbackFadeTimer = 0
 
-  function createTemplate(src: string) {
-    const audio = new Audio(src)
-    audio.preload = 'auto'
-    audio.load()
-    return audio
-  }
-
   async function fetchAudioAsset(file: string) {
     const response = await fetch(audioAssetUrl(file), {
       cache: 'force-cache', signal: AbortSignal.timeout(AUDIO_PRELOAD_TIMEOUT_MS),
@@ -187,15 +179,14 @@ export function useAudio({ preloadEffects = true } = {}) {
   }
 
   function preloadEffect(name: string): Promise<void> {
-    if (disposed || effectTemplates.has(name)) return Promise.resolve()
+    if (disposed || effectObjectUrls.has(name)) return Promise.resolve()
     const pending = effectPreloads.get(name)
     if (pending) return pending
     const loading = (async () => {
       const blob = await (await fetchAudioAsset(name)).blob()
       if (disposed) return
-      const objectUrl = URL.createObjectURL(blob)
-      effectObjectUrls.add(objectUrl)
-      effectTemplates.set(name, createTemplate(objectUrl))
+      // Keep the bytes ready without reserving a WebView media player for every tile.
+      effectObjectUrls.set(name, URL.createObjectURL(blob))
     })().finally(() => effectPreloads.delete(name))
     effectPreloads.set(name, loading)
     return loading
@@ -221,10 +212,7 @@ export function useAudio({ preloadEffects = true } = {}) {
     if (!file || !file.startsWith('sounds/')) return null
     // A full deal sample covers several batches; don't stack the same one-second clip four times.
     if (file === 'sounds/fapai.ogg' && !onFinish && [...activeEffects].some((a) => a.dataset?.assetFile === file)) return null
-    const template = effectTemplates.get(file)
-    const audio = (template
-      ? template.cloneNode(true)
-      : new Audio(audioAssetUrl(file))) as EffectAudio
+    const audio: EffectAudio = new Audio(effectObjectUrls.get(file) ?? audioAssetUrl(file))
     audio.preload = 'auto'
     audio.volume = volume
     if(audio.dataset) { audio.dataset.effectName=name; audio.dataset.assetFile=file }
@@ -234,6 +222,10 @@ export function useAudio({ preloadEffects = true } = {}) {
       if (finished) return
       finished = true
       activeEffects.delete(audio)
+      audio.removeEventListener('ended', release)
+      audio.removeEventListener('error', release)
+      audio.removeAttribute('src')
+      audio.load()
       onFinish?.()
     }
     audio.__releaseEffect = release
@@ -258,7 +250,8 @@ export function useAudio({ preloadEffects = true } = {}) {
       }
       // Audio loading/decoding is decorative and must never block the game timeline.
       timeoutId = window.setTimeout(() => {
-        audio.__releaseEffect?.()
+        // Release a stalled player, but let a cue that started late finish speaking.
+        if (audio.currentTime === 0) audio.__releaseEffect?.()
         finish()
       }, EFFECT_WAIT_TIMEOUT_MS)
     })
@@ -838,7 +831,6 @@ export function useAudio({ preloadEffects = true } = {}) {
     stopLlmAudio()
     effectObjectUrls.forEach((url) => URL.revokeObjectURL(url))
     effectObjectUrls.clear()
-    effectTemplates.clear()
     bgmFallbackUrls.forEach((url) => URL.revokeObjectURL(url))
     bgmFallbackUrls.clear()
     bgmBuffers.clear()
