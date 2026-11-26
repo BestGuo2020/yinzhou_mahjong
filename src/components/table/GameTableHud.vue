@@ -653,7 +653,7 @@ function onAvatarError(entry: GamePlayer) {
       :theme-name="themeName"
       :players="players" :local-seat="user.seat" :current-player="currentPlayer" :last-discard="lastDiscard"
       :wall="wall" :wall-head-drawn="wallHeadDrawn" :wall-count="wallCount"
-      :wall-total="wallTotal" :laizi-only="rulesetId === 'yaotong'"
+      :wall-total="wallTotal" :laizi-only="rulesetId === 'yaotong'" :retain-discard-frame="rulesetId === 'yingzhou'"
       :horses="result?.horses" :reveal-hands="tableRevealHands" :winner-index="winningPlayerIndex"
       :joker-tiles="jokerTiles" :wildcard-tiles="wildcardTiles"
       :win-effect="presentedWinEffect" :win-presentation="presentedWinPresentation" :deal-animation="dealAnimation"

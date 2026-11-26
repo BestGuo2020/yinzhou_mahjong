@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
+import { mergeGroups } from 'three/addons/utils/BufferGeometryUtils.js'
 import { TILE_TYPES } from '../../../game/core/rules/tiles'
 import { windForSeat } from '../../../game/core/presentation/tableLayout'
 import type { TileType } from '../../../game/core/contracts/types'
@@ -835,6 +836,7 @@ function updateMachineTexture() {
   texture.needsUpdate = true
 }
 
+const staticMeshes: THREE.Mesh[] = []
 function addStaticMesh(geometry, material, x, y, z) {
   own(geometry)
   const item = new THREE.Mesh(geometry, material)
@@ -842,6 +844,7 @@ function addStaticMesh(geometry, material, x, y, z) {
   item.castShadow = theme.staticTableCastShadow !== false
   item.receiveShadow = true
   scene.add(item)
+  staticMeshes.push(item)
   return item
 }
 
@@ -893,6 +896,11 @@ function addTable() {
   const tileGeometry = theme.tileGeometry ?? { segments: 6, baseRadius: .07, capRadius: .072 }
   scene.userData.tileBaseGeometry = own(new RoundedBoxGeometry(.68, .22, .94, tileGeometry.segments, tileGeometry.baseRadius))
   scene.userData.tileCapGeometry = own(new RoundedBoxGeometry(.69, .34, .95, tileGeometry.segments, tileGeometry.capRadius))
+  // 背面使用槽 3，正面层的牌面另用槽 2；同材质的各侧面可以一次提交。
+  for (const group of scene.userData.tileBaseGeometry.groups) if (group.materialIndex !== 3) group.materialIndex = 0
+  for (const group of scene.userData.tileCapGeometry.groups) if (group.materialIndex !== 2 && group.materialIndex !== 3) group.materialIndex = 0
+  mergeGroups(scene.userData.tileBaseGeometry)
+  mergeGroups(scene.userData.tileCapGeometry)
   if (theme.tileAoIntensity) {
     ;[scene.userData.tileBaseGeometry, scene.userData.tileCapGeometry].forEach((geometry: THREE.BufferGeometry) => {
       const uv = geometry.getAttribute('uv')
@@ -1055,10 +1063,12 @@ function addTable() {
   machineMesh.castShadow = true
   machineMesh.receiveShadow = true
   scene.add(machineMesh)
+  staticMeshes.push(machineMesh)
 }
 
   return {
     addTable,
+    staticMeshes,
     updateMachineTexture,
     makeFaceMaterial,
     getMarkedDiscardStickerMaterial,

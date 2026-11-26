@@ -76,6 +76,7 @@ export function createTableTilePresenter(options: TableTilePresenterOptions) {
   const dealTweens: DealTween[] = []
   const meldTweens: MeldTween[] = []
   const discardTweens: DealTween[] = []
+  const movingDiscard = { id: -1, position: new THREE.Vector3() }
   let continuingDeals = new Map<string, DealTween>()
   let continuingMelds = new Map<string, MeldTween>()
   let continuingDiscards = new Map<string, DealTween>()
@@ -839,6 +840,8 @@ function rebuildTableTiles() {
       scratchVector.lerpVectors(tween.origin, tween.target, eased)
       scratchVector.y = THREE.MathUtils.lerp(tween.origin.y, tween.target.y, eased) + arc + bounce
       tileInstances.set(tween.baseIndex, tween.capMesh, tween.capIndex, scratchVector, tween.quat, 1)
+      movingDiscard.id = animatedDiscardId
+      movingDiscard.position.copy(scratchVector)
       return progress < 1
     })
     discardTweens.splice(0, discardTweens.length, ...keepDiscard)
@@ -846,6 +849,10 @@ function rebuildTableTiles() {
   }
 
   return { rebuild: rebuildTableTiles, animate, meldTransform, alignMeldBottom, sourceTileRotationOffset,
+    singleMovingDiscard() {
+      return discardTweens.length === 1 && !dealTweens.length && !meldTweens.length && !flights.length &&
+        !tippingTiles.length && !indicatorMotion ? movingDiscard : null
+    },
     winHandOrigin(seat: number, index: number): FlightPose | null {
       if (seat !== 0) return winHandOrigins.get(index) ?? null
       const screen = props.ownHandPoint?.(index)

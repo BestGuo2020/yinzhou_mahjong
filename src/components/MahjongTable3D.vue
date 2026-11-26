@@ -24,6 +24,7 @@ import {
 } from './table/three/sceneRenderProfile'
 import { tableThemeByName, type TableTheme } from './table/three/tableTheme'
 import { createTileInstanceRenderer } from './table/three/tileInstanceRenderer'
+import { createDiscardRedraw } from './table/three/discardRedraw'
 import { TABLE_LAYOUT } from '../game/core/presentation/tableLayout'
 import { createMultiWinEffectPresenter } from './table/three/multiWinEffectPresenter'
 import { createTableTilePresenter } from './table/three/tableTilePresenter'
@@ -96,6 +97,7 @@ const WALL_DEAL_ORIGIN_Y = 1.1  // 发牌从牌山 head 槽位上方起飞的初
 // 触屏设备（真机）判定：主指针 coarse 且无 hover。
 const isMobileLike = typeof window.matchMedia === 'function'
   && window.matchMedia('(hover: none) and (pointer: coarse)').matches
+let discardRedraw: ReturnType<typeof createDiscardRedraw> | null = null
 // 渲染分辨率上限（清晰度 vs 帧率）：桌面 3、真机 2.5（在 2 的清晰与 3 的帧率间取平衡）。
 // URL 带 ?pr=<数字> 可覆盖。
 let pixelRatioCap = parseFloat(new URLSearchParams(window.location.search).get('pr') ?? '') || (isMobileLike ? 2.5 : 3)
@@ -387,8 +389,15 @@ function render(time = 0) {
     const weatherOnly = isMobileLike && weatherActive && !wasDirty && !dirty && !tilesActive && !diceActive && !winFrame && !bloodFlowActive
     if (weatherOnly && previousWeatherOnly) renderer.shadowMap.autoUpdate = false
     previousWeatherOnly = weatherOnly
-    if (outlineEffect) outlineEffect.render(scene, camera)
-    else renderer.render(scene, camera)
+    const movingTile = discardRedraw && !diceActive && !weatherActive && !winFrame && !bloodFlowActive
+      && !props.revealHands && !props.openingStage && tableTiles.singleMovingDiscard()
+    if (movingTile && discardRedraw && shadowLight && !outlineEffect) {
+      discardRedraw.render(renderer, scene, camera, shadowLight, movingTile, wasDirty || dirty)
+    } else {
+      discardRedraw?.reset()
+      if (outlineEffect) outlineEffect.render(scene, camera)
+      else renderer.render(scene, camera)
+    }
     kongWeather?.renderOverlay(renderer)
     renderedFrames += 1
     keepGoing = diceActive || tilesActive || weatherActive || Boolean(winFrame) || bloodFlowActive || dirty
@@ -453,7 +462,8 @@ onMounted(async () => {
     }
   }
 
-  renderer = new THREE.WebGLRenderer({ canvas: canvas.value, antialias: aaEnabled, alpha: true, powerPreference: 'high-performance' })
+  const retainFrame = isMobileLike && props.retainDiscardFrame === true
+  renderer = new THREE.WebGLRenderer({ canvas: canvas.value, antialias: aaEnabled, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer: retainFrame })
   applyRendererProfile(renderer, renderProfile)
   if (cheapTable || animeTable) renderer.shadowMap.enabled = false
   renderer.setClearColor(0x050706, 0)
@@ -597,6 +607,9 @@ onMounted(async () => {
   kongWeather = createYaotongKongWeather({ scene, assets: weatherAssets, mobile: isMobileLike, cues: () => props.kongWeather ?? [], localSeat: () => props.localSeat })
   scene.userData.tileImages = preloadedTileImages(activeThemeName)
   tableScene.addTable()
+  if (retainFrame && renderer.getContext().getContextAttributes()?.preserveDrawingBuffer) {
+    discardRedraw = createDiscardRedraw(tableScene.staticMeshes)
+  }
   tableTiles.rebuild()
   if (adaptiveQuality.overridden) adaptiveQuality.apply()
   resizeObserver = new ResizeObserver(resize)
@@ -753,7 +766,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <canvas ref="canvas" class="mahjong-scene" :data-table-theme="props.themeName ?? 'jade'"
+  <canvas ref="canvas" class="mahjong-scene" @webglcontextrestored="invalidate" :data-table-theme="props.themeName ?? 'jade'"
     :data-sideways-discards="JSON.stringify(props.sidewaysDiscards)"
     :data-marked-discards="JSON.stringify(props.players.map(player => player.markedDiscardIndices ?? []))"
     :data-neutral-peng="props.neutralPengOrientation ? '1' : '0'" aria-hidden="true"></canvas>
