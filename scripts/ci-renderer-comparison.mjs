@@ -6,7 +6,7 @@ console.log('GPU',JSON.stringify(info.gpu.devices),info.gpu.auxAttributes.glRend
 try {
  for(const [width,height,mobile,dpr] of [[1280,720,false,1],[844,390,true,3]]){
   const page=await browser.newPage({viewport:{width,height},hasTouch:mobile,isMobile:mobile,deviceScaleFactor:dpr})
-  await page.goto('http://localhost:4173/?theme=jade&quality=low')
+  await page.goto('http://127.0.0.1:4173/?theme=jade&quality=low')
   const start=page.locator('.start-button')
   await start.waitFor({timeout:60000})
   await start.evaluate(el=>el.addEventListener('click',()=>{

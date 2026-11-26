@@ -26,8 +26,8 @@ jobs:
         env:
           BACKEND: ${{ matrix.backend }}
         run: |
-          pnpm dev > vite.log 2>&1 &
-          for i in {1..40}; do curl -fsS http://localhost:4173/ >/dev/null && break; sleep 1; done
+          pnpm exec vite --host 127.0.0.1 --port 4173 --strictPort > vite.log 2>&1 &
+          curl -fsS --retry 12 --retry-delay 1 --retry-connrefused http://127.0.0.1:4173/ >/dev/null || { cat vite.log; exit 1; }
           if [ "$BACKEND" = mesa ]; then
             export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe
             xvfb-run -a node scripts/ci-renderer-comparison.mjs
