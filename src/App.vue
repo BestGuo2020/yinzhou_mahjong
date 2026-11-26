@@ -149,7 +149,7 @@ const shownMarks = computed(() => {
 })
 const matchName = computed(() => MATCH_FORMATS[matchLength.value].name)
 const handLabel = computed(() => round.value ? windRoundLabel(round.value.dealerRound) : '')
-const label = computed(() => round.value ? roundLabel(round.value) : '')
+const openingRoundLabel = computed(() => round.value ? roundLabel(round.value) : '')
 const standings = computed(() => [...players.value].sort((a, b) => b.score - a.score || a.seat - b.seat)
   .map((p, i) => ({ ...p, playerIndex: p.seat, rank: i + 1 })))
 watch(result, () => { resultVisible.value = true })
@@ -168,7 +168,7 @@ function quit() {
     <EffectsPreview v-if="EffectsPreview" :theme-name="theme" :audio="{ play: playEffect, playAndWait: playEffectAndWait }" />
     <div v-else-if="!replayView" :class="{ 'has-three-scene': round, 'yingzhou-playing': round && !revealHands }">
       <GameShellHeader game-mode="local" :phase="phase" :has-players="!!round" :match-name="matchName"
-        :round-label="label" :stake-label="(coinRate === 3 ? '三倍场' : '普通场') + ' · 底金' + seatGold(BASE_POINTS)" room-id="" :signal-quality="3" :theme-name="theme"
+        :round-label="handLabel" :honba="round?.honba ?? 0" :stake-label="(coinRate === 3 ? '三倍场' : '普通场') + ' · 底金' + seatGold(BASE_POINTS)" room-id="" :signal-quality="3" :theme-name="theme"
         @quit="quit" @open-rules="rulesOpen = true" @change-theme="changeTheme" />
       <LobbyView v-if="!round" v-model:settings="settings" v-model:length="length" :theme-name="theme" :balance="balance" :save-failed="saveFailed"
         @start="startBgm(); start()" @open-rules="rulesOpen = true" @open-stats="statsOpen = true" @open-replay="replayNotice = ''; replayOpen = true" />
@@ -181,7 +181,7 @@ function quit() {
         :joker-tiles="[]" :marked-indices="shownMarks" :is-user-turn="mayDiscard" :selected-index="selectedIndex"
         :table-action-event="actionCue" :action-prompt="claimPrompt" :can-pass="mayPass" :announcement="null" :score-flow-event="null"
         :result="result" :win-effect="winEffect" :win-patterns="winPatterns" :win-presentation="winPresentation" :reveal-hands="revealHands" :winning-player-index="winningPlayerIndex"
-        :match-name="matchName" :round-label="label" :match-finished="finished" :turn-seconds="0"
+        :match-name="matchName" :round-label="openingRoundLabel" :match-finished="finished" :turn-seconds="0"
         :user-current-waits="waits.current" :user-ting-options="waits.options" :user-discard-waits="selectedWaits"
         :user-kongs="kongTiles" :kong-action-label="ownKongs.length === 1 ? actionLabel(ownKongs[0]) : '选择杠牌'" :user-has-wind-kong="false"
         :user-can-hu="false" :extra-actions="controls.length > 0" :kong-weather="weather"

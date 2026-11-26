@@ -131,7 +131,8 @@ test('死九报扎、付分、按开场配置续局和本地回放', async ({ pa
   await page.getByRole('button', { name: '确定', exact: true }).click()
   const start = page.getByRole('button', { name: /开始对局/ })
   await clickWithSeed(start, 9890) // 庄家起手三张六筒。
-  await expect(page.locator('.round-info')).toHaveText('全庄场 · 东1局 · 死九')
+  await expect(page.locator('.round-info')).toHaveText('全庄场 · 东1局')
+  await expect(page.locator('.start-cue span')).toHaveText('全庄场 · 东1局 · 死九')
   const hud = page.locator('.game-table-hud')
   await expect(hud).toHaveAttribute('data-concealed-counts', '14,13,13,13', { timeout: 35_000 })
   const indicator = page.getByRole('status', { name: '本局亮牌' })
@@ -146,7 +147,8 @@ test('死九报扎、付分、按开场配置续局和本地回放', async ({ pa
   await expect(page.getByRole('dialog', { name: /玩法/ })).toHaveCount(0)
   await page.getByRole('button', { name: '查看结算', exact: true }).click()
   await clickWithSeed(result.getByRole('button', { name: '继续' }), 1)
-  await expect(page.locator('.round-info')).toHaveText('全庄场 · 东1局 · 死九')
+  await expect(page.locator('.round-info')).toHaveText('全庄场 · 东1局 · 1本场')
+  await expect(page.locator('.start-cue span')).toHaveText('全庄场 · 东1局 · 死九')
   await expect(page.locator('.user-identity .dealer-badge')).toBeVisible()
   await expect(page.locator('.hand-rack.playable')).toBeVisible({ timeout: 35_000 })
   await expect(indicator).toHaveText(/^亮牌\s*四条$/)
@@ -265,7 +267,7 @@ test('自摸结算显示倍率与三家付款明细，并按名次显示四家�
   await format.getByRole('button', { name: /半庄场/ }).click()
   await format.getByRole('button', { name: '确定', exact: true }).click()
   await clickWithSeed(page.getByRole('button', { name: /开始对局/ }), 2311394)
-  await expect(page.locator('.round-info')).toHaveText('半庄场 · 东1局 · 活杠')
+  await expect(page.locator('.round-info')).toHaveText('半庄场 · 东1局')
   const discard = page.locator('.hand-rack.playable').getByRole('button', { name: '七万', exact: true }).first()
   await expect(discard).toBeVisible({ timeout: 30_000 })
   await discard.click()
@@ -284,7 +286,7 @@ test('自摸结算显示倍率与三家付款明细，并按名次显示四家�
   await card.getByRole('button', { name: '查看牌桌' }).click()
   await page.getByRole('button', { name: '查看结算', exact: true }).click()
   await card.getByRole('button', { name: '继续', exact: true }).click()
-  await expect(page.locator('.round-info')).toHaveText('半庄场 · 东2局 · 活杠')
+  await expect(page.locator('.round-info')).toHaveText('半庄场 · 东2局')
   await expect(page.locator('.base-score-badge')).toContainText('三倍场')
   page.once('dialog', dialog => dialog.accept())
   await page.getByRole('button', { name: '退出对局' }).click()
@@ -342,7 +344,8 @@ test.describe('手机完整场次', () => {
     await clickWithSeed(page.getByRole('button', { name: '继续', exact: true }), 1)
     const label = page.locator('.round-info')
     const seat = page.locator('.seat-top .avatar-wrap')
-    await expect(label).toHaveText('东风场 · 东1局 · 死九')
+    await expect(label).toHaveText('东风场 · 东1局 · 1本场')
+    await expect(page.locator('.start-cue span')).toHaveText('东风场 · 东1局 · 死九')
     await expect(seat).toContainText('−900万')
     for (const width of [740, 568, 786, 892]) {
       await page.setViewportSize({ width, height: width === 568 ? 320 : 381 })
@@ -377,7 +380,7 @@ test.describe('手机完整场次', () => {
     const labels = ['东1局', '东1局', '东2局', '东3局', '东4局']
     for (const [index, label] of labels.entries()) {
       const badge = page.locator('.round-info')
-      await expect(badge).toHaveText(`东风场 · ${label} · 死九`)
+      await expect(badge).toHaveText(`东风场 · ${label}${index === 1 ? ' · 1本场' : ''}`)
       if (index === 1) await badge.screenshot({ path: info.outputPath('repeat-round-label.png') })
       if (index === 0 || index === 4) {
         const win = page.getByRole('button', { name: '扎亮牌 ×3' })
@@ -415,7 +418,7 @@ test.describe('手机完整场次', () => {
     await page.screenshot({ path: info.outputPath('final-ranking.png'), animations: 'disabled' })
     await final.getByRole('button', { name: '返回大厅' }).click()
     await page.getByRole('button', { name: /开始对局/ }).click()
-    await expect(page.locator('.round-info')).toHaveText('东风场 · 东1局 · 死九')
+    await expect(page.locator('.round-info')).toHaveText('东风场 · 东1局')
   })
 })
 

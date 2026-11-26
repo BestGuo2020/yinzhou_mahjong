@@ -1247,8 +1247,9 @@ button { font: inherit; }
   }
   .game-app:has(.game-table-hud[data-reveal-hands="1"]) .has-signal .round-info { padding-right: 18px; }
   .game-app:has(.game-table-hud[data-reveal-hands="1"]) .has-signal-warning .round-info { padding-right: 70px; }
-  .game-app:has(.game-table-hud[data-reveal-hands="1"]) :is(.round-honba, .badge-room-label) { display: none; }
-  .game-app:has(.game-table-hud[data-reveal-hands="1"]) .badge-honba { display: inline; }
+  .game-app:has(.game-table-hud[data-reveal-hands="1"]) .badge-room-label,
+  .game-app:has(.game-table-hud[data-reveal-hands="1"]:not([data-ruleset="yingzhou"])) .round-honba { display: none; }
+  .game-app:has(.game-table-hud[data-reveal-hands="1"]:not([data-ruleset="yingzhou"])) .badge-honba { display: inline; }
   .game-app:has(.game-table-hud[data-reveal-hands="1"]) .base-score-badge {
     margin: 0;
     padding: 0;
