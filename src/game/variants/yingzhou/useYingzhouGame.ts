@@ -1,4 +1,4 @@
-import { computed, onScopeDispose, ref, shallowRef, watch, type Ref } from 'vue'
+import { computed, onScopeDispose, ref, shallowRef, toRaw, watch, type Ref } from 'vue'
 import type { DealAnimation, GamePhase, OpeningStage } from '../../core/contracts/gamePort'
 import type { TileType } from '../../core/contracts/types'
 import { WALL_TOTAL } from '../../core/rules/wallLayout'
@@ -179,7 +179,15 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
     if (actor.value === 0 && !autoplay.value) return
     const delay = window.kind === 'rob' ? 0 : window.kind === 'claim' || window.kind === 'reveal' ? AI_DELAYS.claim
       : state.origin === 'supplement' ? LOCAL_TABLE_PACE.aiDiscardAfterKong : LOCAL_TABLE_PACE.aiDiscard
-    later(delay, () => execute(chooseAction(state)))
+    let planned: Action | undefined
+    const decide = () => planned ??= chooseAction(toRaw(state))
+    // 摸到牌后本来就有一段展示时间。提前在空闲时算好弃牌，让飞牌起步时只提交动作。
+    // 暂停、切托管、离桌或状态推进时，当前 watcher 的清理逻辑会取消旧计划。
+    if (window.kind === 'turn' && delay > 0 && typeof globalThis.requestIdleCallback === 'function') {
+      const id = requestIdleCallback(() => { if (active) decide() }, { timeout: Math.floor(delay / 2) })
+      cleanup(() => cancelIdleCallback(id))
+    }
+    later(delay, () => execute(decide()))
   })
   onScopeDispose(leave)
   return { settings, length, matchLength, round, ready, autoplay, selectedIndex, opening, openingStage, dealAnimation, phase,

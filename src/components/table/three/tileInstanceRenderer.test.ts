@@ -36,6 +36,8 @@ describe('tileInstanceRenderer', () => {
     const baseMesh = scene.children[0] as THREE.InstancedMesh
     const baseVersion = baseMesh.instanceMatrix.version
     const capVersion = tile.capMesh.instanceMatrix.version
+    baseMesh.instanceMatrix.clearUpdateRanges()
+    tile.capMesh.instanceMatrix.clearUpdateRanges()
 
     renderer.set(
       tile.baseIndex,
@@ -48,6 +50,8 @@ describe('tileInstanceRenderer', () => {
 
     expect(baseMesh.instanceMatrix.version).toBeGreaterThan(baseVersion)
     expect(tile.capMesh.instanceMatrix.version).toBeGreaterThan(capVersion)
+    expect(baseMesh.instanceMatrix.updateRanges).toEqual([{ start: tile.baseIndex * 16, count: 16 }])
+    expect(tile.capMesh.instanceMatrix.updateRanges).toEqual([{ start: tile.capIndex * 16, count: 16 }])
     for (let i = 1; i < capacity; i++) renderer.add(new THREE.Vector3(i, 0, 0), new THREE.Quaternion(), null)
     renderer.finish()
     expect(baseMesh.count).toBe(capacity)

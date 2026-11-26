@@ -51,6 +51,46 @@ function setup(meld?: Meld, action?: TableActionType) {
 
 afterEach(() => vi.restoreAllMocks())
 
+it('本家摸牌只收起墙头，亮牌和牌河保持原位；重复消费回退到完整重建', () => {
+  const s = setup()
+  s.props.wall = ['s1', 's2', 's3', 's4', 'p6']
+  s.props.tailIndicator = 'p6'
+  s.props.players[3].discards = ['m9']
+  s.presenter.rebuild()
+  const original = s.rendered.map(t => ({ ...t, position: t.position.clone() }))
+  s.props.wall = s.props.wall.slice(1)
+  s.props.wallHeadDrawn++
+  expect(s.presenter.removeWallHead()).toBe(true)
+  expect(s.presenter.removeWallHead()).toBe(false)
+  expect(s.rendered.filter(t => t.scale === 0)).toHaveLength(1)
+  expect(s.rendered.every((t, i) => !t.scale || t.position.equals(original[i].position))).toBe(true)
+  const visible = s.rendered.filter(t => t.scale !== 0).map(t => [t.face, ...t.position.toArray()])
+  s.presenter.rebuild()
+  expect(s.rendered.map(t => [t.face, ...t.position.toArray()])).toEqual(visible)
+})
+
+it('上家飞牌从真实绘制帧起步，长帧和中途重建都不会跳过一大段轨迹', () => {
+  const s = setup()
+  s.props.retainDiscardFrame = true
+  s.props.players[3].discards = ['p4']
+  s.props.lastDiscard = { from: 3, tile: 'p4', id: 1 }
+  s.presenter.rebuild()
+  const tile = () => s.rendered.find(t => t.face === 'p4')!.position
+  const origin = tile().clone(), point = new THREE.Vector3()
+  s.setNow(110)
+  s.presenter.animate(30, point)
+  expect(tile()).toEqual(origin)
+  s.setNow(190)
+  s.presenter.animate(180, point)
+  const afterStall = tile().clone()
+  expect(afterStall.distanceTo(origin)).toBeGreaterThan(0)
+  s.presenter.rebuild()
+  expect(tile()).toEqual(afterStall)
+  for (let t = 206; t < 580; t += 16) { s.setNow(t); s.presenter.animate(t, point) }
+  expect(s.presenter.singleMovingDiscard()).toBeNull()
+  expect(afterStall.distanceTo(origin)).toBeLessThan(tile().distanceTo(origin) * .12)
+})
+
 it('换一张弃牌时复用高亮几何体，碰走弃牌后清除高亮', () => {
   const s = setup()
   s.props.players[0].discards.push('m1')

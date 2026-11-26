@@ -656,11 +656,15 @@ onMounted(async () => {
   }
 })
 
-watch(
-  () => (props.players.map((player) => [
-    player.hand.length,
+watch([
+  () => props.players[0]?.hand.length ?? 0,
+  () => props.players[0]?.drawnTileIndex ?? -1,
+  () => props.wall.length,
+  () => props.wallHeadDrawn,
+  () => (props.players.map((player, seat) => [
+    seat ? player.hand.length : null,
     player.concealedTileCount,
-    player.drawnTileIndex,
+    seat ? player.drawnTileIndex : null,
     player.discards.join(','),
     player.markedDiscardIndices?.join(','),
     player.melds.map((meld) => `${meld.type}:${meld.from ?? '-'}:${meld.tiles.join(',')}`).join('|'),
@@ -677,7 +681,7 @@ watch(
     props.winPresentation?.tile,
     props.winPresentation?.robbedKong,
     props.dealAnimation.serial,
-    props.wall?.length,
+    props.openingStage,
     props.horses?.length,
     props.jokerTiles?.join(','),
     props.wildcardTiles?.join(','),
@@ -698,10 +702,13 @@ watch(
     props.bloodFlowOwnDraw?.x,
     props.bloodFlowOwnDraw?.y,
     props.localSeat,
-  ),
+  )] as const,
   // 摸打、碰杠和发牌都更新同一批实例；每次只清理临时标记和演出。
-  () => {
-    tableTiles?.rebuild()
+  ([hand, drawn, wall, head, layout], [oldHand, , oldWall, oldHead, oldLayout]) => {
+    const ownDraw = props.retainDiscardFrame && props.currentPlayer === 0 && drawn === hand - 1 &&
+      hand === oldHand + 1 && wall === oldWall - 1 && head === oldHead + 1 &&
+      layout.length === oldLayout.length && layout.every((value, i) => value === oldLayout[i])
+    if (!ownDraw || !tableTiles?.removeWallHead()) tableTiles?.rebuild()
     bloodFlowWinEffects?.sync()
     invalidate()
   },

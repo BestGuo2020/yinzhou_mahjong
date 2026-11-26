@@ -463,24 +463,39 @@ const userDrawnIndex = computed(() => {
   return hand.length > baseHand ? hand.length - 1 : -1
 })
 
-watch([tableHudElement, usesYaotongLayout], ([hud, enabled], _, onCleanup) => {
+watch([tableHudElement, usesYaotongLayout, () => props.themeName], ([hud, enabled], _, onCleanup) => {
   if (!hud || !enabled) return
   const identity = hud.querySelector('.user-identity')
   const rack = hud.querySelector('.hand-rack')
   if (!identity || !rack) return
 
+  const placements = new Map<string, boolean>()
+  const handLayout = () => `${displayedUserHand.value.length}/${props.user.melds.length}/${userDrawnIndex.value}`
+  let frame = 0, timer = 0
   const measure = () => {
     const firstTile = rack.firstElementChild
     userIdentityBesideHand.value = Boolean(firstTile
       && identity.getBoundingClientRect().right + 8 <= firstTile.getBoundingClientRect().left)
+    placements.set(handLayout(), userIdentityBesideHand.value)
   }
-  const observer = new ResizeObserver(measure)
+  const observer = new ResizeObserver(() => { placements.clear(); measure() })
   observer.observe(identity)
   observer.observe(rack)
-  const stop = watch([() => displayedUserHand.value.length, () => props.user.melds.length, userDrawnIndex],
-    measure, { immediate: true, flush: 'post' })
+  observer.observe(hud)
+  const stop = watch(handLayout, key => {
+    const cached = placements.get(key)
+    if (cached !== undefined) { userIdentityBesideHand.value = cached; return }
+    if (frame || timer) return
+    // 摸牌时 DOM 刚更新，立即读位置会强制整桌排版。新布局在浏览器绘制后量一次。
+    frame = requestAnimationFrame(() => {
+      frame = 0
+      timer = window.setTimeout(() => { timer = 0; measure() }, 0)
+    })
+  }, { flush: 'post' })
   onCleanup(() => {
     observer.disconnect()
+    cancelAnimationFrame(frame)
+    clearTimeout(timer)
     stop()
   })
 }, { flush: 'post' })

@@ -3124,6 +3124,24 @@ button { font: inherit; }
   50% { box-shadow: 0 0 0 2px rgba(217,185,97,.42), 0 0 24px rgba(116,183,135,.32); }
 }
 
+/* 触屏牌桌的轮次光晕只合成透明度，避免飞牌时同时逐帧重画头像模糊阴影。 */
+@media (hover: none) and (pointer: coarse) {
+  .game-app[data-table-theme="jade"] [data-ruleset="yingzhou"] :is(.player-seat.active .avatar-wrap, .user-identity.active) {
+    animation: none;
+    box-shadow: 0 0 0 1px rgba(217,185,97,.22), 0 0 14px rgba(91,151,108,.18);
+  }
+  .game-app[data-table-theme="jade"] [data-ruleset="yingzhou"] :is(.player-seat.active .avatar-wrap, .user-identity.active)::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: 0 0 0 2px rgba(217,185,97,.27), 0 0 24px rgba(116,183,135,.20);
+    animation: jade-seat-glow-opacity 1.8s ease-in-out infinite;
+  }
+}
+@keyframes jade-seat-glow-opacity { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+
 /* ── Phase 6 · 共享动作强度、分数变化与结算状态矩阵 ── */
 .table-action-cue {
   --event-primary: var(--theme-accent);

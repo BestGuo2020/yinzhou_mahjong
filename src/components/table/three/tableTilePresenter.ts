@@ -34,6 +34,11 @@ interface DealTween extends InstanceTween {
   target: THREE.Vector3
 }
 
+interface DiscardTween extends DealTween {
+  elapsed: number
+  lastFrameAt: number | null
+}
+
 interface MeldTween extends InstanceTween {
   baseX: number
   baseZ: number
@@ -75,11 +80,13 @@ export function createTableTilePresenter(options: TableTilePresenterOptions) {
   const WALL_DEAL_ORIGIN_Y = options.wallDealOriginY
   const dealTweens: DealTween[] = []
   const meldTweens: MeldTween[] = []
-  const discardTweens: DealTween[] = []
+  const discardTweens: DiscardTween[] = []
   const movingDiscard = { id: -1, position: new THREE.Vector3() }
+  let wallHeadInstance: ReturnType<TileInstanceRenderer['add']> | null = null
+  const hiddenPosition = new THREE.Vector3(), hiddenRotation = new THREE.Quaternion()
   let continuingDeals = new Map<string, DealTween>()
   let continuingMelds = new Map<string, MeldTween>()
-  let continuingDiscards = new Map<string, DealTween>()
+  let continuingDiscards = new Map<string, DiscardTween>()
   let animatedDealSerial = -1
   let pendingDealAnimation = false
   let animatedFlipKey: string | null = null
@@ -303,6 +310,8 @@ function addDiscards(playerIndex) {
         quat,
         startedAt: continuing?.startedAt ?? performance.now(),
         duration: PACE_MS.discardFlight,
+        elapsed: continuing?.elapsed ?? 0,
+        lastFrameAt: continuing?.lastFrameAt ?? null,
       })
     }
     if (highlighted) {
@@ -564,6 +573,7 @@ function remainingWallPlacement(index: number, breakIndex: number, total: number
 }
 
 function addWall() {
+  wallHeadInstance = null
   const tiles = props.wall || []
   if (!tiles.length) return
   const breakIndex = resolveBreakIndex()
@@ -583,7 +593,8 @@ function addWall() {
     }
     // 背朝上：绕 X 转 180°，使 base 底面的牌背（backMaterial）朝上（与暗杠首尾一致）。
     quat.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI, 0, 0)))
-    addTableTile(new THREE.Vector3(slot.x, y, slot.z), quat, null)
+    const instance = addTableTile(new THREE.Vector3(slot.x, y, slot.z), quat, null)
+    if (index === 0) wallHeadInstance = instance
   })
   addFlipIndicator()
 }
@@ -716,7 +727,9 @@ function rebuildTableTiles() {
   )
   continuingDeals = active(dealTweens)
   continuingMelds = active(meldTweens)
-  continuingDiscards = active(discardTweens)
+  continuingDiscards = props.retainDiscardFrame
+    ? new Map((retain ? discardTweens : []).map(t => [t.motionKey, t]))
+    : active(discardTweens)
   pendingDealAnimation = props.dealAnimation.serial !== animatedDealSerial
   if (props.openingStage !== 'flip') animatedFlipKey = null
   if(epoch!==sourceEpoch){sourceEpoch=epoch;sourceTransforms.clear();ownDrawScreens.clear()}
@@ -768,7 +781,7 @@ function rebuildTableTiles() {
   animatedDealSerial = props.dealAnimation.serial
   // Sample the original timeline before this rebuilt frame is rendered, so the
   // tile neither snaps to its destination nor restarts from its origin.
-  animate(now, new THREE.Vector3())
+  animate(now, new THREE.Vector3(), false)
   continuingDeals.clear(); continuingMelds.clear(); continuingDiscards.clear()
   if (pendingTableActionAnimation) animatedTableActionId = pendingTableActionAnimation.id
   pendingTableActionAnimation = null
@@ -776,7 +789,7 @@ function rebuildTableTiles() {
   options.addWinningDisplayTile()
 }
 
-  function animate(time: number, scratchVector: THREE.Vector3) {
+  function animate(time: number, scratchVector: THREE.Vector3, presented = true) {
     const revealAt = props.winPresentation?.yingzhou?.revealAt
     if (tippingTiles.length && revealAt != null) {
       const elapsed = THREE.MathUtils.clamp((time - revealAt) / HAND_REVEAL_MS, 0, 1)
@@ -832,9 +845,17 @@ function rebuildTableTiles() {
       return progress < 1
     })
     meldTweens.splice(0, meldTweens.length, ...keepMeld)
+    const drawTime = presented && props.retainDiscardFrame && discardTweens.length ? performance.now() : 0
     const keepDiscard = discardTweens.filter((tween) => {
-      const progress = Math.min(1, Math.max(0, (time - tween.startedAt) / tween.duration))
-      const eased = 1 - (1 - progress) ** 3
+      // WebView 唤醒时的 rAF 时间戳可能早于这张弃牌。以真正绘制的首帧起步，
+      // 经过长帧后分步补位，重绑定 GPU 实例不额外消耗动画时间。
+      if (props.retainDiscardFrame && presented) {
+        if (tween.lastFrameAt !== null) tween.elapsed += Math.min(32, Math.max(0, drawTime - tween.lastFrameAt))
+        tween.lastFrameAt = drawTime
+      }
+      const elapsed = props.retainDiscardFrame ? tween.elapsed : time - tween.startedAt
+      const progress = Math.min(1, Math.max(0, elapsed / tween.duration))
+      const eased = props.retainDiscardFrame ? progress * progress * (3 - 2 * progress) : 1 - (1 - progress) ** 3
       const arc = Math.sin(progress * Math.PI) * .32
       const bounce = Math.sin(progress * Math.PI) * (1 - progress) * .1
       scratchVector.lerpVectors(tween.origin, tween.target, eased)
@@ -849,6 +870,14 @@ function rebuildTableTiles() {
   }
 
   return { rebuild: rebuildTableTiles, animate, meldTransform, alignMeldBottom, sourceTileRotationOffset,
+    removeWallHead() {
+      if (!wallHeadInstance || props.wall.length < 3 || props.openingStage || props.revealHands || props.winEffect || props.settlementIndicator) return false
+      // 本家手牌在 DOM 中。普通摸牌只移走牌头；缩放为零也收起对应的接触阴影。
+      const { baseIndex, capMesh, capIndex } = wallHeadInstance
+      tileInstances.set(baseIndex, capMesh, capIndex, hiddenPosition, hiddenRotation, 0)
+      wallHeadInstance = null
+      return true
+    },
     singleMovingDiscard() {
       return discardTweens.length === 1 && !dealTweens.length && !meldTweens.length && !flights.length &&
         !tippingTiles.length && !indicatorMotion ? movingDiscard : null

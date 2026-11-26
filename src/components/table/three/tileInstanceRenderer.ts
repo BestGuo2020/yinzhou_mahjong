@@ -67,6 +67,7 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
   let wildcardAtlasCapCount = 0
   let laiziAtlasCapCount = 0
   let instanceCount = 0
+  let building = false
   let markedDiscardCap: THREE.InstancedMesh | null = null
   let markedStickers: THREE.InstancedMesh | null = null
   const capHalfSize = new THREE.Vector3()
@@ -104,6 +105,7 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
   }
 
   function begin() {
+    building = true
     if (!canReuse()) {
       markedDiscardCap = null
       markedStickers = null
@@ -169,16 +171,20 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
     if (markedDiscardCap) markedDiscardCap.count = 0
   }
 
+  function updateMatrix(mesh: THREE.InstancedMesh, index: number, value: THREE.Matrix4) {
+    mesh.setMatrixAt(index, value)
+    if (!building) {
+      mesh.instanceMatrix.addUpdateRange(index * 16, 16)
+      mesh.instanceMatrix.needsUpdate = true
+    }
+  }
+
   function set(baseIndex: number, capMesh: THREE.InstancedMesh, capIndex: number, position: THREE.Vector3, quaternion: THREE.Quaternion, scale: number) {
     scaleVector.setScalar(scale)
     matrix.compose(position, quaternion, scaleVector)
-    baseMesh!.setMatrixAt(baseIndex, matrix.multiply(TILE_BASE_OFFSET))
+    updateMatrix(baseMesh!, baseIndex, matrix.multiply(TILE_BASE_OFFSET))
     matrix.compose(position, quaternion, scaleVector)
-    capMesh.setMatrixAt(capIndex, matrix.multiply(TILE_CAP_OFFSET))
-    // setMatrixAt only mutates the CPU-side buffer. Mark both attributes dirty so
-    // deal/discard/meld tween matrices are uploaded on the next render frame.
-    baseMesh!.instanceMatrix.needsUpdate = true
-    capMesh.instanceMatrix.needsUpdate = true
+    updateMatrix(capMesh, capIndex, matrix.multiply(TILE_CAP_OFFSET))
     if (markedStickers && capMesh === markedDiscardCap) {
       // 牌河的牌只绕 Y 轴转。贴纸一律正对本家，位于牌面可见的右下角。
       const sideways = Math.abs(matrix.elements[2]) > Math.abs(matrix.elements[0])
@@ -188,15 +194,13 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
       stickerPosition.x += (halfWidth - STICKER_WIDTH / 2 - .075) * scale
       stickerPosition.z += (halfDepth - STICKER_DEPTH / 2 - .075) * scale
       stickerPosition.y += (capHalfSize.y + .001) * scale
-      markedStickers.setMatrixAt(capIndex, matrix.makeScale(scale, scale, scale).setPosition(stickerPosition))
-      markedStickers.instanceMatrix.needsUpdate = true
+      updateMatrix(markedStickers, capIndex, matrix.makeScale(scale, scale, scale).setPosition(stickerPosition))
     }
     if (shadowMesh && options.contactShadowY != null) {
       shadowPosition.set(position.x + CONTACT_SHADOW_OFFSET_X, options.contactShadowY, position.z + CONTACT_SHADOW_OFFSET_Z)
       shadowScale.setScalar(scale)
       shadowMatrix.compose(shadowPosition, CONTACT_SHADOW_QUAT, shadowScale)
-      shadowMesh.setMatrixAt(baseIndex, shadowMatrix)
-      shadowMesh.instanceMatrix.needsUpdate = true
+      updateMatrix(shadowMesh, baseIndex, shadowMatrix)
     }
   }
 
@@ -256,6 +260,7 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
   }
 
   function finish() {
+    building = false
     baseMesh!.count = instanceCount
     backCapMesh!.count = backCapCount
     atlasCapMesh!.count = atlasCapCount
@@ -263,19 +268,16 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
     wildcardAtlasCapMesh!.count = wildcardAtlasCapCount
     laiziAtlasCapMesh!.count = laiziAtlasCapCount
     if (shadowMesh) shadowMesh.count = instanceCount
-    baseMesh!.instanceMatrix.needsUpdate = true
-    backCapMesh!.instanceMatrix.needsUpdate = true
-    atlasCapMesh!.instanceMatrix.needsUpdate = true
-    jokerAtlasCapMesh!.instanceMatrix.needsUpdate = true
-    wildcardAtlasCapMesh!.instanceMatrix.needsUpdate = true
-    laiziAtlasCapMesh!.instanceMatrix.needsUpdate = true
-    if (shadowMesh) shadowMesh.instanceMatrix.needsUpdate = true
-    if (atlasUvAttribute) atlasUvAttribute.needsUpdate = true
-    if (markedDiscardCap) markedDiscardCap.geometry.getAttribute('aUvOffset').needsUpdate = true
     if (markedStickers) markedStickers.count = markedDiscardCap!.count
-    if (jokerAtlasUvAttribute) jokerAtlasUvAttribute.needsUpdate = true
-    if (wildcardAtlasUvAttribute) wildcardAtlasUvAttribute.needsUpdate = true
-    if (laiziAtlasUvAttribute) laiziAtlasUvAttribute.needsUpdate = true
+    for (const mesh of [baseMesh, backCapMesh, atlasCapMesh, jokerAtlasCapMesh, wildcardAtlasCapMesh, laiziAtlasCapMesh, markedDiscardCap, markedStickers, shadowMesh]) {
+      if (!mesh?.count) continue
+      for (const attr of [mesh.instanceMatrix, mesh.geometry.getAttribute('aUvOffset') as THREE.BufferAttribute | undefined]) {
+        if (!attr) continue
+        attr.clearUpdateRanges()
+        attr.addUpdateRange(0, mesh.count * attr.itemSize)
+        attr.needsUpdate = true
+      }
+    }
   }
 
   return { begin, canReuse, add, set, finish }

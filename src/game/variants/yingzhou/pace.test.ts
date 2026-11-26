@@ -329,6 +329,10 @@ describe('颍州实桌沿用幺筒节奏', () => {
     expect(game.revealHands.value).toBe(false)
   })
   it('河牌留桌一秒，AI 摸进后独立思考一秒；暂停和离桌取消旧动作', async () => {
+    let idle: (() => void) | undefined
+    const cancelIdle = vi.fn()
+    vi.stubGlobal('requestIdleCallback', (fn: () => void) => { idle = fn; return 1 })
+    vi.stubGlobal('cancelIdleCallback', cancelIdle)
     const { game, state, paused } = setup()
     await vi.advanceTimersByTimeAsync(openTime)
     game.play({ kind: 'discard', index: 0 })
@@ -336,10 +340,14 @@ describe('颍州实桌沿用幺筒节奏', () => {
     expect(state.players[1].hand).toHaveLength(13)
     await vi.advanceTimersByTimeAsync(1)
     expect(state.players[1].hand).toHaveLength(14)
+    expect(idle).toBeDefined()
+    idle!()
+    expect(state.players[1].discards).toHaveLength(0)
     await vi.advanceTimersByTimeAsync(999)
     expect(state.players[1].discards).toHaveLength(0)
     await vi.advanceTimersByTimeAsync(1)
     expect(state.players[1].discards).toHaveLength(1)
+    expect(cancelIdle).toHaveBeenCalledWith(1)
     const serial = state.serial
     paused.value = true
     await vi.advanceTimersByTimeAsync(3100)

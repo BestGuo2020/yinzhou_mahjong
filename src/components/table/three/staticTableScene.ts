@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
-import { mergeGroups } from 'three/addons/utils/BufferGeometryUtils.js'
+import { mergeGroups, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js'
 import { TILE_TYPES } from '../../../game/core/rules/tiles'
 import { windForSeat } from '../../../game/core/presentation/tableLayout'
 import type { TileType } from '../../../game/core/contracts/types'
@@ -894,8 +894,9 @@ function addTable() {
   // 牌体几何由整桌共享，避免每次手牌、牌河更新时重复构建和销毁圆角网格。
   // 绿色牌背层略微内收，白色正面层形成完整外轮廓。
   const tileGeometry = theme.tileGeometry ?? { segments: 6, baseRadius: .07, capRadius: .072 }
-  scene.userData.tileBaseGeometry = own(new RoundedBoxGeometry(.68, .22, .94, tileGeometry.segments, tileGeometry.baseRadius))
-  scene.userData.tileCapGeometry = own(new RoundedBoxGeometry(.69, .34, .95, tileGeometry.segments, tileGeometry.capRadius))
+  // 圆角盒原本为每个三角形重复存储顶点。保留法线和 UV 的接缝，共享相同顶点给颜色和阴影通道。
+  scene.userData.tileBaseGeometry = own(mergeVertices(new RoundedBoxGeometry(.68, .22, .94, tileGeometry.segments, tileGeometry.baseRadius), 1e-6))
+  scene.userData.tileCapGeometry = own(mergeVertices(new RoundedBoxGeometry(.69, .34, .95, tileGeometry.segments, tileGeometry.capRadius), 1e-6))
   // 背面使用槽 3，正面层的牌面另用槽 2；同材质的各侧面可以一次提交。
   for (const group of scene.userData.tileBaseGeometry.groups) if (group.materialIndex !== 3) group.materialIndex = 0
   for (const group of scene.userData.tileCapGeometry.groups) if (group.materialIndex !== 2 && group.materialIndex !== 3) group.materialIndex = 0

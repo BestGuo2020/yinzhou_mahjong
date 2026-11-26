@@ -1,6 +1,6 @@
 import type { Meld, SuitedTile, TileType } from '../../core/contracts/types'
 import { tileOrder } from '../../core/rules/tiles'
-import { standardShanten } from '../../shared/ai/handProgress'
+import { completeStandardCounts, handCounts } from './standardHand'
 import type { CoinMultiplier } from './coins'
 
 export const BASE_POINTS = 10
@@ -41,7 +41,7 @@ export const ordinaryCount = (hand: HeldTile[], face: TileType) =>
 
 export function standardWin(hand: HeldTile[], meldCount: number) {
   return hand.length === (4 - meldCount) * 3 + 2
-    && standardShanten(hand.map(tile => tile.face), meldCount) === -1
+    && completeStandardCounts(handCounts(hand))
 }
 
 function baseWin(kind: WinKind, tile: TileType, label: string, multiplier: number): Win {
