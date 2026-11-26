@@ -25,7 +25,7 @@ pnpm test:e2e
 
 ## 网站和 Android 同步发布
 
-正式站点 [yinzhoumahjong.guoguo-labs.online](https://yinzhoumahjong.guoguo-labs.online/) 使用 EdgeOne Pages 的 Git 集成，生产分支为 `master`。推送源码后，GitHub Actions 使用仓库 Secrets 中的固定签名构建独立 APK，校验网页、下载和更新包。测试通过后，Actions 将 APK 和版本清单写回 `master` 的 `mobile-release/`。EdgeOne 自动读取这个发布提交。CI 运行期间，网页、下载入口和更新接口继续提供上一份完整版本。后续本地开发前用 `git pull --ff-only` 同步发布提交。
+正式站点 [yinzhoumahjong.guoguo-labs.online](https://yinzhoumahjong.guoguo-labs.online/) 使用 EdgeOne Pages 的 Git 集成，生产分支为 `master`。推送源码后，GitHub Actions 使用仓库 Secrets 中的固定签名构建独立 APK。单元测试、类型检查、构建及下载校验通过后，Actions 将 APK 和版本清单写回 `master` 的 `mobile-release/`。EdgeOne 自动读取这个发布提交。整套浏览器对局用例作为三组独立的 CI 检查并行运行。构建期间，网页、下载入口和更新接口继续提供上一份完整版本。后续本地开发前用 `git pull --ff-only` 同步发布提交。
 
 根目录的 `edgeone.json` 指定平台运行 `node scripts/edgeone-release.mjs build`，输出目录为 `edgeone-dist`。构建从已签名 APK 提取同版网页资源并校验更新包。APK 和更新 ZIP 以最大 12 MiB 的静态分片保存，边缘函数通过固定下载地址流式返回原文件。浏览器和已安装的 APK 都沿用原地址。
 
