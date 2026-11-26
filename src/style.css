@@ -4163,6 +4163,11 @@ button { font: inherit; }
   .game-app[data-table-theme="happyMahjong"] .yaotong-table .turn-action-row .action:active { transform: translateY(2px); }
 }
 
+.game-app .yaotong-table .turn-action-row button.action.hu-plan-wide {
+  min-width: max-content;
+  padding-inline: calc(var(--action-edge) * .12);
+}
+
 /* 大厅和结算适配触屏布局。 */
 @media (hover: none) and (pointer: coarse) and (orientation: portrait) {
   .lobby-layout { align-content: start; align-items: start; height: auto; min-height: 100%; }

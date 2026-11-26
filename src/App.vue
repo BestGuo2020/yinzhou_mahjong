@@ -190,6 +190,7 @@ function quit() {
         @ready="ready = true">
         <template #actions>
           <button v-for="option in winButtons" :key="actionKey(option)" class="action hu hu-plan" type="button" data-action-role="major"
+            :class="{ 'hu-plan-wide': option.win.label.length >= 4 }"
             :aria-label="actionLabel(option)" :title="actionLabel(option)" @click="play(option)">
             <b :class="option.win.label.length > 2 ? 'hu-plan-label' : 'action-label'">{{ option.win.label }}</b>
             <span class="action-detail">×{{ option.win.multiplier }}</span>
