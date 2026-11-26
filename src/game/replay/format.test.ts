@@ -9,6 +9,7 @@ import {
   meldLabel,
   rankTone,
   replayMatchName,
+  replayModeLabel,
   replayWinLabel,
   replayVersionNotice,
   roundLabelFor,
@@ -19,6 +20,21 @@ import { REPLAY_SCHEMA_VERSION, type ReplayStep } from './types'
 const NOON = new Date(2026, 8, 14, 12, 0, 0).getTime()
 
 describe('回放列表文案', () => {
+  it.each([
+    ['live', '活杠', '东4局 · 活杠 流局'],
+    ['fixed', '死杠', '第 3 局 · 死杠 下家自摸'],
+    ['nine', '死9', '东1局 · 2本场 · 死九 · 小牌禁胡 你扎九（本家）'],
+  ] as const)('显示 %s 的录制玩法，也能识别旧摘要', (yingzhouMode, label, summary) => {
+    expect(replayModeLabel({ rulesetId: 'yingzhou', yingzhouMode, summary: '' })).toBe(label)
+    expect(replayModeLabel({ rulesetId: 'yingzhou', summary })).toBe(label)
+  })
+
+  it('只从颍州回放的明确玩法标记识别旧记录', () => {
+    expect(replayModeLabel({ rulesetId: 'yingzhou', summary: '东1局 流局' })).toBe('')
+    expect(replayModeLabel({ rulesetId: 'yaotong', yaotongMode: 'easy', summary: '' })).toBe('新手模式')
+    expect(replayModeLabel({ rulesetId: 'yaotong', summary: '东1局 · 死杠 流局' })).toBe('')
+  })
+
   it('把旧颍州牌谱的场长显示为东风场、半庄场和全庄场', () => {
     expect(['4 局场', '8 局场', '16 局场'].map(matchName => replayMatchName({ rulesetId: 'yingzhou', matchName })))
       .toEqual(['东风场', '半庄场', '全庄场'])

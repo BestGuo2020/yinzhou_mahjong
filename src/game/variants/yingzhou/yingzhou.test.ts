@@ -117,6 +117,7 @@ describe('扎与标记', () => {
     recording.hooks.step!(r.event!, frame)
     recording.hooks.roundEnd(tableResult(r)!, frame)
     const { match, rounds } = recording.snapshot()
+    expect(match?.yingzhouMode).toBe(mode)
     const record = rounds[0]
     for (const oldFormat of [false, true]) {
       if (oldFormat) {

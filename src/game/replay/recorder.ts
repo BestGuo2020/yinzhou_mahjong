@@ -199,6 +199,7 @@ export function createReplayRecorder(options: ReplayRecorderOptions): ReplayReco
       rulesetName: meta.rulesetName,
       matchType: frame.matchType,
       matchName: frame.matchName ?? (frame.matchType === 'hanchan' ? '半庄场' : '东风场'),
+      ...(frame.yingzhouMode ? { yingzhouMode: frame.yingzhouMode } : {}),
       ...(meta.yaotongMode ? { yaotongMode: meta.yaotongMode } : {}),
         ...(meta.coinMultiplier ? { coinMultiplier: meta.coinMultiplier } : {}),
       gameMode: meta.gameMode ?? 'local',

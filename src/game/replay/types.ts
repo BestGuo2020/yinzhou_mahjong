@@ -9,6 +9,7 @@ import type { TableThemeName } from '../../theme/themeIdentity'
 import type { GameState as YaotongState } from '../variants/yaotong/types'
 import type { SeatStatus } from '../variants/yaotong/presentation'
 import type { YaotongMode } from '../variants/yaotong/mode'
+import type { Mode as YingzhouMode } from '../variants/yingzhou/rules'
 
 /** v2 adds authoritative checkpoints and Yaotong data; v1 records remain readable. */
 export const REPLAY_SCHEMA_VERSION = 2
@@ -145,6 +146,7 @@ export interface ReplayStanding {
 }
 
 export interface ReplayMatch {
+  yingzhouMode?: YingzhouMode
   coinMultiplier?: 1 | 3
   yaotongMode?: YaotongMode
   id: string
@@ -181,6 +183,7 @@ export interface ReplayMatch {
  * 各引擎按自身能力填字段（莲花麻将多翻精/精牌，血流留待后续接入）。
  */
 export interface ReplayFrameSource {
+  yingzhouMode?: YingzhouMode
   yingzhou?: ReplayAnchor['yingzhou']
   yaotongSidewaysDiscards?: number[][]
   matchName?: string

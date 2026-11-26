@@ -51,6 +51,7 @@ export function tableResult(round: Round): RoundResult | null {
 
 export function replayFrame(round: Round, length: MatchLength): ReplayFrameSource {
   return {
+    yingzhouMode: round.settings.mode,
     players: tablePlayers(round), wallTotal: 136, wallLeft: round.wall.length, headDrawn: round.headDrawn,
     currentPlayer: decisionSeat(round), round: round.dealerRound,
     roundLabel: roundLabel(round) + (round.settings.smallBan ? ' · 小牌禁胡' : ''), dealer: round.dealer,

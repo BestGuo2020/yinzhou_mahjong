@@ -4,6 +4,8 @@ import { tileName } from '../core/rules/tiles'
 import { MATCH_FORMATS, MATCH_LENGTHS } from '../core/rules/matchFormats'
 import type { ReplayMatch, ReplayMeldKind, ReplayPlayer, ReplayRound, ReplayRoundFinal, ReplayStep } from './types'
 import { settlementTitle } from '../variants/yaotong/presentation'
+import { YAOTONG_MODES } from '../variants/yaotong/mode'
+import { MODES } from '../variants/yingzhou/rules'
 import { REPLAY_SCHEMA_VERSION } from './types'
 import { displayPoints } from '../variants/yingzhou/coins'
 
@@ -11,6 +13,16 @@ const pad = (value: number) => String(value).padStart(2, '0')
 
 /** 「东风场」/「半庄场」。 */
 export const MATCH_NAME_LABELS: Record<MatchType, string> = { east: '东风场', hanchan: '半庄场' }
+
+export function replayModeLabel(match: Pick<ReplayMatch, 'rulesetId' | 'yingzhouMode' | 'yaotongMode' | 'summary'>): string {
+  if (match.rulesetId === 'yingzhou') {
+    // 旧牌谱的摘要以末局局名开头，玩法后面可能还有“小牌禁胡”。
+    const name = match.yingzhouMode ? MODES[match.yingzhouMode]?.name
+      : /·\s*(活杠|死杠|死九|死9)(?=[\s·]|$)/.exec(match.summary)?.[1]
+    return name === '死九' ? '死9' : name ?? ''
+  }
+  return match.yaotongMode ? YAOTONG_MODES[match.yaotongMode]?.name ?? '' : ''
+}
 
 /** 旧颍州牌谱保存的是“4 局场”等数字名称，仅在展示时换成对应的场次名。 */
 export function replayMatchName({ rulesetId, matchName }: Pick<ReplayMatch, 'rulesetId' | 'matchName'>): string {

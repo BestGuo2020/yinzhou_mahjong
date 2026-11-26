@@ -4,7 +4,7 @@
 // AI 分析记录（方案 §9.2）：每行显示分析区状态（未开启／完整／部分缺失／已删除），
 // 并提供「导出分析包」与「只删分析、保留牌谱」两个独立入口 —— 两者互不影响。
 import { computed, ref, watch } from 'vue'
-import { formatMatchDate, formatRank, gameModeLabel, matchSubtitle, replayMatchName, replayVersionNotice } from '../../game/replay/format'
+import { formatMatchDate, formatRank, gameModeLabel, matchSubtitle, replayMatchName, replayModeLabel, replayVersionNotice } from '../../game/replay/format'
 import { buildReplayExport, downloadReplayExport, replayExportFilename } from '../../game/replay/export'
 import { importReplayFile } from '../../game/replay/importReplay'
 import { REPLAY_KEEP_OPTIONS, readReplayKeepCount, saveReplayKeepCount } from '../../game/replay/preferences'
@@ -19,7 +19,6 @@ import type { ReplayStorage } from '../../game/replay/storage'
 import type { ReplayMatch } from '../../game/replay/types'
 import { tableThemeIdentity } from '../../theme/themeIdentity'
 import { themePresentationByName } from '../../theme/themePresentation'
-import { YAOTONG_MODES } from '../../game/variants/yaotong/mode'
 
 const props = defineProps<{
   open: boolean
@@ -296,7 +295,7 @@ const analysisImportInput = ref<HTMLInputElement | null>(null)
                 <em class="replay-row-mode" :data-mode="match.gameMode">{{ gameModeLabel(match) }}</em>
                 {{ match.rulesetName }} · {{ replayMatchName(match) }}
               </strong>
-              <span class="replay-row-sub">{{ match.yaotongMode ? `${YAOTONG_MODES[match.yaotongMode]?.name ?? ''} · ` : '' }}{{ matchSubtitle(match) }}</span>
+              <span class="replay-row-sub">{{ [replayModeLabel(match), matchSubtitle(match)].filter(Boolean).join(' · ') }}</span>
             </div>
             <div class="replay-row-meta">
               <span class="replay-row-date">{{ formatMatchDate(match.startedAt) }}</span>

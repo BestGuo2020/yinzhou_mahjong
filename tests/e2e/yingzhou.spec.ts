@@ -162,6 +162,7 @@ test('死九报扎、付分、按开场配置续局和本地回放', async ({ pa
   await stats.getByRole('button', { name: '关闭' }).click()
   await page.getByRole('button', { name: /对局回放/ }).click()
   await expect(page.getByText(/颍州扎杠麻将 · 全庄场/)).toBeVisible()
+  await expect(page.locator('.replay-row-sub')).toContainText('死9 · 1局')
   await page.getByRole('button', { name: '查看', exact: true }).click()
   await expect(page.locator('.replay-game-name')).toContainText('颍州扎杠麻将')
   await expect(page.locator('.replay-subtitle')).toContainText('全庄场')
