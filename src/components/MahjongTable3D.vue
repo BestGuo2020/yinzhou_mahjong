@@ -524,7 +524,6 @@ onMounted(async () => {
     ownDynamic,
     dynamicGroups,
     getAtlasMaterial: tableScene.getAtlasMaterial,
-    getMarkedDiscardSideMaterial: tableScene.getMarkedDiscardSideMaterial,
     getMarkedDiscardStickerMaterial: tableScene.getMarkedDiscardStickerMaterial,
     getAtlasCapGeometry: tableScene.getAtlasCapGeometry,
     atlasCellUvFor: tableScene.atlasCellUvFor,

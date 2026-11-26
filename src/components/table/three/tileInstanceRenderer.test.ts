@@ -22,7 +22,6 @@ describe('tileInstanceRenderer', () => {
       dynamicGroups,
       ownDynamic: (resource) => resource,
       getAtlasMaterial: () => material,
-      getMarkedDiscardSideMaterial: () => material,
       getMarkedDiscardStickerMaterial: () => material,
       getAtlasCapGeometry: () => atlasGeometry,
       atlasCellUvFor: () => ({ u: 0, v: 0 }),
@@ -70,13 +69,13 @@ describe('tileInstanceRenderer', () => {
     const geometry = new THREE.BoxGeometry(.69, .34, .95)
     const atlasGeometry = geometry.clone()
     const material = new THREE.MeshBasicMaterial()
-    const markedSide = new THREE.MeshBasicMaterial()
+    const tileSide = new THREE.MeshBasicMaterial()
     const stickerMaterial = new THREE.MeshBasicMaterial({ transparent: true })
     scene.userData.tileBaseGeometry = geometry
     scene.userData.tileCapGeometry = geometry
     scene.userData.faceSide = material
     scene.userData.backMaterial = material
-    scene.userData.tileSide = material
+    scene.userData.tileSide = tileSide
     scene.userData.tileBottom = material
 
     const renderer = createTileInstanceRenderer({
@@ -84,7 +83,6 @@ describe('tileInstanceRenderer', () => {
       dynamicGroups,
       ownDynamic: (resource) => resource,
       getAtlasMaterial: () => material,
-      getMarkedDiscardSideMaterial: () => markedSide,
       getMarkedDiscardStickerMaterial: () => stickerMaterial,
       getAtlasCapGeometry: () => atlasGeometry,
       atlasCellUvFor: face => ({ u: face === 'm3' ? .25 : .5, v: .75 }),
@@ -117,7 +115,7 @@ describe('tileInstanceRenderer', () => {
     const ordinaryMaterials = ordinary.capMesh.material as THREE.Material[]
     const markedMaterials = marked.capMesh.material as THREE.Material[]
     expect(markedMaterials[2]).toBe(ordinaryMaterials[2])
-    for (const side of [0, 1, 4, 5]) expect(markedMaterials[side]).toBe(markedSide)
+    for (const side of [0, 1, 4, 5]) expect(markedMaterials[side]).toBe(ordinaryMaterials[side])
     const uv = (mesh: THREE.InstancedMesh, index: number) =>
       new THREE.Vector2().fromBufferAttribute(mesh.geometry.getAttribute('aUvOffset') as THREE.BufferAttribute, index)
     expect(uv(marked.capMesh, marked.capIndex)).toEqual(uv(ordinary.capMesh, ordinary.capIndex))
@@ -154,7 +152,7 @@ describe('tileInstanceRenderer', () => {
     expect(stickers.count).toBe(0)
 
     stickerMaterial.dispose()
-    markedSide.dispose()
+    tileSide.dispose()
     geometry.dispose()
     atlasGeometry.dispose()
     material.dispose()

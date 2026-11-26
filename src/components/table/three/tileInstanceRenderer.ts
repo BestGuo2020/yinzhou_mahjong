@@ -7,7 +7,6 @@ interface TileInstanceRendererOptions {
   ownDynamic<T>(resource: T): T
   dynamicGroups: THREE.Object3D[]
   getAtlasMaterial(): THREE.Material
-  getMarkedDiscardSideMaterial(): THREE.Material
   getMarkedDiscardStickerMaterial(): THREE.Material
   getJokerAtlasMaterial?: () => THREE.Material
   getWildcardAtlasMaterial?: () => THREE.Material
@@ -78,7 +77,8 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
   const shadowPosition = new THREE.Vector3()
   const shadowScale = new THREE.Vector3()
 
-  function createCap(topMaterial: THREE.Material, geometry: THREE.BufferGeometry, side: THREE.Material = options.scene.userData.tileSide) {
+  function createCap(topMaterial: THREE.Material, geometry: THREE.BufferGeometry) {
+    const side = options.scene.userData.tileSide
     const cap = options.ownDynamic(new THREE.InstancedMesh(
       geometry,
       [side, side, topMaterial, options.scene.userData.tileBottom, side, side],
@@ -213,7 +213,7 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
         geometry.boundingBox.getSize(capHalfSize).multiplyScalar(.5)
         geometry.setAttribute('aUvOffset', new THREE.InstancedBufferAttribute(new Float32Array(INSTANCE_CAPACITY * 2), 2))
         // 牌面仍与普通弃牌共用同一格图集，贴纸作为独立的一层。
-        markedDiscardCap = createCap(options.getAtlasMaterial(), geometry, options.getMarkedDiscardSideMaterial())
+        markedDiscardCap = createCap(options.getAtlasMaterial(), geometry)
         markedDiscardCap.name = 'marked-discards'
         markedDiscardCap.count = 0
         markedStickers = options.ownDynamic(new THREE.InstancedMesh(
