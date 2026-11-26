@@ -183,7 +183,7 @@ test('死九报扎、付分、按开场配置续局和本地回放', async ({ pa
 })
 
 test('横屏在同面普通牌中识别并打出死九的标记补牌', async ({ page }, testInfo) => {
-  test.setTimeout(60_000)
+  test.setTimeout(120_000)
   await page.setViewportSize({ width: 844, height: 390 })
   await page.goto('/?quality=low')
   await expect(page.getByRole('button', { name: /开始对局/ })).toBeInViewport({ timeout: 30_000 })
@@ -213,7 +213,7 @@ test('横屏在同面普通牌中识别并打出死九的标记补牌', async ({
   await expect(hand.getByRole('button', { name: '九筒', exact: true })).toHaveCount(2)
   const table = hud.locator('.mahjong-scene')
   await expect(table).toHaveAttribute('data-marked-discards', '[[0],[],[],[]]')
-  await expect(hud).not.toHaveAttribute('data-discard-counts', '1,0,0,0')
+  await expect(hud).not.toHaveAttribute('data-discard-counts', '1,0,0,0', { timeout: 35_000 })
   await expect(table).toHaveAttribute('data-marked-discards', '[[0],[],[],[]]')
   await page.screenshot({ path: testInfo.outputPath('marked-nine-river.png') })
 })

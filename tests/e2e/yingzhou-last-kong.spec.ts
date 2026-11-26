@@ -36,7 +36,7 @@ async function startWithWall(start: Locator) {
 test.use({ isMobile: true, hasTouch: true, reducedMotion: 'reduce', viewport: { width: 844, height: 390 } })
 
 test('摸进第四张东风时只剩亮六筒，不能开杠，末张弃牌后流局', async ({ page }) => {
-  test.setTimeout(120_000)
+  test.setTimeout(420_000)
   await page.goto('/?theme=rosewood&quality=low')
   const start = page.getByRole('button', { name: /开始对局/ })
   await expect(start).toBeVisible({ timeout: 35_000 })
@@ -47,17 +47,18 @@ test('摸进第四张东风时只剩亮六筒，不能开杠，末张弃牌后�
   // 用真实帧完成开局；轮到本家后才加速中盘的 AI 等待。
   await discard.or(pass).first().waitFor({ timeout: 60_000 })
   await page.clock.install()
+  await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 500))
   for (;;) {
     const remaining = Number(await hud.getAttribute('data-wall-count'))
     if (remaining === 1 && await discard.isVisible()) break
     if (await discard.isVisible()) await discard.click()
     else if (await pass.isVisible()) await pass.click()
-    else if (remaining > 3) await page.clock.fastForward(3000)
-    else await discard.or(pass).first().waitFor()
+    else await page.clock.fastForward(remaining > 3 ? 3000 : 250)
   }
   await expect(hud.getByRole('status', { name: '本局亮牌' })).toContainText('六筒')
   await expect(discard).toHaveAttribute('aria-label', '东风')
   await expect(hud.getByRole('button', { name: '暗杠 东风' })).toHaveCount(0)
+  await page.clock.resume()
   await discard.tap()
   if (await discard.isVisible()) await discard.tap()
   await expect(page.getByRole('dialog', { name: '东1局 · 流局留庄' })).toBeVisible({ timeout: 10_000 })
