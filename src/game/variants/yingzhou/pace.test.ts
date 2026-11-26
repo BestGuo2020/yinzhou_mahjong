@@ -243,9 +243,13 @@ describe('颍州实桌沿用幺筒节奏', () => {
     const { game, play } = setup(fixture(), voice)
     await vi.advanceTimersByTimeAsync(1800)
     expect(game.openingStage.value).toBe('start')
+    const openingPlayers = game.players.value
+    const openingDeal = game.dealAnimation.value
     ended()
     await vi.advanceTimersByTimeAsync(0)
     expect(game.openingStage.value).toBe('dice')
+    expect(game.players.value).toBe(openingPlayers)
+    expect(game.dealAnimation.value).toBe(openingDeal)
     await vi.advanceTimersByTimeAsync(1150)
     expect(game.players.value.map(p => p.hand.length)).toEqual([4,0,0,0])
     await vi.advanceTimersByTimeAsync(259)

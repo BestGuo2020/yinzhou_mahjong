@@ -56,7 +56,8 @@ export const DEFAULT_TABLE_SCENE_PROFILE: TableSceneRenderProfile = {
   hemisphere: { skyColor: 0xf3e4ba, groundColor: 0x020b08, intensity: 1.65 },
   keyLight: { color: 0xffdfa0, intensity: 3.8, position: [-7, 13, 9], targetZ: 0 },
   shadows: {
-    mapType: THREE.PCFSoftShadowMap,
+    // Three.js 首次投影时会把旧的 PCFSoft 改为 PCF。直接按最终模式预编译。
+    mapType: THREE.PCFShadowMap,
     mapSize: 1024,
     cameraSize: 18,
     near: .5,

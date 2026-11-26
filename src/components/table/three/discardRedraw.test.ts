@@ -51,6 +51,27 @@ describe('飞牌局部重绘', () => {
     redraw.reset()
     draw(2, .5)
     expect(snapshots.slice(3).every(s => !s.clipped)).toBe(true)
+    const bounds = new THREE.Box3()
+    const drawDice = (x: number, y: number) => {
+      bounds.min.set(x - 1, y - .44, -1)
+      bounds.max.set(x + 1, y + .44, 1)
+      redraw.render(renderer as unknown as THREE.WebGLRenderer, scene, camera, light, { id: 'dice', bounds }, false)
+    }
+    drawDice(-2, 1)
+    drawDice(-2, 3)
+    drawDice(2, .62)
+    expect(snapshots.slice(-3).map(s => s.clipped)).toEqual([false, false, true])
+    const rect = snapshots.at(-1)!.size
+    // 两颗骰子共用且逐帧改写 bounds。重画区域必须同时覆盖上帧高点和本帧落点。
+    for (const [x, y] of [[-3, 3.44], [3, .18]]) {
+      const p = new THREE.Vector3(x, y, 0).project(camera)
+      expect((1 + p.x) * 400).toBeGreaterThanOrEqual(rect.x)
+      expect((1 + p.x) * 400).toBeLessThanOrEqual(rect.x + rect.z)
+      expect((1 + p.y) * 200).toBeGreaterThanOrEqual(rect.y)
+      expect((1 + p.y) * 200).toBeLessThanOrEqual(rect.y + rect.w)
+    }
+    draw(2, .5)
+    expect(snapshots.at(-1)!.clipped).toBe(false)
     map.dispose()
     far.geometry.dispose()
   })

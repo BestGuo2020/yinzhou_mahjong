@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import * as THREE from 'three'
 import { createTileInstanceRenderer } from './tileInstanceRenderer'
 
@@ -72,6 +72,7 @@ describe('tileInstanceRenderer', () => {
     const material = new THREE.MeshBasicMaterial()
     const tileSide = new THREE.MeshBasicMaterial()
     const stickerMaterial = new THREE.MeshBasicMaterial({ transparent: true })
+    const jokerMaterial = vi.fn(() => material)
     scene.userData.tileBaseGeometry = geometry
     scene.userData.tileCapGeometry = geometry
     scene.userData.faceSide = material
@@ -83,6 +84,9 @@ describe('tileInstanceRenderer', () => {
       scene,
       own: (resource) => resource,
       getAtlasMaterial: () => material,
+      deferMarkerAtlases: true,
+      markerFor: face => face === 'east' ? 'joker' : false,
+      getJokerAtlasMaterial: jokerMaterial,
       getMarkedDiscardStickerMaterial: () => stickerMaterial,
       getAtlasCapGeometry: () => atlasGeometry,
       atlasCellUvFor: face => ({ u: face === 'm3' ? .25 : .5, v: .75 }),
@@ -149,6 +153,17 @@ describe('tileInstanceRenderer', () => {
     renderer.finish()
     expect(marked.capMesh.count).toBe(0)
     expect(stickers.count).toBe(0)
+    expect(jokerMaterial).not.toHaveBeenCalled()
+    const joker = renderer.add(position, rotation, 'east')
+    renderer.finish()
+    expect(joker.capMesh).not.toBe(ordinary.capMesh)
+    expect(joker.capMesh.count).toBe(1)
+    expect(uv(joker.capMesh, 0)).toEqual(new THREE.Vector2(.5, .75))
+    renderer.begin()
+    expect(renderer.add(position, rotation, 'east').capMesh).toBe(joker.capMesh)
+    renderer.finish()
+    expect(joker.capMesh.count).toBe(1)
+    expect(jokerMaterial).toHaveBeenCalledTimes(1)
 
     stickerMaterial.dispose()
     tileSide.dispose()

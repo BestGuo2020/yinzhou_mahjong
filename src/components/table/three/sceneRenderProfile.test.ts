@@ -15,6 +15,7 @@ describe('llmAnime Three.js 渲染配置', () => {
   it('只为 llmAnime 使用长焦机位、Neutral 色调、双面积光和 2048 VSM 软阴影', () => {
     expect(tableSceneRenderProfile('llmAnime')).toBe(LLM_ANIME_SCENE_PROFILE)
     expect(tableSceneRenderProfile('llm')).toBe(DEFAULT_TABLE_SCENE_PROFILE)
+    expect(DEFAULT_TABLE_SCENE_PROFILE.shadows.mapType).toBe(THREE.PCFShadowMap)
     expect(LLM_ANIME_SCENE_PROFILE.camera.fov).toBeGreaterThanOrEqual(28)
     expect(LLM_ANIME_SCENE_PROFILE.camera.fov).toBeLessThanOrEqual(42)
     expect(LLM_ANIME_SCENE_PROFILE.camera.positionY).toBeGreaterThan(DEFAULT_TABLE_SCENE_PROFILE.camera.positionY)

@@ -669,6 +669,7 @@ function onAvatarError(entry: GamePlayer) {
       :players="players" :local-seat="user.seat" :current-player="currentPlayer" :last-discard="lastDiscard"
       :wall="wall" :wall-head-drawn="wallHeadDrawn" :wall-count="wallCount"
       :wall-total="wallTotal" :laizi-only="rulesetId === 'yaotong'" :retain-discard-frame="rulesetId === 'yingzhou'"
+      :defer-marker-atlases="rulesetId === 'yingzhou'"
       :horses="result?.horses" :reveal-hands="tableRevealHands" :winner-index="winningPlayerIndex"
       :joker-tiles="jokerTiles" :wildcard-tiles="wildcardTiles"
       :win-effect="presentedWinEffect" :win-presentation="presentedWinPresentation" :deal-animation="dealAnimation"
@@ -812,7 +813,7 @@ function onAvatarError(entry: GamePlayer) {
       <div v-if="announcement" :key="announcement.id" class="announcement" :class="announcement.tone"><span>{{ announcement.text }}</span></div>
     </Transition>
     <Transition name="opening-cue" mode="out-in">
-      <div v-if="openingStage === 'start'" key="start" class="opening-overlay start-cue"><span>{{ matchName }} · {{ roundLabel }}</span><strong>对局开始</strong><i></i></div>
+      <div v-if="openingStage === 'start' && (rulesetId !== 'yingzhou' || tableReady)" key="start" class="opening-overlay start-cue"><span>{{ matchName }} · {{ roundLabel }}</span><strong>对局开始</strong><i></i></div>
     </Transition>
 
     <section class="user-area">

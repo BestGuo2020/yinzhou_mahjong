@@ -24,6 +24,8 @@ const DICE_SHADOW_Y = .075
 export function createDicePresenter(options: DicePresenterOptions) {
   let startedAt = 0
   const group = new THREE.Group()
+  const motion = { id: 'dice' as const, bounds: new THREE.Box3() }
+  const dieRadius = Math.sqrt(3) * DICE_SIZE / 2
 
   function makeTexture(value: number) {
     const surface = document.createElement('canvas')
@@ -102,34 +104,28 @@ export function createDicePresenter(options: DicePresenterOptions) {
     if (!visible) {
       // 即使中间阶段没有机会渲染出一帧，下一次 visible 也必须被视为新的投骰。
       lastStage = null
-      return
-    }
-    // Vue watcher 可能在下一帧才触发；只有从其它阶段进入骰子阶段时才重置，
-    // 避免同一段动画因重复通知而从中途重新开始。
-    if (lastStage !== 'dice') {
-      startedAt = performance.now()
-      lastValuesKey = ''
     }
   }
 
   function animate(time: number) {
     const stage = options.getOpeningStage()
-    const valuesKey = options.getValues().join(',')
     if (stage !== 'dice') {
       if (group.visible) group.visible = false
       lastStage = stage
       return false
     }
+    const valuesKey = options.getValues().join(',')
     const enteredDice = lastStage !== 'dice'
     // 重新进入骰子阶段，或骰子值变化（莲花麻将两次掷骰）时重新起势
     if (!group.visible || enteredDice || valuesKey !== lastValuesKey) {
       group.visible = true
-      startedAt = performance.now()
+      startedAt = time
       lastValuesKey = valuesKey
     }
     lastStage = 'dice'
     const progress = Math.min(1, Math.max(0, (time - startedAt) / 1050))
     const travel = 1 - (1 - progress) ** 2
+    motion.bounds.makeEmpty()
     dice.forEach((die, index) => {
       const side = index === 0 ? -1 : 1
       const throwPoint = pointFromSeat(options.getThrowerIndex(), side * (.58 + .22 * travel), THREE.MathUtils.lerp(5.2, .2, travel) + side * .1)
@@ -138,6 +134,7 @@ export function createDicePresenter(options: DicePresenterOptions) {
       const bounceProgress = Math.max(0, (progress - .82) / .18)
       const bounce = bounceProgress > 0 ? Math.abs(Math.sin(bounceProgress * Math.PI * 2)) * .14 * (1 - bounceProgress) : 0
       die.position.y += arc + bounce
+      motion.bounds.expandByPoint(die.position)
       const settleStart = .72
       if (progress < settleStart) die.quaternion.copy(rollingQuaternion(index, progress))
       else die.quaternion.copy(rollingQuaternion(index, settleStart)).slerp(settledQuaternion(options.getValues()[index] || 1), (progress - settleStart) / (1 - settleStart))
@@ -147,11 +144,26 @@ export function createDicePresenter(options: DicePresenterOptions) {
           DICE_SHADOW_Y,
           die.position.z + CONTACT_SHADOW_OFFSET_Z,
         )
+        motion.bounds.expandByPoint(shadowPlanes[index]!.position)
       }
     })
+    motion.bounds.expandByScalar(dieRadius)
     return progress < 1
   }
 
+  // 让首张加载帧实际提交骰子的材质、纹理和投影。缩放为零，桌面上没有可见像素。
+  function warmWithTableFrame(draw: () => void) {
+    const visible = group.visible
+    group.visible = true
+    group.scale.setScalar(0)
+    try {
+      draw()
+    } finally {
+      group.scale.setScalar(1)
+      group.visible = visible
+    }
+  }
+
   setVisible(options.getOpeningStage() === 'dice')
-  return { animate, setVisible }
+  return { animate, setVisible, warmWithTableFrame, motion }
 }

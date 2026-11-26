@@ -609,6 +609,13 @@ button { font: inherit; }
 .opening-cue-enter-active { animation: opening-cue-in .3s ease-out; }
 .opening-cue-leave-active { transition: opacity .2s, filter .2s; }
 .opening-cue-leave-to { opacity: 0; filter: blur(4px); }
+@media (hover: none) and (pointer: coarse) {
+  /* 骰子已在下面滚动，标题只合成已画好的图层。 */
+  .game-table-hud[data-ruleset="yingzhou"] .start-cue { will-change: transform, opacity; }
+  .game-table-hud[data-ruleset="yingzhou"] .opening-cue-enter-active { animation-name: mobile-opening-cue-in; }
+  .game-table-hud[data-ruleset="yingzhou"] .opening-cue-leave-active { transition-property: opacity; }
+  .game-table-hud[data-ruleset="yingzhou"] .opening-cue-leave-to { filter: none; }
+}
 
 .user-area { position: absolute; z-index: 15; left: 9%; right: 9%; bottom: 8px; min-height: clamp(107px, 17vh, 160px); }
 .user-identity { position: absolute; z-index: 3; left: -7.5%; bottom: 25px; display: flex; align-items: center; gap: 9px; min-width: 142px; padding: 7px 12px 7px 7px; border: 1px solid color-mix(in srgb, var(--theme-border) 45%, transparent); border-radius: 30px 10px 10px 30px; background: linear-gradient(90deg, color-mix(in srgb, var(--theme-panel) 96%, transparent), color-mix(in srgb, var(--theme-panel) 78%, transparent)); box-shadow: 0 6px 18px rgba(0,0,0,.4); opacity: .95; pointer-events: none; user-select: none; }
@@ -887,6 +894,7 @@ button { font: inherit; }
 @keyframes action-avatar-impact { 0% { transform: scale(.92); filter: brightness(1.7); } 42% { transform: scale(1.09); filter: brightness(1.24); } 100% { transform: scale(1); filter: brightness(1); } }
 @keyframes score-flow-in { 0% { opacity: 0; scale: .72; translate: 0 8px; } 36% { opacity: 1; scale: 1.08; } 100% { opacity: 1; scale: 1; translate: 0 -7px; } }
 @keyframes opening-cue-in { from { opacity: 0; transform: translate(-50%, -44%) scale(.82); filter: blur(5px); } }
+@keyframes mobile-opening-cue-in { from { opacity: 0; transform: translate(-50%, -44%) scale(.82); } }
 @keyframes result-in { from { transform: translateY(18px) scale(.94); opacity: 0; } }
 @keyframes ranking-slide { from { opacity: 0; transform: translateX(45px) scale(.97); } }
 @keyframes final-in { from { opacity: 0; transform: translateY(28px) scale(.92); filter: blur(5px); } }

@@ -389,10 +389,12 @@ function render(time = 0) {
     const weatherOnly = isMobileLike && weatherActive && !wasDirty && !dirty && !tilesActive && !diceActive && !winFrame && !bloodFlowActive
     if (weatherOnly && previousWeatherOnly) renderer.shadowMap.autoUpdate = false
     previousWeatherOnly = weatherOnly
-    const movingTile = discardRedraw && !diceActive && !weatherActive && !winFrame && !bloodFlowActive
-      && !props.revealHands && !props.openingStage && tableTiles.singleMovingDiscard()
-    if (movingTile && discardRedraw && shadowLight && !outlineEffect) {
-      discardRedraw.render(renderer, scene, camera, shadowLight, movingTile, wasDirty || dirty)
+    const motion = discardRedraw && !weatherActive && !winFrame && !bloodFlowActive && !props.revealHands && (
+      props.openingStage === 'dice' && !tilesActive ? dicePresenter?.motion :
+        !props.openingStage && tableTiles.singleMovingDiscard()
+    )
+    if (motion && discardRedraw && shadowLight && !outlineEffect) {
+      discardRedraw.render(renderer, scene, camera, shadowLight, motion, wasDirty || dirty)
     } else {
       discardRedraw?.reset()
       if (outlineEffect) outlineEffect.render(scene, camera)
@@ -427,7 +429,7 @@ onMounted(async () => {
   }
   renderProfile = tableSceneRenderProfile(activeThemeName)
 
-  // 真机性能：触屏设备把 llmAnime 的 VSM 2048 软阴影降为 PCFSoft 1024，
+  // 真机性能：触屏设备把 llmAnime 的 VSM 2048 软阴影降为 PCF 1024，
   // 并用半球光+主光提亮来补偿去掉的面光（RectAreaLight LTC 极贵）。
   if (isMobileLike && renderProfile.shadows.mapType === THREE.VSMShadowMap) {
     renderProfile = {
@@ -436,7 +438,7 @@ onMounted(async () => {
       keyLight: { ...renderProfile.keyLight, intensity: renderProfile.keyLight.intensity * 1.5 },
       shadows: {
         ...renderProfile.shadows,
-        mapType: THREE.PCFSoftShadowMap,
+        mapType: THREE.PCFShadowMap,
         mapSize: 1024,
         radius: 1,
         blurSamples: 8,
@@ -481,7 +483,7 @@ onMounted(async () => {
     pmremGenerator.dispose()
   }
   camera = new THREE.PerspectiveCamera(renderProfile.camera.fov, 1, .1, 60)
-  camera.position.set(0, renderProfile.camera.positionY, renderProfile.camera.positionZ)
+  applyTableCamera(tableCameraPosition(renderProfile))
   scene.add(new THREE.HemisphereLight(
     renderProfile.hemisphere.skyColor,
     renderProfile.hemisphere.groundColor,
@@ -548,9 +550,8 @@ onMounted(async () => {
     getJokerAtlasMaterial: tableScene.getJokerAtlasMaterial,
     getWildcardAtlasMaterial: tableScene.getWildcardAtlasMaterial,
     getLaiziAtlasMaterial: tableScene.getLaiziAtlasMaterial,
-    isJoker: (tile) => tileMarkerFor(tile, props.jokerTiles, props.wildcardTiles, props.laiziOnly) === 'joker',
-    isWildcard: (tile) => tileMarkerFor(tile, props.jokerTiles, props.wildcardTiles, props.laiziOnly) === 'wildcard',
-    isLaizi: (tile) => tileMarkerFor(tile, props.jokerTiles, props.wildcardTiles, props.laiziOnly) === 'laizi',
+    deferMarkerAtlases: props.deferMarkerAtlases,
+    markerFor: tile => tileMarkerFor(tile, props.jokerTiles, props.wildcardTiles, props.laiziOnly),
     contactShadowY: animeTable ? 0.075 : undefined,
   })
   tableTiles = createTableTilePresenter({
@@ -641,7 +642,7 @@ onMounted(async () => {
     compilingShaders = null
   }
   if (destroyed) return
-  renderer.render(scene, camera)
+  dicePresenter.warmWithTableFrame(() => renderer.render(scene, camera))
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
   if (destroyed) return
@@ -661,6 +662,7 @@ watch([
   () => props.players[0]?.drawnTileIndex ?? -1,
   () => props.wall.length,
   () => props.wallHeadDrawn,
+  () => props.openingStage,
   () => (props.players.map((player, seat) => [
     seat ? player.hand.length : null,
     player.concealedTileCount,
@@ -681,7 +683,6 @@ watch([
     props.winPresentation?.tile,
     props.winPresentation?.robbedKong,
     props.dealAnimation.serial,
-    props.openingStage,
     props.horses?.length,
     props.jokerTiles?.join(','),
     props.wildcardTiles?.join(','),
@@ -704,10 +705,14 @@ watch([
     props.localSeat,
   )] as const,
   // 摸打、碰杠和发牌都更新同一批实例；每次只清理临时标记和演出。
-  ([hand, drawn, wall, head, layout], [oldHand, , oldWall, oldHead, oldLayout]) => {
-    const ownDraw = props.retainDiscardFrame && props.currentPlayer === 0 && drawn === hand - 1 &&
+  ([hand, drawn, wall, head, stage, layout], [oldHand, oldDrawn, oldWall, oldHead, oldStage, oldLayout]) => {
+    const sameLayout = layout.length === oldLayout.length && layout.every((value, i) => value === oldLayout[i])
+    // 从开场字样切到骰子时，牌墙和手牌仍是同一摆位。骰子自身的 watcher 会触发绘制。
+    if (props.retainDiscardFrame && oldStage === 'start' && stage === 'dice' && sameLayout &&
+      hand === oldHand && drawn === oldDrawn && wall === oldWall && head === oldHead) return
+    const ownDraw = props.retainDiscardFrame && stage === oldStage && props.currentPlayer === 0 && drawn === hand - 1 &&
       hand === oldHand + 1 && wall === oldWall - 1 && head === oldHead + 1 &&
-      layout.length === oldLayout.length && layout.every((value, i) => value === oldLayout[i])
+      sameLayout
     if (!ownDraw || !tableTiles?.removeWallHead()) tableTiles?.rebuild()
     bloodFlowWinEffects?.sync()
     invalidate()

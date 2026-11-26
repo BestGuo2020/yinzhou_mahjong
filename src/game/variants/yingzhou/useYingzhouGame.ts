@@ -30,7 +30,8 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
   let stepStarted = 0
   let openingCue: { step: number; done: Promise<void> } | null = null
   const opening = computed(() => !!round.value && dealStep.value <= round.value.openingBatches.length)
-  const dealtBatches = computed(() => opening.value ? round.value!.openingBatches.slice(0, Math.max(0, dealStep.value)) : [])
+  const dealCount = computed(() => Math.max(0, dealStep.value))
+  const dealtBatches = computed(() => opening.value ? round.value!.openingBatches.slice(0, dealCount.value) : [])
   const openingStage = computed<OpeningStage | null>(() => opening.value
     ? dealStep.value < 0 ? 'start' : dealStep.value === 0 ? 'dice' : 'deal' : null)
   const finished = computed(() => {
@@ -62,7 +63,7 @@ export function useYingzhouGame(replay: ReplayRecording, paused: Ref<boolean>, a
   const wall = computed(() => opening.value ? Array<TileType>(WALL_TOTAL - headDrawn.value).fill('east') : round.value?.wall ?? [])
   const dealAnimation = computed<DealAnimation>(() => {
     const batch = dealtBatches.value.at(-1)
-    const serial = Math.max(0, dealStep.value)
+    const serial = dealCount.value
     if (!batch) return { playerIndex: -1, count: 0, serial }
     const taken = new Set(dealtBatches.value.flatMap(b => b.offsets))
     return {

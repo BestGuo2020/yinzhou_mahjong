@@ -1,8 +1,10 @@
 import * as THREE from 'three'
 import type { TileType } from '../../../game/core/contracts/types'
+import type { TileMarker } from './tileMarker'
 
 interface TileInstanceRendererOptions {
   capacity?: number
+  deferMarkerAtlases?: boolean
   scene: THREE.Scene
   /** 实例和缓冲区随整张牌桌释放，跨回合复用。 */
   own<T>(resource: T): T
@@ -13,9 +15,7 @@ interface TileInstanceRendererOptions {
   getLaiziAtlasMaterial?: () => THREE.Material
   getAtlasCapGeometry(): THREE.BufferGeometry
   atlasCellUvFor(tile: TileType): { u: number; v: number }
-  isJoker?: (tile: TileType) => boolean
-  isWildcard?: (tile: TileType) => boolean
-  isLaizi?: (tile: TileType) => boolean
+  markerFor?(tile: TileType): TileMarker
   /** 二次元接触阴影：传入牌下阴影所在的桌面 Y（如 0.075），为每张牌铺一块柔和贴片阴影。 */
   contactShadowY?: number
 }
@@ -49,23 +49,12 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
   let baseMesh: THREE.InstancedMesh | null = null
   let backCapMesh: THREE.InstancedMesh | null = null
   let atlasCapMesh: THREE.InstancedMesh | null = null
-  let jokerAtlasCapMesh: THREE.InstancedMesh | null = null
-  let wildcardAtlasCapMesh: THREE.InstancedMesh | null = null
-  let laiziAtlasCapMesh: THREE.InstancedMesh | null = null
+  type Marker = Exclude<TileMarker, false>
+  const markerCaps = new Map<Marker, THREE.InstancedMesh>()
+  const markerMaterials = { joker: options.getJokerAtlasMaterial, wildcard: options.getWildcardAtlasMaterial, laizi: options.getLaiziAtlasMaterial }
   let shadowMesh: THREE.InstancedMesh | null = null
-  let atlasUvAttribute: THREE.InstancedBufferAttribute | null = null
-  let atlasUvData: Float32Array | null = null
-  let jokerAtlasUvAttribute: THREE.InstancedBufferAttribute | null = null
-  let jokerAtlasUvData: Float32Array | null = null
-  let wildcardAtlasUvAttribute: THREE.InstancedBufferAttribute | null = null
-  let wildcardAtlasUvData: Float32Array | null = null
-  let laiziAtlasUvAttribute: THREE.InstancedBufferAttribute | null = null
-  let laiziAtlasUvData: Float32Array | null = null
   let backCapCount = 0
   let atlasCapCount = 0
-  let jokerAtlasCapCount = 0
-  let wildcardAtlasCapCount = 0
-  let laiziAtlasCapCount = 0
   let instanceCount = 0
   let building = false
   let markedDiscardCap: THREE.InstancedMesh | null = null
@@ -97,11 +86,21 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
       baseMesh?.parent === options.scene
       && backCapMesh?.parent === options.scene
       && atlasCapMesh?.parent === options.scene
-      && jokerAtlasCapMesh?.parent === options.scene
-      && wildcardAtlasCapMesh?.parent === options.scene
-      && laiziAtlasCapMesh?.parent === options.scene
+      && [...markerCaps.values()].every(mesh => mesh.parent === options.scene)
       && (options.contactShadowY == null || shadowMesh?.parent === options.scene),
     )
+  }
+
+  function markerCap(marker: Marker) {
+    let cap = markerCaps.get(marker)
+    if (!cap) {
+      const geometry = options.own(options.getAtlasCapGeometry().clone())
+      geometry.setAttribute('aUvOffset', new THREE.InstancedBufferAttribute(new Float32Array(INSTANCE_CAPACITY * 2), 2))
+      cap = createCap(markerMaterials[marker]?.() ?? options.getAtlasMaterial(), geometry)
+      cap.count = 0
+      markerCaps.set(marker, cap)
+    }
+    return cap
   }
 
   function begin() {
@@ -121,18 +120,10 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
       options.scene.add(baseMesh)
       backCapMesh = createCap(options.scene.userData.tileBottom, options.scene.userData.tileCapGeometry)
       atlasCapMesh = createCap(options.getAtlasMaterial(), options.getAtlasCapGeometry())
-      jokerAtlasCapMesh = createCap(
-        options.getJokerAtlasMaterial?.() ?? options.getAtlasMaterial(),
-        options.own(options.getAtlasCapGeometry().clone()),
-      )
-      wildcardAtlasCapMesh = createCap(
-        options.getWildcardAtlasMaterial?.() ?? options.getAtlasMaterial(),
-        options.own(options.getAtlasCapGeometry().clone()),
-      )
-      laiziAtlasCapMesh = createCap(
-        options.getLaiziAtlasMaterial?.() ?? options.getAtlasMaterial(),
-        options.own(options.getAtlasCapGeometry().clone()),
-      )
+      markerCaps.clear()
+      if (!options.deferMarkerAtlases) {
+        for (const marker of ['joker', 'wildcard', 'laizi'] as const) markerCap(marker)
+      }
       if (options.contactShadowY != null) {
         const shadowTexture = options.own(makeContactShadowTexture())
         const shadowMaterial = options.own(new THREE.MeshBasicMaterial({
@@ -149,24 +140,11 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
         shadowMesh.renderOrder = 1
         options.scene.add(shadowMesh)
       }
-      atlasUvData = new Float32Array(INSTANCE_CAPACITY * 2)
-      atlasUvAttribute = new THREE.InstancedBufferAttribute(atlasUvData, 2)
-      atlasCapMesh.geometry.setAttribute('aUvOffset', atlasUvAttribute)
-      jokerAtlasUvData = new Float32Array(INSTANCE_CAPACITY * 2)
-      jokerAtlasUvAttribute = new THREE.InstancedBufferAttribute(jokerAtlasUvData, 2)
-      jokerAtlasCapMesh.geometry.setAttribute('aUvOffset', jokerAtlasUvAttribute)
-      wildcardAtlasUvData = new Float32Array(INSTANCE_CAPACITY * 2)
-      wildcardAtlasUvAttribute = new THREE.InstancedBufferAttribute(wildcardAtlasUvData, 2)
-      wildcardAtlasCapMesh.geometry.setAttribute('aUvOffset', wildcardAtlasUvAttribute)
-      laiziAtlasUvData = new Float32Array(INSTANCE_CAPACITY * 2)
-      laiziAtlasUvAttribute = new THREE.InstancedBufferAttribute(laiziAtlasUvData, 2)
-      laiziAtlasCapMesh.geometry.setAttribute('aUvOffset', laiziAtlasUvAttribute)
+      atlasCapMesh.geometry.setAttribute('aUvOffset', new THREE.InstancedBufferAttribute(new Float32Array(INSTANCE_CAPACITY * 2), 2))
     }
     backCapCount = 0
     atlasCapCount = 0
-    jokerAtlasCapCount = 0
-    wildcardAtlasCapCount = 0
-    laiziAtlasCapCount = 0
+    for (const cap of markerCaps.values()) cap.count = 0
     instanceCount = 0
     if (markedDiscardCap) markedDiscardCap.count = 0
   }
@@ -233,27 +211,12 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
       set(baseIndex, capMesh, capIndex, initialPosition ?? position, quaternion, initialScale ?? scale)
       return { baseIndex, capMesh, capIndex }
     }
-    const joker = Boolean(face && options.isJoker?.(face))
-    const wildcard = Boolean(face && !joker && options.isWildcard?.(face))
-    const laizi = Boolean(face && !joker && !wildcard && options.isLaizi?.(face))
-    const capMesh = !face ? backCapMesh!
-      : joker ? jokerAtlasCapMesh!
-        : wildcard ? wildcardAtlasCapMesh!
-          : laizi ? laiziAtlasCapMesh!
-            : atlasCapMesh!
-    const capIndex = !face ? backCapCount++
-      : joker ? jokerAtlasCapCount++
-        : wildcard ? wildcardAtlasCapCount++
-          : laizi ? laiziAtlasCapCount++
-            : atlasCapCount++
+    const marker = face && options.markerFor?.(face)
+    const capMesh = marker ? markerCap(marker) : face ? atlasCapMesh! : backCapMesh!
+    const capIndex = marker ? capMesh.count++ : face ? atlasCapCount++ : backCapCount++
     if (face) {
       const uv = options.atlasCellUvFor(face)
-      const uvData = joker ? jokerAtlasUvData!
-        : wildcard ? wildcardAtlasUvData!
-          : laizi ? laiziAtlasUvData!
-            : atlasUvData!
-      uvData[capIndex * 2] = uv.u
-      uvData[capIndex * 2 + 1] = uv.v
+      capMesh.geometry.getAttribute('aUvOffset').setXY(capIndex, uv.u, uv.v)
     }
     set(baseIndex, capMesh, capIndex, initialPosition ?? position, quaternion, initialScale ?? scale)
     return { baseIndex, capMesh, capIndex }
@@ -264,12 +227,9 @@ export function createTileInstanceRenderer(options: TileInstanceRendererOptions)
     baseMesh!.count = instanceCount
     backCapMesh!.count = backCapCount
     atlasCapMesh!.count = atlasCapCount
-    jokerAtlasCapMesh!.count = jokerAtlasCapCount
-    wildcardAtlasCapMesh!.count = wildcardAtlasCapCount
-    laiziAtlasCapMesh!.count = laiziAtlasCapCount
     if (shadowMesh) shadowMesh.count = instanceCount
     if (markedStickers) markedStickers.count = markedDiscardCap!.count
-    for (const mesh of [baseMesh, backCapMesh, atlasCapMesh, jokerAtlasCapMesh, wildcardAtlasCapMesh, laiziAtlasCapMesh, markedDiscardCap, markedStickers, shadowMesh]) {
+    for (const mesh of [baseMesh, backCapMesh, atlasCapMesh, ...markerCaps.values(), markedDiscardCap, markedStickers, shadowMesh]) {
       if (!mesh?.count) continue
       for (const attr of [mesh.instanceMatrix, mesh.geometry.getAttribute('aUvOffset') as THREE.BufferAttribute | undefined]) {
         if (!attr) continue

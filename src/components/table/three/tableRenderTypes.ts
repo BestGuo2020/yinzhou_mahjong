@@ -9,6 +9,8 @@ import type { KongWeatherCue } from '../../../game/variants/yaotong/kongPresenta
 export interface TableProps {
   /** 颍州实桌允许在手机单张飞牌期间保留上一帧。 */
   retainDiscardFrame?: boolean
+  /** 颍州不使用精、替、癞牌面图集。仅在实际出现对应标记时创建。 */
+  deferMarkerAtlases?: boolean
   /** Screen center of a local HUD tile, in normalized coordinates of the 3D canvas. */
   ownHandPoint?: (index: number) => { x: number; y: number } | null
   /** Live first chicken discards, indexed by local seat and river slot. */
