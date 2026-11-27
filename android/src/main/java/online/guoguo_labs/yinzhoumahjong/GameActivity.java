@@ -1,7 +1,6 @@
 package online.guoguo_labs.yinzhoumahjong;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
@@ -14,6 +13,11 @@ import android.widget.Toast;
 import android.window.OnBackInvokedCallback;
 import android.window.OnBackInvokedDispatcher;
 import java.io.*;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
@@ -25,12 +29,7 @@ public final class GameActivity extends Activity {
     private static final long EXIT_WINDOW_MS = 2000;
     private static final ExecutorService WORKER = Executors.newSingleThreadExecutor();
     private WebView game;
-    private WebUpdates updates;
     private ReplayExport replayExport;
-    private int current;
-    private long lastCheck;
-    private boolean busy;
-    private boolean resumed;
     private long exitDeadline;
     private Toast exitHint;
     private boolean exitRequested;
@@ -43,12 +42,8 @@ public final class GameActivity extends Activity {
             getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
                     OnBackInvokedDispatcher.PRIORITY_DEFAULT, backCallback);
         }
-        updates = new WebUpdates(getDir("web_updates", MODE_PRIVATE));
-        current = updates.installedVersion(BuildConfig.VERSION_CODE);
-        File web = current > BuildConfig.VERSION_CODE ? updates.directory(current) : null;
-        WORKER.execute(() -> {
-            try { updates.clean(current); } catch (IOException ignored) {}
-        });
+        File legacyUpdates = new File(getDataDir(), "app_web_updates");
+        if (legacyUpdates.exists()) WORKER.execute(() -> clearLegacyUpdates(legacyUpdates.toPath()));
         game = new WebView(this);
         replayExport = new ReplayExport(this, state);
         WebSettings settings = game.getSettings();
@@ -78,7 +73,7 @@ public final class GameActivity extends Activity {
                     return missing();
                 String name = path.equals("/") ? "index.html" : path.substring(1);
                 try {
-                    InputStream data = web == null ? getAssets().open(name) : new FileInputStream(new File(web, name));
+                    InputStream data = getAssets().open(name);
                     return new WebResourceResponse(mime(name), null, 200, "OK",
                             Collections.singletonMap("Cache-Control", "no-store"), data);
                 } catch (IOException error) { return missing(); }
@@ -90,6 +85,24 @@ public final class GameActivity extends Activity {
 
     private static boolean local(Uri uri) {
         return "https".equals(uri.getScheme()) && HOST.equals(uri.getAuthority());
+    }
+
+    private static void clearLegacyUpdates(Path directory) {
+        try {
+            // This private directory contained downloaded ZIPs and unpacked game assets only.
+            Files.walkFileTree(directory, new SimpleFileVisitor<Path>() {
+                @Override public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    Files.deleteIfExists(file);
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override public FileVisitResult postVisitDirectory(Path folder, IOException error) throws IOException {
+                    if (error != null) throw error;
+                    Files.deleteIfExists(folder);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (IOException ignored) { /* Retry cleanup at the next app launch. */ }
     }
 
     @Override protected void onSaveInstanceState(Bundle state) {
@@ -126,54 +139,6 @@ public final class GameActivity extends Activity {
                 View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
     }
 
-    @Override protected void onResume() {
-        super.onResume();
-        resumed = true;
-        long now = SystemClock.elapsedRealtime();
-        if (busy || (lastCheck != 0 && now - lastCheck < 15 * 60000L)) return;
-        lastCheck = now;
-        busy = true;
-        WORKER.execute(() -> {
-            try {
-                WebUpdates.Release release = updates.latest();
-                boolean newer = release.code > updates.installedVersion(BuildConfig.VERSION_CODE);
-                runOnUiThread(() -> {
-                    busy = false;
-                    if (newer && resumed && !isFinishing() && !isDestroyed()) offer(release);
-                });
-            } catch (Exception offline) { runOnUiThread(() -> busy = false); }
-        });
-    }
-
-    private void offer(WebUpdates.Release release) {
-        String size = String.format(Locale.CHINA, "%.1f MB", release.bytes / 1048576.0);
-        new AlertDialog.Builder(this).setTitle("发现新版本 " + release.name)
-                .setMessage("下载 " + size + " 的游戏资源即可更新。你可以继续当前对局。")
-                .setNegativeButton("稍后", null).setPositiveButton("下载更新", (dialog, which) -> {
-                    busy = true;
-                    Toast.makeText(this, "正在后台下载更新", Toast.LENGTH_SHORT).show();
-                    WORKER.execute(() -> {
-                        try {
-                            updates.download(release);
-                            runOnUiThread(() -> {
-                                busy = false;
-                                if (!resumed || isFinishing() || isDestroyed()) return;
-                                new AlertDialog.Builder(this).setTitle("更新已就绪")
-                                        .setMessage("下次启动会使用新版。现在重启将结束当前对局。")
-                                        .setNegativeButton("下次启动", null)
-                                        .setPositiveButton("现在重启", (d, w) -> recreate()).show();
-                            });
-                        } catch (Exception error) {
-                            runOnUiThread(() -> {
-                                busy = false;
-                                lastCheck = 0;
-                                if (resumed) Toast.makeText(this, "更新失败，当前版本仍可使用", Toast.LENGTH_LONG).show();
-                            });
-                        }
-                    });
-                }).show();
-    }
-
     // Hardware Back and the system back gesture use the same confirmation window.
     @Override public void onBackPressed() { handleBack(); }
 
@@ -192,7 +157,6 @@ public final class GameActivity extends Activity {
     }
 
     @Override protected void onPause() {
-        resumed = false;
         exitDeadline = 0;
         if (exitHint != null) {
             exitHint.cancel();

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { unzipSync, zipSync } from 'fflate'
@@ -10,7 +10,10 @@ const output = join(root, 'edgeone-dist')
 const partSize = 12 * 1024 * 1024
 const fileLimit = 25 * 1024 * 1024
 const apkName = 'yinzhou-mahjong.apk'
+const releaseManifest = join(snapshot, 'release.json')
+const finalUpdate = join(snapshot, 'final-web-update.zip')
 const digest = bytes => createHash('sha256').update(bytes).digest('hex')
+const readJson = path => JSON.parse(readFileSync(path, 'utf8'))
 
 function write(path, data) {
   mkdirSync(dirname(path), { recursive: true })
@@ -31,11 +34,6 @@ function gameFiles(apk) {
   return files
 }
 
-// The Android release builder and EdgeOne must produce byte-identical update archives.
-function updateZip(files) {
-  return zipSync(files, { level: 6, mtime: new Date(2020, 0, 1, 0, 0, 0) })
-}
-
 function writeParts(data, hash) {
   const parts = []
   for (let start = 0; start < data.length; start += partSize) {
@@ -46,23 +44,48 @@ function writeParts(data, hash) {
   return parts
 }
 
-const [command, apkPath, zipPath] = process.argv.slice(2)
-if (command === 'zip') {
-  write(zipPath, updateZip(gameFiles(readFileSync(apkPath))))
-} else if (command === 'record') {
+function makeZip(files) {
+  return zipSync(files, { level: 6, mtime: new Date(2020, 0, 1, 0, 0, 0) })
+}
+
+const [command] = process.argv.slice(2)
+if (command === 'record') {
   const source = join(root, 'dist/downloads', apkName)
-  const update = JSON.parse(readFileSync(join(root, 'dist/updates/latest.json'), 'utf8'))
   const apk = readFileSync(source)
+  let update = existsSync(releaseManifest) ? readJson(releaseManifest).update : undefined
+  if (!existsSync(finalUpdate)) {
+    const { versionCode, versionName } = readJson(join(root, 'dist/downloads/android-version.json'))
+    if (!Number.isInteger(versionCode) || versionCode <= (update?.versionCode ?? 0) || typeof versionName !== 'string') {
+      throw new Error('The final web update needs a newer APK version')
+    }
+    const files = gameFiles(apk)
+    const html = Buffer.from(files['index.html']).toString('utf8')
+    const tagged = html.replace(/<html(?=[\s>])/i, '<html data-legacy-android-update')
+    if (tagged === html) throw new Error('Could not add the legacy Android marker to index.html')
+    files['index.html'] = Buffer.from(tagged)
+    const entries = Object.values(files)
+    if (entries.length > 10000 || entries.reduce((total, file) => total + file.length, 0) > (256 << 20)) {
+      throw new Error('The final web update exceeds the old APK asset limit')
+    }
+    const zip = makeZip(files)
+    if (zip.length > (128 << 20)) throw new Error('The final web update exceeds the old APK download limit')
+    update = { format: 1, versionCode, versionName, bytes: zip.length, sha256: digest(zip) }
+    write(finalUpdate, zip)
+  }
+  if (!update) throw new Error('Missing final web update metadata')
   mkdirSync(snapshot, { recursive: true })
   copyFileSync(source, join(snapshot, apkName))
-  write(join(snapshot, 'release.json'), JSON.stringify({ apkSha256: digest(apk), update }, null, 2) + '\n')
+  write(releaseManifest, JSON.stringify({ apkSha256: digest(apk), update }, null, 2) + '\n')
 } else if (command === 'build') {
-  const { apkSha256, update } = JSON.parse(readFileSync(join(snapshot, 'release.json'), 'utf8'))
+  const { apkSha256, update } = readJson(releaseManifest)
   const apk = readFileSync(join(snapshot, apkName))
   if (digest(apk) !== apkSha256) throw new Error('Release APK checksum mismatch')
   const files = gameFiles(apk)
-  const zip = updateZip(files)
-  if (zip.length !== update.bytes || digest(zip) !== update.sha256) throw new Error('Release update checksum mismatch')
+  // Keep serving the previous release until CI publishes the frozen migration ZIP.
+  const zip = existsSync(finalUpdate) ? readFileSync(finalUpdate) : makeZip(files)
+  if (!update || zip.length !== update.bytes || digest(zip) !== update.sha256) {
+    throw new Error('Release update checksum mismatch')
+  }
   for (const [path, bytes] of Object.entries(files)) {
     if (bytes.length > fileLimit) throw new Error('Static file exceeds the EdgeOne limit: ' + path)
     write(join(output, path), bytes)
@@ -74,7 +97,7 @@ if (command === 'zip') {
   }
   write(join(output, 'updates/latest.json'), JSON.stringify(update))
   write(join(output, 'release-files/current.json'), JSON.stringify(downloads))
-  console.log('EdgeOne release', update.versionCode, 'verified;', Object.keys(files).length, 'web files')
+  console.log('EdgeOne APK verified;', Object.keys(files).length, 'web files')
 } else {
-  throw new Error('Expected build, record or zip <APK> <output ZIP>')
+  throw new Error('Expected build or record')
 }

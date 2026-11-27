@@ -7,30 +7,23 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.ViewGroup;
-import android.view.accessibility.AccessibilityNodeInfo;
 import android.webkit.WebView;
-import org.json.JSONObject;
-import java.io.*;
-import java.net.*;
+import java.io.File;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.util.Locale;
+import java.nio.file.Files;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
-/** Runs in the separate .qa app. Only the native release endpoint gets fixture responses. */
+/** Runs on the separate .qa application and verifies the retired ZIP migration. */
 public final class UpdateSmokeTest extends Instrumentation {
     @Override public void onCreate(Bundle args) { super.onCreate(args); start(); }
 
     @Override public void onStart() {
         Bundle result = new Bundle();
         try {
-            exerciseUpdate();
-            result.putString("result", "PASS: defer, download, next launch, corrupt and interrupted updates");
+            verifyApkResources();
+            result.putString("result", "PASS: bundled game, legacy update cleanup, and retained WebView storage");
             finish(Activity.RESULT_OK, result);
         } catch (Throwable error) {
             result.putString("error", android.util.Log.getStackTraceString(error));
@@ -38,72 +31,38 @@ public final class UpdateSmokeTest extends Instrumentation {
         }
     }
 
-    private void exerciseUpdate() throws Exception {
+    private void verifyApkResources() throws Exception {
         Context app = getTargetContext();
         if (!app.getPackageName().endsWith(".qa")) throw new AssertionError("Requires QA application");
-        WebUpdates updates = new WebUpdates(app.getDir("web_updates", Context.MODE_PRIVATE));
-        int code = updates.installedVersion(BuildConfig.VERSION_CODE) + 1;
-        String marker = "offline-version-" + code;
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-        try (ZipOutputStream out = new ZipOutputStream(buffer)) {
-            out.putNextEntry(new ZipEntry("index.html"));
-            out.write(("<html><body>" + marker + "</body></html>").getBytes(StandardCharsets.UTF_8));
-        }
-        byte[] zip = buffer.toByteArray();
-        StringBuilder sha = new StringBuilder();
-        for (byte b : MessageDigest.getInstance("SHA-256").digest(zip)) sha.append(String.format(Locale.ROOT, "%02x", b));
-        JSONObject json = new JSONObject().put("format", 1).put("versionCode", code)
-                .put("versionName", "QA").put("bytes", zip.length).put("sha256", sha.toString());
-        byte[] manifest = json.toString().getBytes(StandardCharsets.UTF_8);
-        AtomicInteger downloads = new AtomicInteger();
-        URL.setURLStreamHandlerFactory(protocol -> !protocol.equals("https") ? null : new URLStreamHandler() {
-            @Override protected URLConnection openConnection(URL url) throws IOException {
-                if (!url.getHost().equals("yinzhoumahjong.guoguo-labs.online")) throw new IOException("Offline");
-                byte[] body;
-                if (url.getPath().equals("/updates/latest.json")) body = manifest;
-                else if (url.getPath().equals("/updates/web-" + code + ".zip")) {
-                    downloads.incrementAndGet();
-                    body = zip;
-                } else throw new IOException("Unexpected path");
-                return new HttpURLConnection(url) {
-                    public void connect() {}
-                    public void disconnect() {}
-                    public boolean usingProxy() { return false; }
-                    public int getResponseCode() { return 200; }
-                    public InputStream getInputStream() { return new ByteArrayInputStream(body); }
-                };
-            }
-        });
-
         Activity first = launchGame();
-        click("稍后");
-        if (downloads.get() != 0) throw new AssertionError("Downloaded before confirmation");
+        awaitBundledPage(first);
+        evaluate(first, "localStorage.setItem('qa:apk-update', 'preserved')");
         runOnMainSync(first::finish);
         waitForIdleSync();
-        Activity second = launchGame();
-        click("下载更新");
-        click("下次启动");
-        if (downloads.get() != 1 || updates.installedVersion(1) != code || body(second).contains(marker))
-            throw new AssertionError("Current game must survive the download");
-        runOnMainSync(second::finish);
-        waitForIdleSync();
+
+        File legacy = app.getDir("web_updates", Context.MODE_PRIVATE);
+        File version = new File(legacy, "2147483646");
+        Files.createDirectories(version.toPath());
+        Files.write(new File(version, "index.html").toPath(), "<title>Retired ZIP</title>".getBytes(StandardCharsets.UTF_8));
         Activity updated = launchGame();
-        long until = SystemClock.elapsedRealtime() + 15000;
-        while (!body(updated).contains(marker)) {
-            if (SystemClock.elapsedRealtime() > until) throw new AssertionError("Downloaded page failed to open");
+        awaitBundledPage(updated);
+        if (!"\"preserved\"".equals(evaluate(updated, "localStorage.getItem('qa:apk-update')")))
+            throw new AssertionError("WebView storage did not survive");
+        long end = SystemClock.elapsedRealtime() + 5000;
+        while (legacy.exists() && SystemClock.elapsedRealtime() < end) SystemClock.sleep(50);
+        if (legacy.exists()) throw new AssertionError("Retired ZIP resources were left behind");
+        evaluate(updated, "localStorage.removeItem('qa:apk-update')");
+        runOnMainSync(updated::finish);
+    }
+
+    private void awaitBundledPage(Activity activity) throws InterruptedException {
+        long end = SystemClock.elapsedRealtime() + 15000;
+        while (SystemClock.elapsedRealtime() < end) {
+            String page = evaluate(activity, "location.origin + ' ' + document.title");
+            if (page.contains("https://appassets.androidplatform.net") && page.contains("颍州扎杠麻将")) return;
             SystemClock.sleep(100);
         }
-        json.put("versionCode", code + 1);
-        WebUpdates.Release next = new WebUpdates.Release(json);
-        for (byte[] damaged : new byte[][] { new byte[zip.length], new byte[zip.length / 2] }) {
-            try {
-                updates.install(next, new ByteArrayInputStream(damaged));
-                throw new AssertionError("Damaged update accepted");
-            } catch (IOException expected) {
-                if (updates.installedVersion(1) != code) throw new AssertionError("Good version lost");
-            }
-        }
-        runOnMainSync(updated::finish);
+        throw new AssertionError("Bundled game failed to open");
     }
 
     private Activity launchGame() {
@@ -111,25 +70,14 @@ public final class UpdateSmokeTest extends Instrumentation {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
     }
 
-    private void click(String label) {
-        long end = SystemClock.elapsedRealtime() + 20000;
-        while (SystemClock.elapsedRealtime() < end) {
-            AccessibilityNodeInfo root = getUiAutomation().getRootInActiveWindow();
-            if (root != null) for (AccessibilityNodeInfo node : root.findAccessibilityNodeInfosByText(label)) {
-                if (node.isClickable() && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return;
-            }
-            SystemClock.sleep(150);
-        }
-        throw new AssertionError("Missing dialog button " + label);
-    }
-
-    private String body(Activity activity) throws InterruptedException {
+    private String evaluate(Activity activity, String expression) throws InterruptedException {
         CountDownLatch read = new CountDownLatch(1);
         AtomicReference<String> result = new AtomicReference<>("");
         runOnMainSync(() -> {
             ViewGroup content = activity.findViewById(android.R.id.content);
-            ((WebView)content.getChildAt(0)).evaluateJavascript("document.body?.innerText", value -> {
-                result.set(value); read.countDown();
+            ((WebView) content.getChildAt(0)).evaluateJavascript(expression, value -> {
+                result.set(value);
+                read.countDown();
             });
         });
         if (!read.await(5, TimeUnit.SECONDS)) throw new AssertionError("WebView did not respond");

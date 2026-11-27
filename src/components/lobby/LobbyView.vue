@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import AndroidUpdateLink from './AndroidUpdateLink.vue'
+import { androidReleaseFilename, androidWebViewOrigin, legacyAndroidReleaseOrigin } from './androidRelease'
 import LobbyThemeVisual from './LobbyThemeVisual.vue'
 import GameSettingsSummary from './GameSettingsSummary.vue'
 import LobbyDialog from './LobbyDialog.vue'
@@ -16,10 +18,13 @@ const length = defineModel<MatchLength>('length', { required: true })
 const emit = defineEmits<{ start: []; openReplay: []; openRules: []; openStats: [] }>()
 const picker = ref<'length' | 'rules' | null>(null)
 const showEffectsPreview = import.meta.env.DEV
-const showAndroidDownload = window.location.origin !== 'https://appassets.androidplatform.net'
+const inAndroidWebView = window.location.origin === androidWebViewOrigin
+const showAndroidDownload = !inAndroidWebView
+const isFinalAndroidWebUpdate = inAndroidWebView && document.documentElement.hasAttribute('data-legacy-android-update')
+const showAndroidUpdate = isFinalAndroidWebUpdate || window.location.origin === legacyAndroidReleaseOrigin
 const androidDownloadUrl = import.meta.env.DEV
-  ? '/dist/downloads/yinzhou-mahjong.apk'
-  : import.meta.env.BASE_URL + 'downloads/yinzhou-mahjong.apk'
+  ? '/dist/downloads/' + androidReleaseFilename
+  : import.meta.env.BASE_URL + 'downloads/' + androidReleaseFilename
 </script>
 
 <template>
@@ -46,7 +51,8 @@ const androidDownloadUrl = import.meta.env.DEV
           <button type="button" class="text-button" data-action-role="light" @click="emit('openStats')">我的战绩 →</button>
           <button type="button" class="text-button" data-action-role="light" data-testid="open-replay" @click="emit('openReplay')">对局回放 →</button>
           <button type="button" class="text-button" data-action-role="light" @click="emit('openRules')">游戏规则 →</button>
-          <a v-if="showAndroidDownload" class="text-button apk-download" :href="androidDownloadUrl" download>下载安卓版</a>
+          <AndroidUpdateLink v-if="showAndroidUpdate" :copy-only="isFinalAndroidWebUpdate" />
+          <a v-else-if="showAndroidDownload" class="text-button apk-download" :href="androidDownloadUrl" download>下载安卓版</a>
         </div>
       </section>
     </div>

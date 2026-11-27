@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import AndroidUpdateLink from '../lobby/AndroidUpdateLink.vue'
+import { legacyAndroidReleaseOrigin } from '../lobby/androidRelease'
 import { isTableThemeName, type TableThemeName } from '../../theme/themeIdentity'
 import { themePresentationByName, themePresentationCssVariables } from '../../theme/themePresentation'
 import { resolveInitialTableTheme } from '../table/three/tableThemePreference'
@@ -16,6 +18,7 @@ let themeObserver: MutationObserver | null = null
 
 const required = ref(false)
 const message = ref('')
+const showAndroidUpdate = typeof window !== 'undefined' && window.location.origin === legacyAndroidReleaseOrigin
 
 function update() {
   const isPortrait = window.matchMedia('(orientation: portrait)').matches
@@ -84,6 +87,7 @@ onUnmounted(() => {
       <p>为了完整显示牌桌，请进入全屏并将手机旋转为横屏。</p>
       <button type="button" @click="enterLandscapeFullscreen">进入全屏横屏</button>
       <small v-if="message" role="status">{{ message }}</small>
+      <AndroidUpdateLink v-if="showAndroidUpdate" />
     </div>
   </div>
 </template>

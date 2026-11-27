@@ -1,5 +1,4 @@
-"""Build one offline APK and matching static website/update package."""
-import hashlib
+"""Build one offline APK and its matching static website."""
 import json
 import os
 from pathlib import Path
@@ -70,25 +69,13 @@ def release():
         subprocess.run([shutil.which("pnpm") or "pnpm", "run", "build:web", "--outDir", str(web)],
                        cwd=ROOT, check=True)
         files = sorted(p for p in web.rglob("*") if p.is_file())
-        if len(files) > 10000 or sum(f.stat().st_size for f in files) > (256 << 20):
-            sys.exit("Web content exceeds the Android updater limits")
-        update = stage / f"web-{code}.zip"
         gradle = [str(ANDROID / "gradlew.bat")] if os.name == "nt" else ["sh", "./gradlew"]
         subprocess.run([*gradle, "assembleRelease", f"-PreleaseCode={code}", f"-PreleaseName={name}",
                         f"-PwebAssetsDir={web}"], cwd=ANDROID, env=env, check=True)
         apk, = (ANDROID / "build/outputs/apk/release").glob("*.apk")
         if "unsigned" in apk.name:
             sys.exit("Gradle produced an unsigned APK")
-        subprocess.run(["node", str(ROOT / "scripts/edgeone-release.mjs"), "zip", str(apk), str(update)], check=True)
-        if update.stat().st_size > (128 << 20):
-            sys.exit("Update package exceeds the Android download limit")
-
-        manifest = stage / "latest.json"
-        manifest.write_text(json.dumps({
-            "format": 1, "versionCode": code, "versionName": name, "bytes": update.stat().st_size,
-            "sha256": hashlib.sha256(update.read_bytes()).hexdigest(),
-        }, indent=2) + "\n", encoding="utf-8")
-        # Archive the APK under an immutable version, then publish the manifest last.
+        # Archive the APK under an immutable version before replacing the public download.
         version_dir = HISTORY / str(code)
         version_dir.mkdir()
         saved_apk = version_dir / f"yinzhou-mahjong-{code}.apk"
@@ -98,10 +85,11 @@ def release():
             if file != web / "index.html":
                 publish_file(file, site / file.relative_to(web))
         publish_file(saved_apk, site / "downloads/yinzhou-mahjong.apk")
-        publish_file(update, site / "updates" / update.name)
+        manifest = stage / "android-version.json"
+        manifest.write_text(json.dumps({"versionCode": code, "versionName": name}), encoding="utf-8")
+        publish_file(manifest, site / "downloads/android-version.json")
         publish_file(web / "index.html", site / "index.html")
-        publish_file(manifest, site / "updates/latest.json")
-        print(f"APK: {saved_apk}\nWebsite and update: {site}")
+        print(f"APK: {saved_apk}\nWebsite: {site}")
 
 
 if __name__ == "__main__":
@@ -109,7 +97,7 @@ if __name__ == "__main__":
         init_signing()
     elif not sys.argv[1:]:
         HISTORY.mkdir(parents=True, exist_ok=True)
-        # Concurrent builds share Gradle outputs and the public APK/manifest pointers.
+        # Concurrent builds share Gradle outputs and the public APK path.
         with (HISTORY / ".build.lock").open("a+b") as lock:
             try:
                 if os.name == "nt":

@@ -25,9 +25,9 @@ pnpm test:e2e
 
 ## 网站和 Android 同步发布
 
-正式站点 [yinzhoumahjong.guoguo-labs.online](https://yinzhoumahjong.guoguo-labs.online/) 使用 EdgeOne Pages 的 Git 集成，生产分支为 `master`。推送源码后，GitHub Actions 使用仓库 Secrets 中的固定签名构建独立 APK。单元测试、类型检查、构建及下载校验通过后，Actions 将 APK 和版本清单写回 `master` 的 `mobile-release/`。EdgeOne 自动读取这个发布提交。整套浏览器对局用例作为三组独立的 CI 检查并行运行。构建期间，网页、下载入口和更新接口继续提供上一份完整版本。后续本地开发前用 `git pull --ff-only` 同步发布提交。
+正式站点 [yingzhoumahjong.guoguo-labs.online](https://yingzhoumahjong.guoguo-labs.online/) 使用 EdgeOne Pages 的 Git 集成，生产分支为 `master`。推送源码后，GitHub Actions 使用仓库 Secrets 中的固定签名构建独立 APK。单元测试、类型检查、构建及下载校验通过后，Actions 将 APK 和版本清单写回 `master` 的 `mobile-release/`。EdgeOne 自动读取这个发布提交。整套浏览器对局用例作为三组独立的 CI 检查并行运行。构建期间，网页、下载入口和更新接口继续提供上一份完整版本。后续本地开发前用 `git pull --ff-only` 同步发布提交。
 
-根目录的 `edgeone.json` 指定平台运行 `node scripts/edgeone-release.mjs build`，输出目录为 `edgeone-dist`。构建从已签名 APK 提取同版网页资源并校验更新包。APK 和更新 ZIP 以最大 12 MiB 的静态分片保存，边缘函数通过固定下载地址流式返回原文件。浏览器和已安装的 APK 都沿用原地址。
+根目录的 `edgeone.json` 指定平台运行 `node scripts/edgeone-release.mjs build`，输出目录为 `edgeone-dist`。构建从已签名 APK 提取同版网页资源。APK 和迁移 ZIP 以最大 12 MiB 的静态分片保存，边缘函数通过固定地址流式返回原文件。旧站 `yinzhoumahjong.guoguo-labs.online` 提供「App 更新」入口，从新站下载新版 APK。旧 APK 的 `/updates/` 接口持续提供固定的最后一次热更新，ZIP 保存在 `mobile-release/final-web-update.zip`，后续发布只更新 APK。最后一次热更新在旧 APK 大厅显示新站下载链接，用户可复制到系统浏览器打开。
 
 本地生成正式 APK 时，安装 JDK 17、Android SDK Platform 36、Build Tools 36.0.0 和 Python 3.9+，将 `ANDROID_HOME` 指向 SDK。项目内的 Gradle 包装器负责 Android 构建。
 
@@ -39,13 +39,12 @@ pnpm test:e2e
 | --- | --- |
 | `dist/` | 可直接部署到站点根目录的完整静态网站 |
 | `dist/downloads/yinzhou-mahjong.apk` | 网页大厅「下载安卓版」的固定下载地址 |
-| `dist/updates/web-<版本号>.zip` | 已安装客户端按需下载的 HTML、JS、CSS、图片和音频 |
-| `dist/updates/latest.json` | 客户端检测版本、长度和 SHA-256 的清单 |
+| `dist/downloads/android-version.json` | 记录本次 APK 的版本号和版本名，供发布脚本使用 |
 | `artifacts/android/<版本号>/yinzhou-mahjong-<版本号>.apk` | 本次独立构建的签名 APK 留档 |
 
 GitHub Actions 读取仓库 Secrets 中的 `YINZHOU_KEYSTORE_BASE64`（同一份 PKCS12 的 Base64 编码）和 `YINZHOU_KEY_PASSWORD`。每次成功的生产构建均可从对应运行下载签名 APK，也可在 Git 发布提交中找回历史版本。本地核对已提交的 EdgeOne 发布文件时运行 `pnpm build:edgeone` 和 `node --test scripts/edgeone-download.test.mjs`。仅调试网页时使用 `pnpm build:web`。
 
-APK 内置本次发布的全部游戏资源。断网也能首次开局。客户端启动或返回前台时检查更新（同一次运行最多每 15 分钟检查一次）。玩家确认后才下载，校验和解包完成后可选择立即重启或下次启动使用。更新沿用相同的本地网页来源，保留金币和牌谱。网页下载入口仅在浏览器大厅显示。修改 Android 容器、权限或其他原生功能时，用户需要安装新 APK。
+APK 内置本次发布的全部游戏资源，断网也能首次开局。独立安卓应用通过同包名、同签名的新版 APK 覆盖安装。新版启动时清理旧热更新缓存，沿用同一个本地网页来源，保留金币和牌谱。
 
 ## 保留的 LLM / TTS 环境说明
 

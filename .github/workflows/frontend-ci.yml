@@ -32,7 +32,7 @@ jobs:
         with:
           packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
           log-accepted-android-sdk-licenses: false
-      - name: Build website, offline APK and update package
+      - name: Build website and offline APK
         id: mobile
         env:
           KEY_BASE64: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && secrets.YINZHOU_KEYSTORE_BASE64 || '' }}
